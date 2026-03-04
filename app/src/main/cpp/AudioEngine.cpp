@@ -92,9 +92,17 @@ void AudioEngine::resume() {
 }
 
 void AudioEngine::seek(long positionMs) {
+  std::lock_guard<std::mutex> lock(mLock);
   if (mDecoder) {
     mDecoder->seek(positionMs);
   }
+}
+
+long AudioEngine::getPositionMs() {
+  if (mDecoder) {
+    return mDecoder->getPositionMs();
+  }
+  return 0;
 }
 
 // Callback invocado pelo Oboe em alta frequência informando que o buffer de

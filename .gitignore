@@ -1,25 +1,23 @@
-*.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
-local.properties
-
 # Gradle
 .gradle/
 build/
 app/build/
-gradlew
-gradlew.bat
+
+# Local properties
+local.properties
+
+# IDE
+.idea/
+*.iml
 
 # NDK
-obj/
+app/.cxx/
+
+# Logs and crash files
+*.log
+crash*.txt
+logcat_dump.txt
+
+# OS
+.DS_Store
+Thumbs.db

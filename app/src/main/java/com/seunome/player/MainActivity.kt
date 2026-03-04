@@ -24,12 +24,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mediaBrowser: MediaBrowserCompat
     private var mediaController: MediaControllerCompat? = null
     private val songs = mutableListOf<Song>()
+    private var isDraggingSeekBar = false
     
     private lateinit var listView: ListView
     private lateinit var btnPlayPause: ImageButton
 
     private lateinit var tvSongTitle: TextView
     private lateinit var tvSongArtist: TextView
+    private lateinit var albumArt: android.widget.ImageView
+    
+    private lateinit var seekBar: android.widget.SeekBar
+    private lateinit var tvCurrentTime: TextView
+    private lateinit var tvTotalTime: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,6 +45,11 @@ class MainActivity : AppCompatActivity() {
         btnPlayPause = findViewById(R.id.btnPlayPause)
         tvSongTitle = findViewById(R.id.tvSongTitle)
         tvSongArtist = findViewById(R.id.tvSongArtist)
+        albumArt = findViewById(R.id.albumArt)
+        
+        seekBar = findViewById(R.id.seekBar)
+        tvCurrentTime = findViewById(R.id.tvCurrentTime)
+        tvTotalTime = findViewById(R.id.tvTotalTime)
 
         mediaBrowser = MediaBrowserCompat(
             this,
@@ -57,10 +68,26 @@ class MainActivity : AppCompatActivity() {
                 mediaController?.transportControls?.play()
             }
         }
+        
+        seekBar.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                if (fromUser) {
+                    tvCurrentTime.text = formatTime(progress.toLong())
+                }
+            }
+            override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {
+                isDraggingSeekBar = true
+            }
+            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {
+                seekBar?.let { mediaController?.transportControls?.seekTo(it.progress.toLong()) }
+                isDraggingSeekBar = false
+            }
+        })
     }
 
     override fun onStart() {
         super.onStart()
+        ContextCompat.startForegroundService(this, android.content.Intent(this, MediaService::class.java))
         mediaBrowser.connect()
     }
 
@@ -97,7 +124,25 @@ class MainActivity : AppCompatActivity() {
         metadata?.let {
             tvSongTitle.text = it.getString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_TITLE) ?: "Desconhecido"
             tvSongArtist.text = it.getString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ARTIST) ?: "Artista Desconhecido"
+            
+            val duration = it.getLong(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DURATION)
+            tvTotalTime.text = formatTime(duration)
+            seekBar.max = duration.toInt()
+            
+            val bitmap = it.getBitmap(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ALBUM_ART)
+            if (bitmap != null) {
+                albumArt.setImageBitmap(bitmap)
+            } else {
+                albumArt.setImageResource(android.R.drawable.ic_menu_gallery)
+            }
         }
+    }
+    
+    private fun formatTime(ms: Long): String {
+        val totalSeconds = ms / 1000
+        val minutes = totalSeconds / 60
+        val seconds = totalSeconds % 60
+        return String.format("%d:%02d", minutes, seconds)
     }
 
     private fun updatePlayPauseState(state: PlaybackStateCompat?) {
@@ -187,13 +232,13 @@ class MainActivity : AppCompatActivity() {
         override fun run() {
             mediaController?.let { controller ->
                 val state = controller.playbackState
-                if (state != null && state.state == PlaybackStateCompat.STATE_PLAYING) {
-                    val positionMs = state.position // Retorna a última posição relatada, seria legal o Oboe atualizar isso lá embaixo em C.
-                    // tvCurrentTime.text = formatTime(positionMs)
-                    // seekBar.progress = positionMs.toInt()
+                if (state != null && state.state == PlaybackStateCompat.STATE_PLAYING && !isDraggingSeekBar) {
+                    val positionMs = state.position 
+                    tvCurrentTime.text = formatTime(positionMs)
+                    seekBar.progress = positionMs.toInt()
                 }
             }
-            // Chama a si mesmo a cada 1 segundo (se estivesse tocando de fato do C++ pro Kotlin)
+            // Chama a si mesmo a cada 1 segundo verificando a info dada pelo C++
             progressHandler.postDelayed(this, 1000)
         }
     }

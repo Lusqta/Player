@@ -42,7 +42,7 @@ public:
   void seek(long positionMs) override {
     if (!isOpen)
       return;
-    uint64_t targetFrame = (positionMs * mp3.sampleRate) / 1000;
+    uint64_t targetFrame = ((uint64_t)positionMs * mp3.sampleRate) / 1000;
     drmp3_seek_to_pcm_frame(&mp3, targetFrame);
   }
 
@@ -53,6 +53,12 @@ public:
       return 0;
     uint64_t frames = drmp3_get_pcm_frame_count(const_cast<drmp3 *>(&mp3));
     return (long)((frames * 1000) / mp3.sampleRate);
+  }
+
+  long getPositionMs() const override {
+    if (!isOpen)
+      return 0;
+    return (long)((mp3.currentPCMFrame * 1000) / mp3.sampleRate);
   }
 };
 
@@ -83,7 +89,7 @@ public:
   void seek(long positionMs) override {
     if (!flac)
       return;
-    uint64_t targetFrame = (positionMs * flac->sampleRate) / 1000;
+    uint64_t targetFrame = ((uint64_t)positionMs * flac->sampleRate) / 1000;
     drflac_seek_to_pcm_frame(flac, targetFrame);
   }
 
@@ -93,6 +99,12 @@ public:
     if (!flac)
       return 0;
     return (long)((flac->totalPCMFrameCount * 1000) / flac->sampleRate);
+  }
+
+  long getPositionMs() const override {
+    if (!flac)
+      return 0;
+    return (long)((flac->currentPCMFrame * 1000) / flac->sampleRate);
   }
 };
 

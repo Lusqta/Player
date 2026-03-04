@@ -62,6 +62,14 @@ JNIEXPORT void JNICALL Java_com_seunome_player_AudioEngine_stop(JNIEnv *env,
   }
 }
 
+JNIEXPORT jlong JNICALL
+Java_com_seunome_player_AudioEngine_getPosition(JNIEnv *env, jobject thiz) {
+  if (engine) {
+    return engine->getPositionMs();
+  }
+  return 0;
+}
+
 JNIEXPORT void JNICALL
 Java_com_seunome_player_AudioEngine_destroyEngine(JNIEnv *env, jobject thiz) {
   LOGI("Destruindo motor de áudio via JNI...");

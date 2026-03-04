@@ -6,7 +6,6 @@
 #include <mutex>
 #include <oboe/Oboe.h>
 
-
 #define LOG_TAG "AudioEngine_C"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
@@ -22,6 +21,8 @@ public:
   void pause();
   void resume();
   void seek(long positionMs);
+
+  long getPositionMs();
 
   oboe::DataCallbackResult onAudioReady(oboe::AudioStream *audioStream,
                                         void *audioData,

@@ -35,6 +35,29 @@ class MediaService : MediaBrowserServiceCompat() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Exige o Foreground Imediato para não quebrar a regra de 5s do Android O+
+        val channelId = "PlayerChannel"
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (manager.getNotificationChannel(channelId) == null) {
+                val channel = NotificationChannel(channelId, "Media Playback", NotificationManager.IMPORTANCE_LOW)
+                manager.createNotificationChannel(channel)
+            }
+        }
+
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setContentTitle("Iniciando Motor de Áudio")
+            .setContentText("Aguarde...")
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .build()
+            
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(1, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(1, notification)
+        }
+        
         return START_STICKY
     }
 
@@ -55,7 +78,7 @@ class MediaService : MediaBrowserServiceCompat() {
                     val artist = extras?.getString("artist") ?: "Artista Desconhecido"
                     val duration = extras?.getLong("duration") ?: 0L
                     
-                    updateMetadata(title, artist, duration)
+                    updateMetadata(uri, title, artist, duration)
                     engine.playFile(uri)
                 } else {
                     engine.resume()
@@ -79,7 +102,8 @@ class MediaService : MediaBrowserServiceCompat() {
             engine.pause()
             isPlaying = false
             updatePlaybackState()
-            showNotification() // Atualiza notificação para mostrar o play e remover background activity se desejado
+            showNotification()
+            // Parar o foreground não significa matar o serviço, apenas tirar a prioridade
             stopForeground(false)
         }
 
@@ -93,11 +117,14 @@ class MediaService : MediaBrowserServiceCompat() {
 
         override fun onSeekTo(pos: Long) {
             engine.seek(pos)
+            updatePlaybackState()
         }
     }
 
     private fun updatePlaybackState() {
         val state = if (isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
+        val position = engine.getPosition()
+        
         mediaSession.setPlaybackState(
             PlaybackStateCompat.Builder()
                 .setActions(
@@ -107,16 +134,29 @@ class MediaService : MediaBrowserServiceCompat() {
                     PlaybackStateCompat.ACTION_STOP or
                     PlaybackStateCompat.ACTION_SEEK_TO
                 )
-                .setState(state, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1.0f)
+                .setState(state, position, 1.0f)
                 .build()
         )
     }
 
-    private fun updateMetadata(title: String, artist: String, duration: Long) {
+    private fun updateMetadata(uri: String, title: String, artist: String, duration: Long) {
         val metadataBuilder = android.support.v4.media.MediaMetadataCompat.Builder()
             .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_TITLE, title)
             .putString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
             .putLong(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_DURATION, duration)
+            
+        try {
+            val retriever = android.media.MediaMetadataRetriever()
+            retriever.setDataSource(uri)
+            val art = retriever.embeddedPicture
+            if (art != null) {
+                val bitmap = android.graphics.BitmapFactory.decodeByteArray(art, 0, art.size)
+                metadataBuilder.putBitmap(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ALBUM_ART, bitmap)
+            }
+            retriever.release()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
             
         mediaSession.setMetadata(metadataBuilder.build())
     }
@@ -153,7 +193,11 @@ class MediaService : MediaBrowserServiceCompat() {
                 .setShowActionsInCompactView(0)) // O índice do botão play/pause (0) irá aparecer resumido
             .build()
             
-        startForeground(1, notification)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(1, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        } else {
+            startForeground(1, notification)
+        }
     }
 
     override fun onDestroy() {

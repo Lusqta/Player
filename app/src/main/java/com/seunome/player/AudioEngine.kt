@@ -13,6 +13,7 @@ class AudioEngine {
     external fun pause()
     external fun resume()
     external fun seek(positionMs: Long)
+    external fun getPosition(): Long
     external fun stop()
     external fun destroyEngine()
 }
