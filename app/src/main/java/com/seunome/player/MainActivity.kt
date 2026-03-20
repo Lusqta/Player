@@ -214,7 +214,12 @@ class MainActivity : AppCompatActivity() {
                 isDraggingSeekBar = true
             }
             override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {
-                seekBar?.let { mediaController?.transportControls?.seekTo(it.progress.toLong()) }
+                seekBar?.let {
+                    // Fix Bug 2: Só faz seek se o max já foi setado (metadata chegou)
+                    if (it.max > 0) {
+                        mediaController?.transportControls?.seekTo(it.progress.toLong())
+                    }
+                }
                 isDraggingSeekBar = false
             }
         })
@@ -312,6 +317,17 @@ class MainActivity : AppCompatActivity() {
     private val controllerCallback = object : MediaControllerCompat.Callback() {
         override fun onPlaybackStateChanged(state: PlaybackStateCompat?) {
             updatePlayPauseState(state)
+            // Fix Bug 1: Reiniciar o progress handler quando voltar a tocar
+            if (state?.state == PlaybackStateCompat.STATE_PLAYING) {
+                progressHandler.removeCallbacks(updateProgressAction)
+                progressHandler.post(updateProgressAction)
+            }
+            // Mostrar posição restaurada mesmo quando pausado (ex: ao reabrir o app)
+            if (state != null && state.state == PlaybackStateCompat.STATE_PAUSED && !isDraggingSeekBar) {
+                val positionMs = state.position
+                tvCurrentTime.text = formatTime(positionMs)
+                seekBar.progress = positionMs.toInt()
+            }
         }
         override fun onMetadataChanged(metadata: android.support.v4.media.MediaMetadataCompat?) {
             updateMetadataUI(metadata)
@@ -492,12 +508,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 101 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            // Pode abrir a pasta direto ou vazio aguardando ação
-        }
-    }
     
     // Sincronizador Diferencial de Arquivos SAF -> DB Room
     private fun syncFolderToDatabase(treeUri: Uri) {
@@ -591,10 +601,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadSongs() {
-        // Se quisermos carregar uma varredura padrão do celular...
-        // ... (Será substituído pelo loadSongsFromFolder)
-    }
     
     private fun getRealPathFromURI(context: Context, uri: Uri): String? {
         if ("content" == uri.scheme) {
@@ -670,12 +676,15 @@ class MainActivity : AppCompatActivity() {
                 val state = controller.playbackState
                 if (state != null && state.state == PlaybackStateCompat.STATE_PLAYING) {
                     if (!isDraggingSeekBar) {
-                        val positionMs = state.position 
+                        // Fix Bug 4: Interpolar posição real baseado no tempo decorrido
+                        // ao invés de usar state.position cru (que congela entre updates)
+                        val timeDelta = android.os.SystemClock.elapsedRealtime() - state.lastPositionUpdateTime
+                        val positionMs = state.position + (timeDelta * state.playbackSpeed).toLong()
                         tvCurrentTime.text = formatTime(positionMs)
                         seekBar.progress = positionMs.toInt()
                     }
-                    // Chama a si mesmo apenas quando continuar tocando
-                    progressHandler.postDelayed(this, 1000)
+                    // Fix Bug 1: Intervalo menor para suavidade, chama a si mesmo
+                    progressHandler.postDelayed(this, 250)
                 }
             }
         }

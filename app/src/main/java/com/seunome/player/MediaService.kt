@@ -26,12 +26,6 @@ import kotlinx.coroutines.withContext
 
 class MediaService : MediaBrowserServiceCompat() {
 
-    // Constants State
-    companion object {
-        const val REPEAT_NONE = 0
-        const val REPEAT_ALL = 1
-        const val REPEAT_ONE = 2
-    }
 
     private lateinit var mediaSession: MediaSessionCompat
     private val engine = AudioEngine()
@@ -76,7 +70,9 @@ class MediaService : MediaBrowserServiceCompat() {
         saveStateJob = CoroutineScope(Dispatchers.IO).launch {
             while (isActive) {
                 saveCurrentState()
-                kotlinx.coroutines.delay(5000)
+                // Safety net: salva periodicamente caso o app seja morto pelo sistema
+                // Leve: 30s é suficiente, eventos críticos salvam imediatamente
+                kotlinx.coroutines.delay(30000)
             }
         }
     }
@@ -127,11 +123,11 @@ class MediaService : MediaBrowserServiceCompat() {
         
         engine.setGaplessListener(object : AudioEngine.OnGaplessListener {
             override fun onGaplessTransition() {
-                // O C++ fez a ponte Gapless sozinho! Apenas repassar visualmente pra UI
+                // O C++ fez a ponte Gapless sozinho! Roda uma action DIFERENTE
                 android.os.Handler(android.os.Looper.getMainLooper()).post {
                     if (isPlaying) {
                         try {
-                            mediaSession.controller.transportControls.sendCustomAction("AUTO_NEXT", null)
+                            mediaSession.controller.transportControls.sendCustomAction("GAPLESS_NEXT", null)
                         } catch (e: Exception) {
                             e.printStackTrace()
                         }
@@ -264,6 +260,12 @@ class MediaService : MediaBrowserServiceCompat() {
         
         override fun onCustomAction(action: String?, extras: Bundle?) {
             if (action == "AUTO_NEXT") {
+                // Fim normal da música — C++ JÁ PAROU, precisa chamar playFile()
+                handleSkipNext(isAuto = false)
+                return
+            }
+            if (action == "GAPLESS_NEXT") {
+                // Transição gapless — C++ JÁ ESTÁ TOCANDO a próxima, só atualizar UI
                 handleSkipNext(isAuto = true)
                 return
             }
@@ -280,7 +282,7 @@ class MediaService : MediaBrowserServiceCompat() {
                 val isRestore = extras.getBoolean("is_restore", false)
                 val startPosition = extras.getLong("start_position", 0L)
                 val shuffleRestore = extras.getBoolean("shuffle_mode", false)
-                val repeatModeRestore = extras.getInt("repeat_mode", REPEAT_NONE)
+                val repeatModeRestore = extras.getInt("repeat_mode", PlaybackStateCompat.REPEAT_MODE_NONE)
 
                 val minSize = minOf(titles.size, artists.size, uris.size, durations.size, ids.size)
                 
@@ -354,6 +356,7 @@ class MediaService : MediaBrowserServiceCompat() {
                 isPlaying = true
                 updatePlaybackState()
                 showNotification()
+                startStateSaver()
             }
         }
 
@@ -394,19 +397,21 @@ class MediaService : MediaBrowserServiceCompat() {
         override fun onSeekTo(pos: Long) {
             engine.seek(pos)
             updatePlaybackState()
+            // Salva posição imediatamente ao fazer seek
+            saveCurrentState()
         }
         
         // Lógica Principal de Pular (Comporta a diferença entre Click Manual vs Fim Automático do Arquivo)
         private fun handleSkipNext(isAuto: Boolean) {
             // Se está em repeat ONE e foi automático, repete a currentSong apenas
-            if (isAuto && repeatMode == REPEAT_ONE && currentSong != null) {
+            if (isAuto && repeatMode == PlaybackStateCompat.REPEAT_MODE_ONE && currentSong != null) {
                 playCurrentSongFromQueue(isGaplessTransiting = isAuto)
                 return
             }
             
             // Fila vazia, não há o que pular
             if (upNextList.isEmpty()) {
-                if (repeatMode == REPEAT_ALL && originalQueue.isNotEmpty()) {
+                if (repeatMode == PlaybackStateCompat.REPEAT_MODE_ALL && originalQueue.isNotEmpty()) {
                     // Reiniciar a fila toda num ciclo completo
                     historyList.clear()
                     upNextList.addAll(originalQueue)
@@ -523,13 +528,13 @@ class MediaService : MediaBrowserServiceCompat() {
         val song = currentSong ?: return
         
         currentSongUri = song.uri
-        updateMetadata(song.uri, song.title, song.artist, song.duration)
         
-        // Se já estava tocando C++ num crossfade perfeito, o C++ JÁ ESTÁ NA MÚSICA CERTA.
-        // Ignorar o PlayFile() que destruiria o Decoder pré-carregado.
+        // Tocar PRIMEIRO para que o decoder esteja na posição 0 quando a UI atualizar
         if (!isGaplessTransiting) {
             engine.playFile(song.uri)
         }
+        
+        updateMetadata(song.uri, song.title, song.artist, song.duration)
         
         isPlaying = true
         syncQueueToSession()
@@ -574,7 +579,14 @@ class MediaService : MediaBrowserServiceCompat() {
     }
 
     private fun updatePlaybackState() {
-        var state = if (isPlaying) PlaybackStateCompat.STATE_PLAYING else PlaybackStateCompat.STATE_PAUSED
+        // Fix: Reportar STATE_NONE quando nenhuma música foi carregada,
+        // para que o restore em MainActivity.onConnected funcione corretamente.
+        // Antes: sempre reportava STATE_PAUSED, fazendo o restore achar que o serviço já estava ativo.
+        val state = when {
+            isPlaying -> PlaybackStateCompat.STATE_PLAYING
+            currentSong != null -> PlaybackStateCompat.STATE_PAUSED
+            else -> PlaybackStateCompat.STATE_NONE
+        }
         
         // Se a Engine declarou Fim de Arquivo mas nós ainda não trocamos de música, pode exibir PAUSE provisório
         // O Callback AUTO_NEXT pulará em milissegundos.
@@ -756,7 +768,22 @@ class MediaService : MediaBrowserServiceCompat() {
         }
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        // Ao swipear o app: salva estado, para música e libera tudo
+        saveCurrentState()
+        stopStateSaver()
+        engine.pause()
+        isPlaying = false
+        updatePlaybackState()
+        abandonAudioFocus()
+        stopForeground(true)
+        stopSelf()
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
+        // Último save antes de morrer
+        saveCurrentState()
         super.onDestroy()
         engine.destroyEngine()
         mediaSession.isActive = false

@@ -49,14 +49,14 @@ public:
   int getSampleRate() const override { return isOpen ? mp3.sampleRate : 0; }
   int getChannelCount() const override { return isOpen ? mp3.channels : 0; }
   long getDurationMs() const override {
-    if (!isOpen)
+    if (!isOpen || mp3.sampleRate == 0)
       return 0;
     uint64_t frames = drmp3_get_pcm_frame_count(const_cast<drmp3 *>(&mp3));
     return (long)((frames * 1000) / mp3.sampleRate);
   }
 
   long getPositionMs() const override {
-    if (!isOpen)
+    if (!isOpen || mp3.sampleRate == 0)
       return 0;
     return (long)((mp3.currentPCMFrame * 1000) / mp3.sampleRate);
   }
@@ -96,13 +96,13 @@ public:
   int getSampleRate() const override { return flac ? flac->sampleRate : 0; }
   int getChannelCount() const override { return flac ? flac->channels : 0; }
   long getDurationMs() const override {
-    if (!flac)
+    if (!flac || flac->sampleRate == 0)
       return 0;
     return (long)((flac->totalPCMFrameCount * 1000) / flac->sampleRate);
   }
 
   long getPositionMs() const override {
-    if (!flac)
+    if (!flac || flac->sampleRate == 0)
       return 0;
     return (long)((flac->currentPCMFrame * 1000) / flac->sampleRate);
   }
@@ -121,7 +121,7 @@ std::unique_ptr<Decoder> Decoder::create(const std::string &path) {
 
   // Converte a extensao para minusculo
   for (auto &c : ext)
-    c = tolower(c);
+    c = tolower(static_cast<unsigned char>(c));
 
   if (ext == ".mp3") {
     decoder = std::make_unique<Mp3Decoder>();

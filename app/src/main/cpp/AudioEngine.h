@@ -44,7 +44,7 @@ private:
   std::unique_ptr<Decoder> mDecoder;
   std::unique_ptr<Decoder> mNextDecoder; // Fica espreitando em RAM pro Gapless
   std::mutex mLock;
-  bool mIsPlaying = false;
+  std::atomic<bool> mIsPlaying{false};
   std::atomic<float> mVolume{1.0f};
   std::function<void()> mOnPlaybackCompleted;
   std::function<void()> mOnGaplessTransition;
@@ -52,6 +52,8 @@ private:
   // Controle Seguro de Thread para Callbacks pós-áudio
   std::atomic<bool> mCompleted{false};
   std::atomic<bool> mGaplessTriggered{false};
+  std::atomic<bool> mNeedsStreamReopen{false};
+  std::atomic<bool> mHasNextDecoder{false};
   std::atomic<bool> mIsEngineDestroyed{false};
   std::thread mWatcherThread;
   std::condition_variable mWatcherCV;

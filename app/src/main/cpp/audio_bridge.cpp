@@ -142,8 +142,11 @@ JNIEXPORT void JNICALL Java_com_seunome_player_AudioEngine_pause(JNIEnv *env,
 JNIEXPORT void JNICALL
 Java_com_seunome_player_AudioEngine_resume(JNIEnv *env, jobject thiz) {
   LOGI("Retomando JNI...");
-  if (engine)
+  if (engine) {
     engine->resume();
+  } else {
+    LOGE("resume() chamado mas engine é null!");
+  }
 }
 
 JNIEXPORT void JNICALL Java_com_seunome_player_AudioEngine_seek(
