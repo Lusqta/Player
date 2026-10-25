@@ -16,7 +16,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -33,7 +32,9 @@ import com.lucas.player.queue.RepeatMode
 import com.lucas.player.queue.ShuffleMode
 import com.lucas.player.service.PlaybackService
 import com.lucas.player.ui.GroupItem
+import com.lucas.player.ui.components.AuraLiquidRootBox
 import com.lucas.player.ui.screens.*
+import com.lucas.player.ui.theme.AuraPaletteExtractor
 
 class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
@@ -167,6 +168,11 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             val activePresetName by activePresetNameState
             val presetsList by presetsListState
 
+            val currentCover = rememberTrackCover(currentTrack, 256)
+            val auraPalette = remember(currentCover) {
+                AuraPaletteExtractor.extractFromBitmap(currentCover)
+            }
+
             val categories = remember {
                 listOf(
                     LibraryCategory.ALL_SONGS,
@@ -205,288 +211,297 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             }
 
             Surface(
-                color = Color(0xFF0B081B),
+                color = auraPalette.deepBase,
                 modifier = Modifier.fillMaxSize()
             ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // 1. Tela da Biblioteca
-                    LibraryScreen(
-                        currentCategory = currentCategory,
-                        categories = categories,
-                        onSelectCategory = { selectCategory(it) },
-                        searchQuery = searchQuery,
-                        onSearchQueryChange = { onSearchQueryChange(it) },
-                        displayedTracks = displayedTracks,
-                        displayedGroups = displayedGroups,
-                        isInsideGroupDrilldown = isInsideGroupDrilldown,
-                        drilldownTitle = drilldownTitle,
-                        onBackFromDrilldown = { exitGroupDrilldown() },
-                        onTrackClick = { track, position ->
-                            playbackService?.playQueue(displayedTracks, position)
-                            isNowPlayingExpandedState.value = true
-                        },
-                        onTrackLongClick = { track ->
-                            trackContextMenuState.value = track
-                        },
-                        onGroupClick = { group ->
-                            drillDownGroup(group.title)
-                        },
-                        currentPlayingId = currentTrack?.id ?: -1L,
-                        sortMode = currentSortMode,
-                        onSortClick = { showSortOrderState.value = true },
-                        modifier = Modifier.fillMaxSize()
-                    )
-
-                    // 2. Mini Player Flutuante + Bottom Nav
-                    FloatingMiniPlayerAndNav(
-                        track = currentTrack,
-                        isPlaying = isPlaying,
-                        progressMs = progressMs,
-                        durationMs = durationMs,
-                        onMiniPlayerClick = { isNowPlayingExpandedState.value = true },
-                        onPlayPauseClick = { playbackService?.togglePlayPause() },
-                        onNextClick = { playbackService?.playNext() },
-                        onEqualizerClick = {
-                            syncEqualizerState()
-                            showEqualizerSheetState.value = true
-                        },
-                        onLyricsClick = {
-                            loadLyricsForCurrentTrack(currentTrack)
-                            showLyricsSheetState.value = true
-                        },
-                        onQueueClick = { showPriorityQueueState.value = true },
-                        onSleepTimerClick = { showSleepTimerState.value = true },
-                        modifier = Modifier.align(Alignment.BottomCenter)
-                    )
-
-                    // 3. Now Playing em Tela Cheia
-                    AnimatedVisibility(
-                        visible = isNowPlayingExpanded,
-                        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(380)) + fadeIn(animationSpec = tween(300)),
-                        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(350)) + fadeOut(animationSpec = tween(250)),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        NowPlayingScreen(
-                            track = currentTrack,
-                            isPlaying = isPlaying,
-                            progressMs = progressMs,
-                            durationMs = durationMs,
-                            waveformPeaks = waveformPeaks,
-                            shuffleMode = shuffleMode,
-                            repeatMode = repeatMode,
-                            onPlayPause = { playbackService?.togglePlayPause() },
-                            onNext = { playbackService?.playNext() },
-                            onPrevious = { playbackService?.playPrevious() },
-                            onSeek = { fraction ->
-                                val dur = durationMs.coerceAtLeast(1L)
-                                val target = (fraction * dur).toLong()
-                                playbackService?.seekTo(target)
-                                progressMsState.longValue = target
+                AuraLiquidRootBox(
+                    palette = auraPalette,
+                    backgroundContent = {
+                        // 1. Tela da Biblioteca (Fundo)
+                        LibraryScreen(
+                            currentCategory = currentCategory,
+                            categories = categories,
+                            onSelectCategory = { selectCategory(it) },
+                            searchQuery = searchQuery,
+                            onSearchQueryChange = { onSearchQueryChange(it) },
+                            displayedTracks = displayedTracks,
+                            displayedGroups = displayedGroups,
+                            isInsideGroupDrilldown = isInsideGroupDrilldown,
+                            drilldownTitle = drilldownTitle,
+                            onBackFromDrilldown = { exitGroupDrilldown() },
+                            onTrackClick = { _, position ->
+                                playbackService?.playQueue(displayedTracks, position)
+                                isNowPlayingExpandedState.value = true
                             },
-                            onToggleShuffle = {
-                                val newMode = playbackService?.toggleShuffleMode() ?: ShuffleMode.OFF
-                                shuffleModeState.value = newMode
-                                Toast.makeText(this@MainActivity, newMode.displayName, Toast.LENGTH_SHORT).show()
+                            onTrackLongClick = { track ->
+                                trackContextMenuState.value = track
                             },
-                            onToggleRepeat = {
-                                val newMode = playbackService?.toggleRepeat() ?: RepeatMode.OFF
-                                repeatModeState.value = newMode
-                                Toast.makeText(this@MainActivity, newMode.displayName, Toast.LENGTH_SHORT).show()
+                            onGroupClick = { group ->
+                                drillDownGroup(group.title)
                             },
-                            onCollapse = { isNowPlayingExpandedState.value = false },
-                            onOpenLyrics = {
-                                loadLyricsForCurrentTrack(currentTrack)
-                                showLyricsSheetState.value = true
-                            },
-                            onOpenEqualizer = {
-                                syncEqualizerState()
-                                showEqualizerSheetState.value = true
-                            },
-                            onOpenQueue = { showPriorityQueueState.value = true },
-                            onOpenSleepTimer = { showSleepTimerState.value = true },
-                            onOpenTrackInfo = { track -> trackInfoDialogState.value = track },
+                            currentPlayingId = currentTrack?.id ?: -1L,
+                            onSortClick = { showSortOrderState.value = true },
                             modifier = Modifier.fillMaxSize()
                         )
-                    }
 
-                    // 4. Equalizador Studio em Sheet
-                    AnimatedVisibility(
-                        visible = showEqualizerSheet,
-                        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(380)) + fadeIn(),
-                        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(350)) + fadeOut(),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        GlassEqualizerSheet(
-                            eqEnabled = eqEnabled,
-                            onToggleEq = { enabled ->
-                                eqEnabledState.value = enabled
-                                playbackService?.setEqualizerEnabled(enabled)
-                                preferencesManager.saveEqualizerEnabled(enabled)
-                            },
-                            toneEnabled = toneEnabled,
-                            onToggleTone = { enabled ->
-                                toneEnabledState.value = enabled
-                                playbackService?.setToneEnabled(enabled)
-                                preferencesManager.saveToneEnabled(enabled)
-                            },
-                            preampDb = preampDb,
-                            onPreampChange = { db ->
-                                preampDbState.floatValue = db
-                                playbackService?.setPreamp(db)
-                                preferencesManager.savePreamp(db)
-                            },
-                            bassDb = bassDb,
-                            onBassChange = { db ->
-                                bassDbState.floatValue = db
-                                playbackService?.setBass(db)
-                                preferencesManager.saveBass(db)
-                                if (!toneEnabled) {
-                                    toneEnabledState.value = true
-                                    playbackService?.setToneEnabled(true)
-                                    preferencesManager.saveToneEnabled(true)
-                                }
-                            },
-                            trebleDb = trebleDb,
-                            onTrebleChange = { db ->
-                                trebleDbState.floatValue = db
-                                playbackService?.setTreble(db)
-                                preferencesManager.saveTreble(db)
-                                if (!toneEnabled) {
-                                    toneEnabledState.value = true
-                                    playbackService?.setToneEnabled(true)
-                                    preferencesManager.saveToneEnabled(true)
-                                }
-                            },
-                            balance = balance,
-                            onBalanceChange = { bal ->
-                                balanceState.floatValue = bal
-                                playbackService?.setBalance(bal)
-                            },
-                            crossfadeMs = crossfadeMs,
-                            onCrossfadeChange = { ms ->
-                                crossfadeMsState.intValue = ms
-                                playbackService?.setCrossfadeDurationMs(ms)
-                            },
-                            isMono = isMono,
-                            onToggleMono = { mono ->
-                                isMonoState.value = mono
-                                playbackService?.setMono(mono)
-                            },
-                            replayGainMode = replayGainMode,
-                            onReplayGainModeChange = { mode ->
-                                replayGainModeState.intValue = mode
-                                playbackService?.setReplayGainMode(mode)
-                            },
-                            bandGains = bandGainsState,
-                            onBandGainChange = { band, db ->
-                                if (band in bandGainsState.indices) {
-                                    bandGainsState[band] = db
-                                }
-                                playbackService?.setEqualizerBand(band, db)
-                                preferencesManager.saveEqualizerBand(band, db)
-                            },
-                            activePresetName = activePresetName,
-                            presets = presetsList,
-                            onSelectPreset = { preset -> applyFullPreset(preset) },
-                            onSavePreset = { name -> saveCustomPreset(name) },
-                            onClose = { showEqualizerSheetState.value = false }
-                        )
-                    }
+                        // 2. Now Playing em Tela Cheia
+                        AnimatedVisibility(
+                            visible = isNowPlayingExpanded,
+                            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(380)) + fadeIn(animationSpec = tween(300)),
+                            exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(350)) + fadeOut(animationSpec = tween(250)),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            NowPlayingScreen(
+                                track = currentTrack,
+                                isPlaying = isPlaying,
+                                progressMs = progressMs,
+                                durationMs = durationMs,
+                                waveformPeaks = waveformPeaks,
+                                shuffleMode = shuffleMode,
+                                repeatMode = repeatMode,
+                                onPlayPause = { playbackService?.togglePlayPause() },
+                                onNext = { playbackService?.playNext() },
+                                onPrevious = { playbackService?.playPrevious() },
+                                onSeek = { fraction ->
+                                    val dur = durationMs.coerceAtLeast(1L)
+                                    val target = (fraction * dur).toLong()
+                                    playbackService?.seekTo(target)
+                                    progressMsState.longValue = target
+                                },
+                                onToggleShuffle = {
+                                    val newMode = playbackService?.toggleShuffleMode() ?: ShuffleMode.OFF
+                                    shuffleModeState.value = newMode
+                                    Toast.makeText(this@MainActivity, newMode.displayName, Toast.LENGTH_SHORT).show()
+                                },
+                                onToggleRepeat = {
+                                    val newMode = playbackService?.toggleRepeat() ?: RepeatMode.OFF
+                                    repeatModeState.value = newMode
+                                    Toast.makeText(this@MainActivity, newMode.displayName, Toast.LENGTH_SHORT).show()
+                                },
+                                onCollapse = { isNowPlayingExpandedState.value = false },
+                                onOpenLyrics = {
+                                    loadLyricsForCurrentTrack(currentTrack)
+                                    showLyricsSheetState.value = true
+                                },
+                                onOpenEqualizer = {
+                                    syncEqualizerState()
+                                    showEqualizerSheetState.value = true
+                                },
+                                onOpenQueue = { showPriorityQueueState.value = true },
+                                onOpenSleepTimer = { showSleepTimerState.value = true },
+                                onOpenTrackInfo = { track -> trackInfoDialogState.value = track },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    },
+                    glassOverlays = {
+                        // Mini Player Flutuante + Bottom Nav (Visível quando Now Playing estiver recolhido)
+                        AnimatedVisibility(
+                            visible = !isNowPlayingExpanded,
+                            enter = fadeIn(animationSpec = tween(250)),
+                            exit = fadeOut(animationSpec = tween(200)),
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                        ) {
+                            FloatingMiniPlayerAndNav(
+                                track = currentTrack,
+                                isPlaying = isPlaying,
+                                progressMs = progressMs,
+                                durationMs = durationMs,
+                                onMiniPlayerClick = { isNowPlayingExpandedState.value = true },
+                                onPlayPauseClick = { playbackService?.togglePlayPause() },
+                                onNextClick = { playbackService?.playNext() },
+                                onEqualizerClick = {
+                                    syncEqualizerState()
+                                    showEqualizerSheetState.value = true
+                                },
+                                onLyricsClick = {
+                                    loadLyricsForCurrentTrack(currentTrack)
+                                    showLyricsSheetState.value = true
+                                },
+                                onQueueClick = { showPriorityQueueState.value = true },
+                                onSleepTimerClick = { showSleepTimerState.value = true }
+                            )
+                        }
 
-                    // 5. Letras Sincronizadas
-                    AnimatedVisibility(
-                        visible = showLyricsSheet,
-                        enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(380)) + fadeIn(),
-                        exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(350)) + fadeOut(),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        GlassLyricsScreen(
-                            track = currentTrack,
-                            lyrics = activeLyrics,
-                            currentMs = progressMs,
-                            onSeekToTime = { targetMs ->
-                                playbackService?.seekTo(targetMs)
-                                progressMsState.longValue = targetMs
-                            },
-                            onClose = { showLyricsSheetState.value = false }
-                        )
-                    }
+                        // Equalizador Studio em Sheet (Refrata o fundo com blur profundo)
+                        AnimatedVisibility(
+                            visible = showEqualizerSheet,
+                            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(380)) + fadeIn(),
+                            exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(350)) + fadeOut(),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            GlassEqualizerSheet(
+                                eqEnabled = eqEnabled,
+                                onToggleEq = { enabled ->
+                                    eqEnabledState.value = enabled
+                                    playbackService?.setEqualizerEnabled(enabled)
+                                    preferencesManager.saveEqualizerEnabled(enabled)
+                                },
+                                toneEnabled = toneEnabled,
+                                onToggleTone = { enabled ->
+                                    toneEnabledState.value = enabled
+                                    playbackService?.setToneEnabled(enabled)
+                                    preferencesManager.saveToneEnabled(enabled)
+                                },
+                                preampDb = preampDb,
+                                onPreampChange = { db ->
+                                    preampDbState.floatValue = db
+                                    playbackService?.setPreamp(db)
+                                    preferencesManager.savePreamp(db)
+                                },
+                                bassDb = bassDb,
+                                onBassChange = { db ->
+                                    bassDbState.floatValue = db
+                                    playbackService?.setBass(db)
+                                    preferencesManager.saveBass(db)
+                                    if (!toneEnabled) {
+                                        toneEnabledState.value = true
+                                        playbackService?.setToneEnabled(true)
+                                        preferencesManager.saveToneEnabled(true)
+                                    }
+                                },
+                                trebleDb = trebleDb,
+                                onTrebleChange = { db ->
+                                    trebleDbState.floatValue = db
+                                    playbackService?.setTreble(db)
+                                    preferencesManager.saveTreble(db)
+                                    if (!toneEnabled) {
+                                        toneEnabledState.value = true
+                                        playbackService?.setToneEnabled(true)
+                                        preferencesManager.saveToneEnabled(true)
+                                    }
+                                },
+                                balance = balance,
+                                onBalanceChange = { bal ->
+                                    balanceState.floatValue = bal
+                                    playbackService?.setBalance(bal)
+                                },
+                                crossfadeMs = crossfadeMs,
+                                onCrossfadeChange = { ms ->
+                                    crossfadeMsState.intValue = ms
+                                    playbackService?.setCrossfadeDurationMs(ms)
+                                },
+                                isMono = isMono,
+                                onToggleMono = { mono ->
+                                    isMonoState.value = mono
+                                    playbackService?.setMono(mono)
+                                },
+                                replayGainMode = replayGainMode,
+                                onReplayGainModeChange = { mode ->
+                                    replayGainModeState.intValue = mode
+                                    playbackService?.setReplayGainMode(mode)
+                                },
+                                bandGains = bandGainsState,
+                                onBandGainChange = { band, db ->
+                                    if (band in bandGainsState.indices) {
+                                        bandGainsState[band] = db
+                                    }
+                                    playbackService?.setEqualizerBand(band, db)
+                                    preferencesManager.saveEqualizerBand(band, db)
+                                },
+                                activePresetName = activePresetName,
+                                presets = presetsList,
+                                onSelectPreset = { preset -> applyFullPreset(preset) },
+                                onSavePreset = { name -> saveCustomPreset(name) },
+                                onClose = { showEqualizerSheetState.value = false }
+                            )
+                        }
 
-                    // Overlays & Diálogos
-                    trackContextMenu?.let { track ->
-                        TrackContextMenuSheet(
-                            track = track,
-                            onPlayNext = {
-                                playbackService?.enqueueNext(track)
-                                trackContextMenuState.value = null
-                                Toast.makeText(this@MainActivity, "Adicionada para tocar a seguir", Toast.LENGTH_SHORT).show()
-                            },
-                            onEnqueueEnd = {
-                                playbackService?.enqueueEnd(track)
-                                trackContextMenuState.value = null
-                                Toast.makeText(this@MainActivity, "Adicionada ao fim da fila", Toast.LENGTH_SHORT).show()
-                            },
-                            onFavorite = {
-                                libraryRepo.setTrackRating(track.id, 5)
-                                trackContextMenuState.value = null
-                                Toast.makeText(this@MainActivity, "Adicionada às Favoritas ⭐", Toast.LENGTH_SHORT).show()
-                            },
-                            onShowInfo = {
-                                trackContextMenuState.value = null
-                                trackInfoDialogState.value = track
-                            },
-                            onDismiss = { trackContextMenuState.value = null }
-                        )
-                    }
+                        // Letras Sincronizadas
+                        AnimatedVisibility(
+                            visible = showLyricsSheet,
+                            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(380)) + fadeIn(),
+                            exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(350)) + fadeOut(),
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            GlassLyricsScreen(
+                                track = currentTrack,
+                                lyrics = activeLyrics,
+                                currentMs = progressMs,
+                                onSeekToTime = { targetMs ->
+                                    playbackService?.seekTo(targetMs)
+                                    progressMsState.longValue = targetMs
+                                },
+                                onClose = { showLyricsSheetState.value = false }
+                            )
+                        }
 
-                    trackInfoDialog?.let { track ->
-                        TrackInfoDialog(
-                            track = track,
-                            onDismiss = { trackInfoDialogState.value = null }
-                        )
-                    }
+                        // Modais com Vidro Real e Refração
+                        trackContextMenu?.let { track ->
+                            TrackContextMenuSheet(
+                                track = track,
+                                onPlayNext = {
+                                    playbackService?.enqueueNext(track)
+                                    trackContextMenuState.value = null
+                                    Toast.makeText(this@MainActivity, "Adicionada para tocar a seguir", Toast.LENGTH_SHORT).show()
+                                },
+                                onEnqueueEnd = {
+                                    playbackService?.enqueueEnd(track)
+                                    trackContextMenuState.value = null
+                                    Toast.makeText(this@MainActivity, "Adicionada ao fim da fila", Toast.LENGTH_SHORT).show()
+                                },
+                                onFavorite = {
+                                    libraryRepo.setTrackRating(track.id, 5)
+                                    trackContextMenuState.value = null
+                                    Toast.makeText(this@MainActivity, "Adicionada às Favoritas", Toast.LENGTH_SHORT).show()
+                                },
+                                onShowInfo = {
+                                    trackContextMenuState.value = null
+                                    trackInfoDialogState.value = track
+                                },
+                                onDismiss = { trackContextMenuState.value = null }
+                            )
+                        }
 
-                    if (showPriorityQueue) {
-                        PriorityQueueDialog(
-                            queueTracks = playbackService?.queueManager?.getPriorityQueue() ?: emptyList(),
-                            currentTrackId = currentTrack?.id ?: -1L,
-                            onTrackClick = { track, pos ->
-                                playbackService?.queueManager?.getPriorityQueue()?.let { q ->
-                                    playbackService?.playQueue(q, pos)
-                                }
-                            },
-                            onClearQueue = {
-                                playbackService?.queueManager?.clearPriorityQueue()
-                                showPriorityQueueState.value = false
-                                Toast.makeText(this@MainActivity, "Fila prioritária limpa", Toast.LENGTH_SHORT).show()
-                            },
-                            onDismiss = { showPriorityQueueState.value = false }
-                        )
-                    }
+                        trackInfoDialog?.let { track ->
+                            TrackInfoDialog(
+                                track = track,
+                                onDismiss = { trackInfoDialogState.value = null }
+                            )
+                        }
 
-                    if (showSleepTimer) {
-                        SleepTimerDialog(
-                            remainingSeconds = playbackService?.getSleepTimerRemainingSeconds() ?: 0,
-                            onStartTimer = { min ->
-                                playbackService?.startSleepTimer(min)
-                                Toast.makeText(this@MainActivity, "Desligará em $min minutos", Toast.LENGTH_SHORT).show()
-                            },
-                            onCancelTimer = {
-                                playbackService?.cancelSleepTimer()
-                                Toast.makeText(this@MainActivity, "Temporizador cancelado", Toast.LENGTH_SHORT).show()
-                            },
-                            onDismiss = { showSleepTimerState.value = false }
-                        )
-                    }
+                        if (showPriorityQueue) {
+                            PriorityQueueDialog(
+                                queueTracks = playbackService?.queueManager?.getPriorityQueue() ?: emptyList(),
+                                currentTrackId = currentTrack?.id ?: -1L,
+                                onTrackClick = { track, pos ->
+                                    playbackService?.queueManager?.getPriorityQueue()?.let { q ->
+                                        playbackService?.playQueue(q, pos)
+                                    }
+                                },
+                                onClearQueue = {
+                                    playbackService?.queueManager?.clearPriorityQueue()
+                                    showPriorityQueueState.value = false
+                                    Toast.makeText(this@MainActivity, "Fila prioritária limpa", Toast.LENGTH_SHORT).show()
+                                },
+                                onDismiss = { showPriorityQueueState.value = false }
+                            )
+                        }
 
-                    if (showSortOrder) {
-                        SortOrderDialog(
-                            currentSortMode = currentSortMode,
-                            onSelectSortMode = { onSelectSortMode(it) },
-                            onDismiss = { showSortOrderState.value = false }
-                        )
+                        if (showSleepTimer) {
+                            SleepTimerDialog(
+                                remainingSeconds = playbackService?.getSleepTimerRemainingSeconds() ?: 0,
+                                onStartTimer = { min ->
+                                    playbackService?.startSleepTimer(min)
+                                    Toast.makeText(this@MainActivity, "Desligará em $min minutos", Toast.LENGTH_SHORT).show()
+                                },
+                                onCancelTimer = {
+                                    playbackService?.cancelSleepTimer()
+                                    Toast.makeText(this@MainActivity, "Temporizador cancelado", Toast.LENGTH_SHORT).show()
+                                },
+                                onDismiss = { showSleepTimerState.value = false }
+                            )
+                        }
+
+                        if (showSortOrder) {
+                            SortOrderDialog(
+                                currentSortMode = currentSortMode,
+                                onSelectSortMode = { onSelectSortMode(it) },
+                                onDismiss = { showSortOrderState.value = false }
+                            )
+                        }
                     }
-                }
+                )
             }
         }
 

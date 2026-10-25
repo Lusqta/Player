@@ -2,506 +2,449 @@ package com.lucas.player.ui.components
 
 import android.graphics.RenderEffect
 import android.graphics.RuntimeShader
-import android.os.Build
+import android.graphics.Shader
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.ui.shaders.LiquidAgslShaders
 import com.lucas.player.ui.theme.AuraPalette
-import kotlin.math.max
+
+val LocalLiquidBackdrop = compositionLocalOf<GraphicsLayer?> { null }
 
 /**
- * 1. AURA MESH BACKGROUND
- * Utiliza o RuntimeShader AGSL quando Android >= 13 (Tiramisu), com fallback
- * gracioso para malha de gradientes radiais animados no Android legado.
+ * 1. ROOT CONTAINER QUE RENDERIZA A AURA E GRAVA O BACKDROP EM TEMPO REAL PARA OS MODAIS E BARRAS DE VIDRO
  */
 @Composable
-fun AuraBackground(
+fun AuraLiquidRootBox(
     palette: AuraPalette,
-    modifier: Modifier = Modifier,
-    content: @Composable BoxScope.() -> Unit
+    backgroundContent: @Composable BoxScope.() -> Unit,
+    glassOverlays: @Composable BoxScope.() -> Unit
 ) {
-    val animBase by animateColorAsState(palette.base, tween(900), label = "base")
-    val animPrimary by animateColorAsState(palette.primary, tween(900), label = "primary")
-    val animSecondary by animateColorAsState(palette.secondary, tween(900), label = "secondary")
-    val animAccent by animateColorAsState(palette.accent, tween(900), label = "accent")
+    val backdropLayer = rememberGraphicsLayer()
+    var time by remember { mutableFloatStateOf(0f) }
 
-    var timeSeconds by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(Unit) {
-        val startTime = System.currentTimeMillis()
+        val start = withFrameNanos { it }
         while (true) {
-            withInfiniteAnimationFrameMillis { frameMs ->
-                timeSeconds = (frameMs - startTime) / 1000f
+            withFrameNanos { now ->
+                time = (now - start) / 1_000_000_000f
             }
         }
     }
 
-    val shader = remember {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            try {
-                RuntimeShader(LiquidAgslShaders.AURA_BACKGROUND_SHADER)
-            } catch (_: Throwable) {
-                null
-            }
-        } else null
-    }
+    val cDeep by animateColorAsState(palette.deepBase, tween(900), label = "deep")
+    val cPrim by animateColorAsState(palette.primaryAura, tween(900), label = "prim")
+    val cSec by animateColorAsState(palette.secondaryAura, tween(900), label = "sec")
+    val cGlow by animateColorAsState(palette.accentGlow, tween(900), label = "glow")
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .drawBehind {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && shader != null) {
-                    try {
-                        shader.setFloatUniform("uResolution", size.width, size.height)
-                        shader.setFloatUniform("uTime", timeSeconds)
-                        shader.setColorUniform(
-                            "uColorBase",
-                            android.graphics.Color.valueOf(animBase.red, animBase.green, animBase.blue, animBase.alpha)
-                        )
-                        shader.setColorUniform(
-                            "uColorPrimary",
-                            android.graphics.Color.valueOf(animPrimary.red, animPrimary.green, animPrimary.blue, animPrimary.alpha)
-                        )
-                        shader.setColorUniform(
-                            "uColorSecondary",
-                            android.graphics.Color.valueOf(animSecondary.red, animSecondary.green, animSecondary.blue, animSecondary.alpha)
-                        )
-                        shader.setColorUniform(
-                            "uColorAccent",
-                            android.graphics.Color.valueOf(animAccent.red, animAccent.green, animAccent.blue, animAccent.alpha)
-                        )
-                        drawRect(brush = ShaderBrush(shader))
-                    } catch (_: Throwable) {
-                        drawFallbackMesh(size, animBase, animPrimary, animSecondary, animAccent)
+    val auraShader = remember { RuntimeShader(LiquidAgslShaders.AURA_BACKGROUND_SHADER) }
+
+    CompositionLocalProvider(LocalLiquidBackdrop provides backdropLayer) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Tudo aqui dentro é gravado no backdropLayer para ser desfocado e refratado pelos vidros acima
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .drawWithContent {
+                        backdropLayer.record {
+                            this@drawWithContent.drawContent()
+                        }
+                        drawLayer(backdropLayer)
                     }
-                } else {
-                    drawFallbackMesh(size, animBase, animPrimary, animSecondary, animAccent)
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    auraShader.setFloatUniform("uResolution", size.width, size.height)
+                    auraShader.setFloatUniform("uTime", time)
+                    auraShader.setFloatUniform("uColorDeep", cDeep.red, cDeep.green, cDeep.blue, 1f)
+                    auraShader.setFloatUniform("uColorPrimary", cPrim.red, cPrim.green, cPrim.blue, 1f)
+                    auraShader.setFloatUniform("uColorSecondary", cSec.red, cSec.green, cSec.blue, 1f)
+                    auraShader.setFloatUniform("uColorGlow", cGlow.red, cGlow.green, cGlow.blue, 1f)
+                    drawRect(ShaderBrush(auraShader))
                 }
+                backgroundContent()
             }
-    ) {
-        content()
-    }
-}
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFallbackMesh(
-    size: Size,
-    base: Color,
-    primary: Color,
-    secondary: Color,
-    accent: Color
-) {
-    drawRect(color = base)
-    drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(primary.copy(alpha = 0.55f), Color.Transparent),
-            center = Offset(size.width * 0.35f, size.height * 0.25f),
-            radius = size.width * 0.85f
-        )
-    )
-    drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(secondary.copy(alpha = 0.45f), Color.Transparent),
-            center = Offset(size.width * 0.8f, size.height * 0.65f),
-            radius = size.width * 0.9f
-        )
-    )
-    drawCircle(
-        brush = Brush.radialGradient(
-            colors = listOf(accent.copy(alpha = 0.35f), Color.Transparent),
-            center = Offset(size.width * 0.5f, size.height * 0.85f),
-            radius = size.width * 0.7f
-        )
-    )
+            // Modais, Equalizador, Letras e Floating Bars que refratam o backdropLayer
+            glassOverlays()
+        }
+    }
 }
 
 /**
- * 2. GLASS SURFACE CARD (Figma Dark Indigo Glass)
- * Superfície translúcida com borda chanfrada especular e mola elástica de toque.
+ * 2. PAINEL DE VIDRO REAL COM BLUR PROFUNDO + REFRAÇÃO DE LENTE SDF + DISPERSÃO CROMÁTICA
+ * Usado em: Floating Bottom Nav, Mini-Player, Equalizador, Letras, Fila, Sleep Timer e Info Técnica.
  */
 @Composable
-fun GlassSurfaceCard(
+fun RealLiquidGlassPanel(
     modifier: Modifier = Modifier,
-    cornerRadius: Dp = 20.dp,
-    onClick: (() -> Unit)? = null,
-    onLongClick: (() -> Unit)? = null,
-    backgroundColor: Color = Color(0xFF141026).copy(alpha = 0.58f),
+    cornerRadius: Dp = 28.dp,
+    blurRadius: Dp = 34.dp,
+    refractionPx: Float = 24f,
+    tint: Color = Color(0xFF1A1642).copy(alpha = 0.56f),
     content: @Composable BoxScope.() -> Unit
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
+    val backdropLayer = LocalLiquidBackdrop.current
+    val density = LocalDensity.current
+    val radiusPx = with(density) { cornerRadius.toPx() }
+    val blurPx = with(density) { blurRadius.toPx() }
 
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.965f else 1.0f,
-        animationSpec = spring(dampingRatio = 0.62f, stiffness = 420f),
-        label = "glassScale"
-    )
-
+    var bounds by remember { mutableStateOf(Rect.Zero) }
+    val lensShader = remember { RuntimeShader(LiquidAgslShaders.REAL_GLASS_LENS_SHADER) }
     val shape = RoundedCornerShape(cornerRadius)
 
-    val borderBrush = Brush.linearGradient(
-        colors = listOf(
-            Color.White.copy(alpha = 0.42f),
-            Color.White.copy(alpha = 0.08f),
-            Color(0xFF8D72E1).copy(alpha = 0.25f),
-            Color(0xFF00E5FF).copy(alpha = 0.35f)
-        ),
-        start = Offset(0f, 0f),
-        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
-    )
-
     Box(
         modifier = modifier
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
+            .onGloballyPositioned { bounds = it.boundsInRoot() }
             .clip(shape)
-            .background(backgroundColor)
-            .border(width = 1.dp, brush = borderBrush, shape = shape)
-            .then(
-                if (onClick != null || onLongClick != null) {
-                    Modifier.pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = { onClick?.invoke() },
-                            onLongPress = { onLongClick?.invoke() }
-                        )
-                    }
-                } else Modifier
-            ),
-        content = content
-    )
-}
-
-/**
- * 3. GLASS CIRCLE BUTTON (Controles de Reprodução)
- */
-@Composable
-fun GlassCircleButton(
-    icon: ImageVector,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    size: Dp = 56.dp,
-    isPrimary: Boolean = false,
-    contentDescription: String? = null,
-    tint: Color = Color.White
-) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
-
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.91f else 1.0f,
-        animationSpec = spring(dampingRatio = 0.58f, stiffness = 450f),
-        label = "btnScale"
-    )
-
-    val bgBrush = if (isPrimary) {
-        Brush.radialGradient(
-            colors = listOf(
-                Color(0xFF8D72E1),
-                Color(0xFF6C4AB6),
-                Color(0xFF281E5D)
-            )
-        )
-    } else {
-        Brush.linearGradient(
-            colors = listOf(
-                Color(0xFF262042).copy(alpha = 0.85f),
-                Color(0xFF141026).copy(alpha = 0.70f)
-            )
-        )
-    }
-
-    val borderBrush = Brush.linearGradient(
-        colors = if (isPrimary) {
-            listOf(Color.White.copy(alpha = 0.85f), Color(0xFF00E5FF).copy(alpha = 0.7f))
-        } else {
-            listOf(Color.White.copy(alpha = 0.35f), Color.White.copy(alpha = 0.08f))
-        }
-    )
-
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = modifier
-            .size(size)
-            .graphicsLayer {
-                scaleX = scale
-                scaleY = scale
-            }
-            .then(
-                if (isPrimary) {
-                    Modifier.shadow(
-                        elevation = 16.dp,
-                        shape = CircleShape,
-                        spotColor = Color(0xFF8D72E1),
-                        ambientColor = Color(0xFF6C4AB6)
-                    )
-                } else Modifier
-            )
-            .clip(CircleShape)
-            .background(bgBrush)
-            .border(width = if (isPrimary) 1.5.dp else 1.dp, brush = borderBrush, shape = CircleShape)
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = onClick
-            )
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            tint = tint,
-            modifier = Modifier.size(if (isPrimary) size * 0.52f else size * 0.44f)
+        // Camada 1: Fundo capturado, desfocado (Blur) e refratado pela lente AGSL
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .graphicsLayer {
+                    if (size.width > 0f && size.height > 0f) {
+                        lensShader.setFloatUniform("uResolution", size.width, size.height)
+                        lensShader.setFloatUniform("uCornerRadius", radiusPx)
+                        lensShader.setFloatUniform("uRefractionPx", refractionPx)
+                        lensShader.setFloatUniform("uDispersion", 0.34f)
+                        lensShader.setFloatUniform("uTint", tint.red, tint.green, tint.blue, tint.alpha)
+
+                        val blurEff = RenderEffect.createBlurEffect(blurPx, blurPx, Shader.TileMode.CLAMP)
+                        val lensEff = RenderEffect.createRuntimeShaderEffect(lensShader, "content")
+                        // Primeiro aplica Blur nos pixels do fundo, depois aplica a lente refrativa!
+                        renderEffect = RenderEffect.createChainEffect(lensEff, blurEff).asComposeRenderEffect()
+                    }
+                }
+                .drawWithContent {
+                    if (backdropLayer != null && bounds != Rect.Zero) {
+                        drawContext.canvas.save()
+                        drawContext.canvas.translate(-bounds.left, -bounds.top)
+                        drawLayer(backdropLayer)
+                        drawContext.canvas.restore()
+                    } else {
+                        drawRect(tint)
+                    }
+                }
+        )
+
+        // Camada 2: Conteúdo nítido + Borda especular diagonal
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(
+                    width = 1.dp,
+                    brush = Brush.linearGradient(
+                        colors = listOf(
+                            Color.White.copy(alpha = 0.48f),
+                            Color.White.copy(alpha = 0.10f),
+                            Color(0xFF9E96FF).copy(alpha = 0.32f)
+                        ),
+                        start = Offset.Zero,
+                        end = Offset(800f, 800f)
+                    ),
+                    shape = shape
+                ),
+            content = content
         )
     }
 }
 
 /**
- * 4. REFRACTIVE WAVEFORM SEEK BAR (Slider 52 + Waveform)
- * Cápsula vítrea líquida com crista refrativa e forma de onda dentro.
+ * 3. SLIDER 52 HORIZONTAL (Para SeekBar com Waveform sutil e Controles de Tonalidade do EQ)
  */
 @Composable
-fun RefractiveWaveformSeekBar(
-    progress: Float, // 0.0 a 1.0
-    onSeek: (Float) -> Unit,
-    waveformPeaks: FloatArray?,
-    currentTimeText: String,
-    totalTimeText: String,
+fun Slider52Horizontal(
+    progress: Float,
+    onProgressChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
-    accentColor: Color = Color(0xFF00E5FF)
+    waveformPeaks: FloatArray? = null,
+    leftText: String? = null,
+    rightText: String? = null,
+    leadingIcon: (@Composable () -> Unit)? = null
 ) {
     var isDragging by remember { mutableStateOf(false) }
-    var dragProgress by remember { mutableFloatStateOf(0f) }
-
-    val activeProgress = if (isDragging) dragProgress else progress.coerceIn(0f, 1f)
-
-    val heightDp by animateDpAsState(
-        targetValue = if (isDragging) 54.dp else 46.dp,
-        animationSpec = spring(dampingRatio = 0.68f, stiffness = 380f),
-        label = "sliderHeight"
+    val dragAnim by animateFloatAsState(
+        targetValue = if (isDragging) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = 380f),
+        label = "drag"
+    )
+    val scaleY by animateFloatAsState(
+        targetValue = if (isDragging) 1.10f else 1f,
+        animationSpec = spring(dampingRatio = 0.55f, stiffness = 380f),
+        label = "scaleY"
     )
 
-    val sliderShader = remember {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            try {
-                RuntimeShader(LiquidAgslShaders.REFRACTIVE_SLIDER_SHADER)
-            } catch (_: Throwable) {
-                null
-            }
-        } else null
-    }
+    val shader = remember { RuntimeShader(LiquidAgslShaders.SLIDER_52_HORIZONTAL_SHADER) }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(heightDp)
+            .height(52.dp)
+            .scale(1f, scaleY)
             .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { offset ->
+                detectTapGestures(
+                    onPress = { pos ->
                         isDragging = true
-                        dragProgress = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                    },
-                    onDragEnd = {
+                        onProgressChange((pos.x / size.width).coerceIn(0f, 1f))
+                        tryAwaitRelease()
                         isDragging = false
-                        onSeek(dragProgress)
-                    },
-                    onDragCancel = {
-                        isDragging = false
-                    },
-                    onDrag = { change, _ ->
-                        change.consume()
-                        dragProgress = (change.position.x / size.width.toFloat()).coerceIn(0f, 1f)
                     }
                 )
             }
             .pointerInput(Unit) {
-                detectTapGestures { offset ->
-                    val p = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
-                    onSeek(p)
-                }
-            }
-            .drawBehind {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && sliderShader != null) {
-                    try {
-                        sliderShader.setFloatUniform("uResolution", size.width, size.height)
-                        sliderShader.setFloatUniform("uProgress", activeProgress)
-                        sliderShader.setFloatUniform("uDragIntensity", if (isDragging) 1.0f else 0.0f)
-                        sliderShader.setColorUniform(
-                            "uGlowColor",
-                            android.graphics.Color.valueOf(accentColor.red, accentColor.green, accentColor.blue, accentColor.alpha)
-                        )
-                        drawRoundRect(
-                            brush = ShaderBrush(sliderShader),
-                            size = size,
-                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height * 0.5f)
-                        )
-                    } catch (_: Throwable) {
-                        drawFallbackSlider(size, activeProgress, accentColor)
+                detectHorizontalDragGestures(
+                    onDragStart = { isDragging = true },
+                    onDragEnd = { isDragging = false },
+                    onDragCancel = { isDragging = false },
+                    onHorizontalDrag = { change, _ ->
+                        change.consume()
+                        onProgressChange((change.position.x / size.width).coerceIn(0f, 1f))
                     }
-                } else {
-                    drawFallbackSlider(size, activeProgress, accentColor)
-                }
-
-                // Render subtle waveform bars inside the capsule
-                if (waveformPeaks != null && waveformPeaks.isNotEmpty()) {
-                    val count = waveformPeaks.size
-                    val spacing = size.width / count.toFloat()
-                    val barWidth = max(2f, spacing * 0.55f)
-                    val centerY = size.height * 0.5f
-                    val fillWidth = size.width * activeProgress
-
-                    for (i in 0 until count) {
-                        val x = i * spacing + spacing * 0.5f
-                        val peak = waveformPeaks[i].coerceIn(0.08f, 1.0f)
-                        val barHeight = size.height * 0.65f * peak
-                        val isPlayed = x <= fillWidth
-
-                        drawLine(
-                            color = if (isPlayed) accentColor.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.18f),
-                            start = Offset(x, centerY - barHeight * 0.5f),
-                            end = Offset(x, centerY + barHeight * 0.5f),
-                            strokeWidth = barWidth,
-                            cap = StrokeCap.Round
-                        )
-                    }
-                }
+                )
             },
         contentAlignment = Alignment.Center
     ) {
-        // Inner Labels (Current time at left, Total time at right)
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            shader.setFloatUniform("uResolution", size.width, size.height)
+            shader.setFloatUniform("uProgress", progress.coerceIn(0f, 1f))
+            shader.setFloatUniform("uDragHighlight", dragAnim)
+            drawRect(ShaderBrush(shader))
+
+            // Se houver picos de onda, desenha de forma sutil e elegante dentro da cápsula
+            if (waveformPeaks != null && waveformPeaks.isNotEmpty()) {
+                val count = waveformPeaks.size
+                val startX = 76.dp.toPx()
+                val endX = size.width - 64.dp.toPx()
+                val availW = (endX - startX).coerceAtLeast(1f)
+                val step = availW / count
+                val barW = (step * 0.48f).coerceIn(1.5f, 4f)
+                val maxBarH = size.height * 0.42f
+                val fillLimitX = size.width * progress.coerceIn(0f, 1f)
+
+                for (i in 0 until count) {
+                    val x = startX + i * step
+                    val amp = waveformPeaks[i].coerceIn(0.12f, 1f)
+                    val h = maxBarH * amp
+                    val isPlayed = x <= fillLimitX
+                    drawRoundRect(
+                        color = if (isPlayed) Color(0xFFDCE6FF).copy(alpha = 0.55f) else Color.White.copy(alpha = 0.16f),
+                        topLeft = Offset(x, (size.height - h) * 0.5f),
+                        size = Size(barW, h),
+                        cornerRadius = CornerRadius(barW * 0.5f, barW * 0.5f)
+                    )
+                }
+            }
+        }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 18.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(
-                text = currentTimeText,
-                color = Color.White.copy(alpha = 0.95f),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = totalTimeText,
-                color = Color.White.copy(alpha = 0.60f),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (leadingIcon != null) {
+                    leadingIcon()
+                    Spacer(Modifier.width(6.dp))
+                }
+                if (leftText != null) {
+                    Text(
+                        text = leftText,
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+            if (rightText != null) {
+                Text(
+                    text = rightText,
+                    color = Color.White.copy(alpha = 0.72f),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
         }
     }
 }
 
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFallbackSlider(
-    size: Size,
+/**
+ * 4. SLIDER 52 VERTICAL (Para as 10 bandas do Equalizador Biquad)
+ */
+@Composable
+fun Slider52Vertical(
     progress: Float,
-    accentColor: Color
+    onProgressChange: (Float) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val radius = size.height * 0.5f
-    // Background track
-    drawRoundRect(
-        color = Color(0xFF1B172B).copy(alpha = 0.75f),
-        size = size,
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius)
-    )
-    // Progress fill
-    val fillWidth = max(size.height, size.width * progress)
-    drawRoundRect(
-        brush = Brush.horizontalGradient(
-            colors = listOf(Color(0xFF6C4AB6).copy(alpha = 0.7f), accentColor.copy(alpha = 0.85f))
-        ),
-        size = Size(fillWidth, size.height),
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius)
-    )
-    // Outer specular rim
-    drawRoundRect(
-        brush = Brush.verticalGradient(
-            colors = listOf(Color.White.copy(alpha = 0.45f), Color.Transparent, Color(0xFF8D72E1).copy(alpha = 0.3f))
-        ),
-        size = size,
-        cornerRadius = androidx.compose.ui.geometry.CornerRadius(radius),
-        style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
-    )
+    val shader = remember { RuntimeShader(LiquidAgslShaders.SLIDER_52_VERTICAL_SHADER) }
+
+    Canvas(
+        modifier = modifier
+            .width(26.dp)
+            .height(155.dp)
+            .pointerInput(Unit) {
+                detectTapGestures { pos ->
+                    val newProg = 1f - (pos.y / size.height).coerceIn(0f, 1f)
+                    onProgressChange(newProg)
+                }
+            }
+            .pointerInput(Unit) {
+                detectVerticalDragGestures { change, _ ->
+                    change.consume()
+                    val newProg = 1f - (change.position.y / size.height).coerceIn(0f, 1f)
+                    onProgressChange(newProg)
+                }
+            }
+    ) {
+        shader.setFloatUniform("uResolution", size.width, size.height)
+        shader.setFloatUniform("uProgress", progress.coerceIn(0f, 1f))
+        drawRect(ShaderBrush(shader))
+    }
 }
 
 /**
- * 5. PILL FILTER CHIP (Categorias de Navegação)
+ * 5. LIQUID GLASS TOGGLE (Substitui o Switch cinza do Material Design)
  */
 @Composable
-fun PillFilterChip(
-    text: String,
-    isSelected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
+fun LiquidGlassToggle(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
 ) {
-    val bgBrush = if (isSelected) {
-        Brush.horizontalGradient(
-            colors = listOf(Color(0xFF8D72E1), Color(0xFF00E5FF))
-        )
-    } else {
-        Brush.horizontalGradient(
-            colors = listOf(Color(0xFF1E1A34).copy(alpha = 0.6f), Color(0xFF141026).copy(alpha = 0.6f))
-        )
-    }
-
-    val textColor = if (isSelected) Color(0xFF0A0718) else Color.White.copy(alpha = 0.80f)
+    val thumbOffset by animateDpAsState(
+        targetValue = if (checked) 24.dp else 4.dp,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
+        label = "toggleOffset"
+    )
+    val trackColor by animateColorAsState(
+        targetValue = if (checked) Color(0xFF6368F2).copy(alpha = 0.65f) else Color(0xFF1F222D).copy(alpha = 0.75f),
+        animationSpec = tween(250),
+        label = "toggleColor"
+    )
 
     Box(
-        modifier = modifier
+        modifier = Modifier
+            .width(52.dp)
+            .height(30.dp)
             .clip(CircleShape)
-            .background(bgBrush)
+            .background(trackColor)
             .border(
                 width = 1.dp,
                 brush = Brush.linearGradient(
-                    colors = if (isSelected) {
-                        listOf(Color.White.copy(alpha = 0.8f), Color(0xFF00E5FF))
-                    } else {
-                        listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.05f))
-                    }
+                    colors = listOf(Color.White.copy(alpha = 0.50f), Color.White.copy(alpha = 0.12f))
                 ),
                 shape = CircleShape
             )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) { onCheckedChange(!checked) },
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .offset(x = thumbOffset)
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(Color.White, Color(0xFFD0E4FF))
+                    )
+                )
+        )
+    }
+}
+
+/**
+ * 6. BOTÃO CIRCULAR DE VIDRO FIGMA (Sem anel ciano neon!)
+ */
+@Composable
+fun FigmaGlassCircleButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    size: Dp = 56.dp,
+    isPrimaryPlay: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.90f else 1f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 500f),
+        label = "btnScale"
+    )
+
+    Box(
+        modifier = modifier
+            .size(size)
+            .scale(scale)
+            .clip(CircleShape)
+            .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+            .background(
+                brush = if (isPrimaryPlay) {
+                    Brush.radialGradient(
+                        colors = listOf(
+                            Color(0xFF7B7EFF).copy(alpha = 0.78f),
+                            Color(0xFF493FA8).copy(alpha = 0.68f),
+                            Color(0xFF281F68).copy(alpha = 0.85f)
+                        )
+                    )
+                } else {
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF5A549E).copy(alpha = 0.45f),
+                            Color(0xFF262052).copy(alpha = 0.45f)
+                        )
+                    )
+                }
+            )
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    colors = listOf(
+                        Color.White.copy(alpha = 0.55f),
+                        Color(0xFFA59FFF).copy(alpha = 0.18f),
+                        Color.White.copy(alpha = 0.30f)
+                    )
+                ),
+                shape = CircleShape
+            ),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = text,
-            color = textColor,
-            fontSize = 13.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
-        )
+        content()
     }
 }
