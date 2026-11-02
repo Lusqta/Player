@@ -26,11 +26,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.model.SortMode
 import com.lucas.player.model.Track
+import com.lucas.player.ui.components.AuraPreset
 import com.lucas.player.ui.components.FigmaGlassCircleButton
-import com.lucas.player.ui.components.RealLiquidGlassPanel
+import com.lucas.player.ui.components.InnerAuraCard
 
 /**
- * 1. MENU CONTEXTUAL DA FAIXA (Sem AlertDialog do Material, Vidro Real + Refração)
+ * 1. MENU CONTEXTUAL DA FAIXA (InnerAuraCard Núcleo Preto)
  */
 @Composable
 fun TrackContextMenuSheet(
@@ -51,11 +52,12 @@ fun TrackContextMenuSheet(
             ),
         contentAlignment = Alignment.Center
     ) {
-        RealLiquidGlassPanel(
+        InnerAuraCard(
             cornerRadius = 32.dp,
-            blurRadius = 38.dp,
-            refractionPx = 26f,
-            tint = Color(0xFF161238).copy(alpha = 0.72f),
+            glowSpreadDp = 60.dp,
+            auraColor = AuraPreset.WALK_AMBER.auraColor,
+            secondaryColor = AuraPreset.WALK_AMBER.secondaryColor,
+            coreColor = Color(0xFF050508),
             modifier = Modifier
                 .fillMaxWidth(0.90f)
                 .clickable(
@@ -162,11 +164,12 @@ fun TrackInfoDialog(
             ),
         contentAlignment = Alignment.Center
     ) {
-        RealLiquidGlassPanel(
+        InnerAuraCard(
             cornerRadius = 32.dp,
-            blurRadius = 38.dp,
-            refractionPx = 26f,
-            tint = Color(0xFF161238).copy(alpha = 0.72f),
+            glowSpreadDp = 60.dp,
+            auraColor = AuraPreset.SAGE_SENSOR.auraColor,
+            secondaryColor = AuraPreset.SAGE_SENSOR.secondaryColor,
+            coreColor = Color(0xFF050508),
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .clickable(
@@ -249,11 +252,12 @@ fun PriorityQueueDialog(
             ),
         contentAlignment = Alignment.Center
     ) {
-        RealLiquidGlassPanel(
+        InnerAuraCard(
             cornerRadius = 32.dp,
-            blurRadius = 38.dp,
-            refractionPx = 26f,
-            tint = Color(0xFF161238).copy(alpha = 0.72f),
+            glowSpreadDp = 60.dp,
+            auraColor = AuraPreset.COBALT_TRAINING.auraColor,
+            secondaryColor = AuraPreset.COBALT_TRAINING.secondaryColor,
+            coreColor = Color(0xFF050508),
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .clickable(
@@ -365,11 +369,12 @@ fun SleepTimerDialog(
             ),
         contentAlignment = Alignment.Center
     ) {
-        RealLiquidGlassPanel(
+        InnerAuraCard(
             cornerRadius = 32.dp,
-            blurRadius = 38.dp,
-            refractionPx = 26f,
-            tint = Color(0xFF161238).copy(alpha = 0.72f),
+            glowSpreadDp = 60.dp,
+            auraColor = AuraPreset.CORAL_BREATH.auraColor,
+            secondaryColor = AuraPreset.CORAL_BREATH.secondaryColor,
+            coreColor = Color(0xFF050508),
             modifier = Modifier
                 .fillMaxWidth(0.88f)
                 .clickable(
@@ -465,11 +470,12 @@ fun SortOrderDialog(
             ),
         contentAlignment = Alignment.Center
     ) {
-        RealLiquidGlassPanel(
+        InnerAuraCard(
             cornerRadius = 32.dp,
-            blurRadius = 38.dp,
-            refractionPx = 26f,
-            tint = Color(0xFF161238).copy(alpha = 0.72f),
+            glowSpreadDp = 60.dp,
+            auraColor = AuraPreset.WALK_AMBER.auraColor,
+            secondaryColor = AuraPreset.WALK_AMBER.secondaryColor,
+            coreColor = Color(0xFF050508),
             modifier = Modifier
                 .fillMaxWidth(0.88f)
                 .clickable(

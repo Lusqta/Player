@@ -364,6 +364,14 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
         }
     }
 
+    fun skipToQueueIndex(index: Int) {
+        val track = queueManager.skipTo(index)
+        if (track != null) {
+            notifyQueue()
+            playTrack(track)
+        }
+    }
+
     fun playPrevious() {
         if (audioEngine.getPositionMs() > 3000) {
             seekTo(0)
@@ -395,6 +403,68 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
                 )
                 notifyProgress(positionMs, audioEngine.getDurationMs())
             }
+        }
+    }
+
+    // --- Poweramp Fast Seek & Jump Commands ---
+
+    private var fastSeekHandler = Handler(Looper.getMainLooper())
+    private var fastSeekRunnable: Runnable? = null
+
+    fun seekJumpForward(deltaMs: Long = 10000L) {
+        val total = audioEngine.getDurationMs()
+        val cur = audioEngine.getPositionMs()
+        val target = (cur + deltaMs).coerceIn(0L, total)
+        seekTo(target)
+    }
+
+    fun seekJumpBackward(deltaMs: Long = 10000L) {
+        val total = audioEngine.getDurationMs()
+        val cur = audioEngine.getPositionMs()
+        val target = (cur - deltaMs).coerceIn(0L, total)
+        seekTo(target)
+    }
+
+    fun beginFastForward() {
+        endFastSeek()
+        fastSeekRunnable = object : Runnable {
+            override fun run() {
+                val total = audioEngine.getDurationMs()
+                val cur = audioEngine.getPositionMs()
+                val target = (cur + 2500L).coerceIn(0L, total)
+                seekTo(target)
+                fastSeekHandler.postDelayed(this, 200L)
+            }
+        }
+        fastSeekHandler.post(fastSeekRunnable!!)
+    }
+
+    fun endFastForward() {
+        endFastSeek()
+    }
+
+    fun beginRewind() {
+        endFastSeek()
+        fastSeekRunnable = object : Runnable {
+            override fun run() {
+                val total = audioEngine.getDurationMs()
+                val cur = audioEngine.getPositionMs()
+                val target = (cur - 2500L).coerceIn(0L, total)
+                seekTo(target)
+                fastSeekHandler.postDelayed(this, 200L)
+            }
+        }
+        fastSeekHandler.post(fastSeekRunnable!!)
+    }
+
+    fun endRewind() {
+        endFastSeek()
+    }
+
+    private fun endFastSeek() {
+        fastSeekRunnable?.let {
+            fastSeekHandler.removeCallbacks(it)
+            fastSeekRunnable = null
         }
     }
 
@@ -479,6 +549,22 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
 
     fun clearPriorityQueue() {
         queueManager.clearPriorityQueue()
+        notifyQueue()
+    }
+
+    fun removeTrackFromQueue(trackId: Long) {
+        queueManager.removeTrackById(trackId)
+        notifyQueue()
+    }
+
+    fun clearAllQueue() {
+        queueManager.clearAllQueue()
+        stop()
+        notifyQueue()
+    }
+
+    fun shuffleCurrentQueue() {
+        queueManager.shuffleQueue()
         notifyQueue()
     }
 

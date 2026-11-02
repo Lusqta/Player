@@ -16,13 +16,18 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.lucas.player.data.CoverArtLoader
 import com.lucas.player.data.LibraryRepository
 import com.lucas.player.data.LyricsManager
 import com.lucas.player.data.MusicDatabase
@@ -32,9 +37,11 @@ import com.lucas.player.queue.RepeatMode
 import com.lucas.player.queue.ShuffleMode
 import com.lucas.player.service.PlaybackService
 import com.lucas.player.ui.GroupItem
-import com.lucas.player.ui.components.AuraLiquidRootBox
+import com.lucas.player.ui.components.*
+import com.lucas.player.ui.navigation.NavScreen
+import com.lucas.player.ui.navigation.PlayerNavController
 import com.lucas.player.ui.screens.*
-import com.lucas.player.ui.theme.AuraPaletteExtractor
+import com.lucas.player.ui.theme.*
 
 class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
@@ -44,45 +51,43 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     private var playbackService: PlaybackService? = null
     private var isBound = false
 
-    // Reactive Compose States
+    // Controlador de Navegação com Pilha de Histórico estilo Poweramp
+    private val navController = PlayerNavController(NavScreen.LibraryRoot)
+
+    // Estados Reativos do Player
     private val currentTrackState = mutableStateOf<Track?>(null)
     private val isPlayingState = mutableStateOf(false)
     private val progressMsState = mutableLongStateOf(0L)
     private val durationMsState = mutableLongStateOf(0L)
-    private val waveformPeaksState = mutableStateOf<FloatArray?>(null)
     private val shuffleModeState = mutableStateOf(ShuffleMode.OFF)
     private val repeatModeState = mutableStateOf(RepeatMode.OFF)
 
-    // Library State
+    // Estados da Biblioteca
+    private val totalTracksCountState = mutableIntStateOf(0)
     private val currentCategoryState = mutableStateOf(LibraryCategory.ALL_SONGS)
     private val currentSortModeState = mutableStateOf(SortMode.TITLE_ASC)
-    private val searchQueryState = mutableStateOf("")
     private val displayedTracksState = mutableStateOf<List<Track>>(emptyList())
     private val displayedGroupsState = mutableStateOf<List<GroupItem>>(emptyList())
-    private val isInsideGroupDrilldownState = mutableStateOf(false)
-    private val drilldownTitleState = mutableStateOf("")
+    private val drilldownTracksState = mutableStateOf<List<Track>>(emptyList())
 
-    // Screens & Dialogs
-    private val isNowPlayingExpandedState = mutableStateOf(false)
-    private val showEqualizerSheetState = mutableStateOf(false)
-    private val showLyricsSheetState = mutableStateOf(false)
+    // Busca Instantânea
+    private val searchQueryState = mutableStateOf("")
+    private val searchResultsState = mutableStateOf<List<Track>>(emptyList())
+
+    // Diálogos & Modais
     private val trackContextMenuState = mutableStateOf<Track?>(null)
     private val trackInfoDialogState = mutableStateOf<Track?>(null)
-    private val showPriorityQueueState = mutableStateOf(false)
-    private val showSleepTimerState = mutableStateOf(false)
     private val showSortOrderState = mutableStateOf(false)
-    private val activeLyricsState = mutableStateOf<LyricsManager.Lyrics?>(null)
+    private val showSleepTimerState = mutableStateOf(false)
 
-    // Equalizer & Tone
+    // Equalizador & Áudio
     private val eqEnabledState = mutableStateOf(true)
     private val toneEnabledState = mutableStateOf(true)
     private val preampDbState = mutableFloatStateOf(0f)
     private val bassDbState = mutableFloatStateOf(0f)
     private val trebleDbState = mutableFloatStateOf(0f)
     private val balanceState = mutableFloatStateOf(0f)
-    private val crossfadeMsState = mutableIntStateOf(0)
     private val isMonoState = mutableStateOf(false)
-    private val replayGainModeState = mutableIntStateOf(0)
     private val bandGainsState = mutableStateListOf(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f)
     private val activePresetNameState = mutableStateOf("Flat")
     private val presetsListState = mutableStateOf<List<MusicDatabase.EqPreset>>(emptyList())
@@ -103,7 +108,6 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             s.queueManager.currentTrack?.let {
                 currentTrackState.value = it
                 durationMsState.longValue = it.durationMs
-                loadWaveformForTrack(it)
             }
         }
 
@@ -123,7 +127,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         if (audioGranted) {
             loadLibrary()
         } else {
-            Toast.makeText(this, "Permissão necessária para reproduzir músicas locais.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Permissão necessária para ler músicas locais.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -131,30 +135,34 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         super.onCreate(savedInstanceState)
 
         setContent {
+            val currentScreen = navController.currentScreen
             val currentTrack by currentTrackState
             val isPlaying by isPlayingState
             val progressMs by progressMsState
             val durationMs by durationMsState
-            val waveformPeaks by waveformPeaksState
             val shuffleMode by shuffleModeState
             val repeatMode by repeatModeState
-            val currentCategory by currentCategoryState
-            val currentSortMode by currentSortModeState
-            val searchQuery by searchQueryState
+
+            val totalTracksCount by totalTracksCountState
             val displayedTracks by displayedTracksState
             val displayedGroups by displayedGroupsState
-            val isInsideGroupDrilldown by isInsideGroupDrilldownState
-            val drilldownTitle by drilldownTitleState
+            val drilldownTracks by drilldownTracksState
 
-            val isNowPlayingExpanded by isNowPlayingExpandedState
-            val showEqualizerSheet by showEqualizerSheetState
-            val showLyricsSheet by showLyricsSheetState
+            val searchQuery by searchQueryState
+            val searchResults by searchResultsState
+
             val trackContextMenu by trackContextMenuState
             val trackInfoDialog by trackInfoDialogState
-            val showPriorityQueue by showPriorityQueueState
-            val showSleepTimer by showSleepTimerState
             val showSortOrder by showSortOrderState
-            val activeLyrics by activeLyricsState
+            val showSleepTimer by showSleepTimerState
+            val showMenuSheetState = remember { mutableStateOf(false) }
+            val showAudioInfoState = remember { mutableStateOf(false) }
+            val showAboutState = remember { mutableStateOf(false) }
+            val addToPlaylistDialogTrack = remember { mutableStateOf<Track?>(null) }
+            val showLyricsSheetState = remember { mutableStateOf(false) }
+            val showSavePresetDialogState = remember { mutableStateOf(false) }
+            val deletePlaylistTargetState = remember { mutableStateOf<GroupItem?>(null) }
+            val deletePresetTargetState = remember { mutableStateOf<MusicDatabase.EqPreset?>(null) }
 
             val eqEnabled by eqEnabledState
             val toneEnabled by toneEnabledState
@@ -162,346 +170,569 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             val bassDb by bassDbState
             val trebleDb by trebleDbState
             val balance by balanceState
-            val crossfadeMs by crossfadeMsState
             val isMono by isMonoState
-            val replayGainMode by replayGainModeState
             val activePresetName by activePresetNameState
             val presetsList by presetsListState
 
-            val currentCover = rememberTrackCover(currentTrack, 256)
-            val auraPalette = remember(currentCover) {
-                AuraPaletteExtractor.extractFromBitmap(currentCover)
+            val currentCover = rememberTrackCover(currentTrack, 350)
+            val miniPlayerCover = rememberTrackCover(currentTrack, 120)
+
+            var currentAccent by remember { mutableStateOf(AuroAccent.Neutral) }
+            LaunchedEffect(currentCover) {
+                currentAccent = CoverGlow.from(currentCover)
             }
 
-            val categories = remember {
-                listOf(
-                    LibraryCategory.ALL_SONGS,
-                    LibraryCategory.FOLDERS,
-                    LibraryCategory.ALBUMS,
-                    LibraryCategory.ARTISTS,
-                    LibraryCategory.GENRES,
-                    LibraryCategory.YEARS,
-                    LibraryCategory.COMPOSERS,
-                    LibraryCategory.QUEUE,
-                    LibraryCategory.PLAYLISTS,
-                    LibraryCategory.MOST_PLAYED,
-                    LibraryCategory.RECENTLY_ADDED,
-                    LibraryCategory.TOP_RATED
-                )
-            }
-
+            // Tratamento do Botão Físico/Gestual Voltar do Android
             BackHandler(
-                enabled = isNowPlayingExpanded || showEqualizerSheet || showLyricsSheet ||
-                        trackContextMenu != null || trackInfoDialog != null ||
-                        showPriorityQueue || showSleepTimer || showSortOrder ||
-                        isInsideGroupDrilldown || currentCategory != LibraryCategory.ALL_SONGS
+                enabled = trackContextMenu != null || trackInfoDialog != null ||
+                        showSortOrder || showSleepTimer || showMenuSheetState.value ||
+                        showAudioInfoState.value || showAboutState.value ||
+                        showLyricsSheetState.value || showSavePresetDialogState.value ||
+                        deletePlaylistTargetState.value != null || deletePresetTargetState.value != null ||
+                        addToPlaylistDialogTrack.value != null || navController.canNavigateUp
             ) {
                 when {
-                    showEqualizerSheet -> showEqualizerSheetState.value = false
-                    showLyricsSheet -> showLyricsSheetState.value = false
+                    showLyricsSheetState.value -> showLyricsSheetState.value = false
+                    showSavePresetDialogState.value -> showSavePresetDialogState.value = false
+                    deletePlaylistTargetState.value != null -> deletePlaylistTargetState.value = null
+                    deletePresetTargetState.value != null -> deletePresetTargetState.value = null
+                    addToPlaylistDialogTrack.value != null -> addToPlaylistDialogTrack.value = null
                     trackContextMenu != null -> trackContextMenuState.value = null
                     trackInfoDialog != null -> trackInfoDialogState.value = null
-                    showPriorityQueue -> showPriorityQueueState.value = false
-                    showSleepTimer -> showSleepTimerState.value = false
                     showSortOrder -> showSortOrderState.value = false
-                    isNowPlayingExpanded -> isNowPlayingExpandedState.value = false
-                    isInsideGroupDrilldown -> exitGroupDrilldown()
-                    currentCategory != LibraryCategory.ALL_SONGS -> selectCategory(LibraryCategory.ALL_SONGS)
+                    showSleepTimer -> showSleepTimerState.value = false
+                    showMenuSheetState.value -> showMenuSheetState.value = false
+                    showAudioInfoState.value -> showAudioInfoState.value = false
+                    showAboutState.value -> showAboutState.value = false
+                    navController.canNavigateUp -> navController.navigateUp()
                 }
             }
 
-            Surface(
-                color = auraPalette.deepBase,
-                modifier = Modifier.fillMaxSize()
+            AuroTheme(
+                accent = currentAccent,
+                playing = isPlaying
             ) {
-                AuraLiquidRootBox(
-                    palette = auraPalette,
-                    backgroundContent = {
-                        // 1. Tela da Biblioteca (Fundo)
-                        LibraryScreen(
-                            currentCategory = currentCategory,
-                            categories = categories,
-                            onSelectCategory = { selectCategory(it) },
-                            searchQuery = searchQuery,
-                            onSearchQueryChange = { onSearchQueryChange(it) },
-                            displayedTracks = displayedTracks,
-                            displayedGroups = displayedGroups,
-                            isInsideGroupDrilldown = isInsideGroupDrilldown,
-                            drilldownTitle = drilldownTitle,
-                            onBackFromDrilldown = { exitGroupDrilldown() },
-                            onTrackClick = { _, position ->
-                                playbackService?.playQueue(displayedTracks, position)
-                                isNowPlayingExpandedState.value = true
-                            },
-                            onTrackLongClick = { track ->
-                                trackContextMenuState.value = track
-                            },
-                            onGroupClick = { group ->
-                                drillDownGroup(group.title)
-                            },
-                            currentPlayingId = currentTrack?.id ?: -1L,
-                            onSortClick = { showSortOrderState.value = true },
-                            modifier = Modifier.fillMaxSize()
-                        )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(AuroColor.Black)
+                ) {
+                    // Conteúdo Principal de Acordo com a Tela Ativa
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(bottom = if (currentScreen is NavScreen.NowPlaying) 58.dp else if (currentTrack != null) 118.dp else 58.dp)
+                    ) {
+                        when (currentScreen) {
+                            is NavScreen.LibraryRoot -> {
+                                AuroLibraryRootScreen(
+                                    totalTracksCount = totalTracksCount,
+                                    onSelectCategory = { cat ->
+                                        selectCategory(cat)
+                                        navController.navigateTo(NavScreen.CategoryList(cat))
+                                    },
+                                    onSortClick = { showSortOrderState.value = true },
+                                    onRescanClick = { loadLibrary() },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
 
-                        // 2. Now Playing em Tela Cheia
-                        AnimatedVisibility(
-                            visible = isNowPlayingExpanded,
-                            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(380)) + fadeIn(animationSpec = tween(300)),
-                            exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(350)) + fadeOut(animationSpec = tween(250)),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            NowPlayingScreen(
-                                track = currentTrack,
-                                isPlaying = isPlaying,
-                                progressMs = progressMs,
-                                durationMs = durationMs,
-                                waveformPeaks = waveformPeaks,
-                                shuffleMode = shuffleMode,
-                                repeatMode = repeatMode,
-                                onPlayPause = { playbackService?.togglePlayPause() },
-                                onNext = { playbackService?.playNext() },
-                                onPrevious = { playbackService?.playPrevious() },
-                                onSeek = { fraction ->
-                                    val dur = durationMs.coerceAtLeast(1L)
-                                    val target = (fraction * dur).toLong()
-                                    playbackService?.seekTo(target)
-                                    progressMsState.longValue = target
-                                },
-                                onToggleShuffle = {
-                                    val newMode = playbackService?.toggleShuffleMode() ?: ShuffleMode.OFF
-                                    shuffleModeState.value = newMode
-                                    Toast.makeText(this@MainActivity, newMode.displayName, Toast.LENGTH_SHORT).show()
-                                },
-                                onToggleRepeat = {
-                                    val newMode = playbackService?.toggleRepeat() ?: RepeatMode.OFF
-                                    repeatModeState.value = newMode
-                                    Toast.makeText(this@MainActivity, newMode.displayName, Toast.LENGTH_SHORT).show()
-                                },
-                                onCollapse = { isNowPlayingExpandedState.value = false },
-                                onOpenLyrics = {
-                                    loadLyricsForCurrentTrack(currentTrack)
-                                    showLyricsSheetState.value = true
-                                },
-                                onOpenEqualizer = {
-                                    syncEqualizerState()
-                                    showEqualizerSheetState.value = true
-                                },
-                                onOpenQueue = { showPriorityQueueState.value = true },
-                                onOpenSleepTimer = { showSleepTimerState.value = true },
-                                onOpenTrackInfo = { track -> trackInfoDialogState.value = track },
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    },
-                    glassOverlays = {
-                        // Mini Player Flutuante + Bottom Nav (Visível quando Now Playing estiver recolhido)
-                        AnimatedVisibility(
-                            visible = !isNowPlayingExpanded,
-                            enter = fadeIn(animationSpec = tween(250)),
-                            exit = fadeOut(animationSpec = tween(200)),
-                            modifier = Modifier.align(Alignment.BottomCenter)
-                        ) {
-                            FloatingMiniPlayerAndNav(
-                                track = currentTrack,
-                                isPlaying = isPlaying,
-                                progressMs = progressMs,
-                                durationMs = durationMs,
-                                onMiniPlayerClick = { isNowPlayingExpandedState.value = true },
-                                onPlayPauseClick = { playbackService?.togglePlayPause() },
-                                onNextClick = { playbackService?.playNext() },
-                                onEqualizerClick = {
-                                    syncEqualizerState()
-                                    showEqualizerSheetState.value = true
-                                },
-                                onLyricsClick = {
-                                    loadLyricsForCurrentTrack(currentTrack)
-                                    showLyricsSheetState.value = true
-                                },
-                                onQueueClick = { showPriorityQueueState.value = true },
-                                onSleepTimerClick = { showSleepTimerState.value = true }
-                            )
-                        }
+                            is NavScreen.CategoryList -> {
+                                if (currentScreen.category == LibraryCategory.QUEUE) {
+                                    val priorityTracks = playbackService?.queueManager?.getPriorityQueue() ?: emptyList()
+                                    val regularTracks = playbackService?.queueManager?.getTracks() ?: emptyList()
+                                    AuroQueueScreen(
+                                        priorityTracks = priorityTracks,
+                                        regularTracks = regularTracks,
+                                        currentTrackId = currentTrack?.id ?: -1L,
+                                        onBackClick = { navController.navigateUp() },
+                                        onTrackClick = { _, index, isPriority ->
+                                            if (isPriority) {
+                                                playbackService?.queueManager?.skipTo(index)
+                                            } else {
+                                                playbackService?.skipToQueueIndex(index)
+                                            }
+                                            navController.openNowPlaying()
+                                        },
+                                        onRemoveTrack = { track ->
+                                            playbackService?.removeTrackFromQueue(track.id)
+                                            renderCurrentCategory()
+                                        },
+                                        onClearQueue = {
+                                            playbackService?.clearPriorityQueue()
+                                            renderCurrentCategory()
+                                            Toast.makeText(this@MainActivity, "Fila limpa", Toast.LENGTH_SHORT).show()
+                                        },
+                                        onShuffleQueue = {
+                                            playbackService?.shuffleCurrentQueue()
+                                            renderCurrentCategory()
+                                            Toast.makeText(this@MainActivity, "Fila aleatória", Toast.LENGTH_SHORT).show()
+                                        },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    AuroCategoryListScreen(
+                                        category = currentScreen.category,
+                                        displayedTracks = displayedTracks,
+                                        displayedGroups = displayedGroups,
+                                        currentPlayingId = currentTrack?.id ?: -1L,
+                                        onBackClick = { navController.navigateUp() },
+                                        onTrackClick = { _, position ->
+                                            playbackService?.playQueue(displayedTracks, position)
+                                            navController.openNowPlaying()
+                                        },
+                                        onTrackLongClick = { track ->
+                                            trackContextMenuState.value = track
+                                        },
+                                        onTrackMenuClick = { track ->
+                                            trackContextMenuState.value = track
+                                        },
+                                        onGroupClick = { group ->
+                                            drillDownGroup(currentScreen.category, group.title)
+                                            navController.navigateTo(
+                                                NavScreen.Drilldown(
+                                                    category = currentScreen.category,
+                                                    title = group.title,
+                                                    subtitle = group.subtitle
+                                                )
+                                            )
+                                        },
+                                        onGroupLongClick = { group ->
+                                            if (currentScreen.category == LibraryCategory.PLAYLISTS) {
+                                                deletePlaylistTargetState.value = group
+                                            }
+                                        },
+                                        onPlayAll = {
+                                            if (displayedTracks.isNotEmpty()) {
+                                                playbackService?.playQueue(displayedTracks, 0)
+                                                navController.openNowPlaying()
+                                            }
+                                        },
+                                        onShuffleAll = {
+                                            if (displayedTracks.isNotEmpty()) {
+                                                playbackService?.queueManager?.setShuffleMode(ShuffleMode.ALL_TRACKS)
+                                                shuffleModeState.value = ShuffleMode.ALL_TRACKS
+                                                playbackService?.playQueue(displayedTracks.shuffled(), 0)
+                                                navController.openNowPlaying()
+                                            }
+                                        },
+                                        onCreatePlaylist = {
+                                            val dummy = currentTrack ?: displayedTracks.firstOrNull()
+                                            if (dummy != null) {
+                                                addToPlaylistDialogTrack.value = dummy
+                                            }
+                                        },
+                                        onSortClick = { showSortOrderState.value = true },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                            }
 
-                        // Equalizador Studio em Sheet (Refrata o fundo com blur profundo)
-                        AnimatedVisibility(
-                            visible = showEqualizerSheet,
-                            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(380)) + fadeIn(),
-                            exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(350)) + fadeOut(),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            GlassEqualizerSheet(
-                                eqEnabled = eqEnabled,
-                                onToggleEq = { enabled ->
-                                    eqEnabledState.value = enabled
-                                    playbackService?.setEqualizerEnabled(enabled)
-                                    preferencesManager.saveEqualizerEnabled(enabled)
-                                },
-                                toneEnabled = toneEnabled,
-                                onToggleTone = { enabled ->
-                                    toneEnabledState.value = enabled
-                                    playbackService?.setToneEnabled(enabled)
-                                    preferencesManager.saveToneEnabled(enabled)
-                                },
-                                preampDb = preampDb,
-                                onPreampChange = { db ->
-                                    preampDbState.floatValue = db
-                                    playbackService?.setPreamp(db)
-                                    preferencesManager.savePreamp(db)
-                                },
-                                bassDb = bassDb,
-                                onBassChange = { db ->
-                                    bassDbState.floatValue = db
-                                    playbackService?.setBass(db)
-                                    preferencesManager.saveBass(db)
-                                    if (!toneEnabled) {
-                                        toneEnabledState.value = true
-                                        playbackService?.setToneEnabled(true)
-                                        preferencesManager.saveToneEnabled(true)
-                                    }
-                                },
-                                trebleDb = trebleDb,
-                                onTrebleChange = { db ->
-                                    trebleDbState.floatValue = db
-                                    playbackService?.setTreble(db)
-                                    preferencesManager.saveTreble(db)
-                                    if (!toneEnabled) {
-                                        toneEnabledState.value = true
-                                        playbackService?.setToneEnabled(true)
-                                        preferencesManager.saveToneEnabled(true)
-                                    }
-                                },
-                                balance = balance,
-                                onBalanceChange = { bal ->
-                                    balanceState.floatValue = bal
-                                    playbackService?.setBalance(bal)
-                                },
-                                crossfadeMs = crossfadeMs,
-                                onCrossfadeChange = { ms ->
-                                    crossfadeMsState.intValue = ms
-                                    playbackService?.setCrossfadeDurationMs(ms)
-                                },
-                                isMono = isMono,
-                                onToggleMono = { mono ->
-                                    isMonoState.value = mono
-                                    playbackService?.setMono(mono)
-                                },
-                                replayGainMode = replayGainMode,
-                                onReplayGainModeChange = { mode ->
-                                    replayGainModeState.intValue = mode
-                                    playbackService?.setReplayGainMode(mode)
-                                },
-                                bandGains = bandGainsState,
-                                onBandGainChange = { band, db ->
-                                    if (band in bandGainsState.indices) {
-                                        bandGainsState[band] = db
-                                    }
-                                    playbackService?.setEqualizerBand(band, db)
-                                    preferencesManager.saveEqualizerBand(band, db)
-                                },
-                                activePresetName = activePresetName,
-                                presets = presetsList,
-                                onSelectPreset = { preset -> applyFullPreset(preset) },
-                                onSavePreset = { name -> saveCustomPreset(name) },
-                                onClose = { showEqualizerSheetState.value = false }
-                            )
-                        }
+                            is NavScreen.Drilldown -> {
+                                AuroDrilldownScreen(
+                                    category = currentScreen.category,
+                                    groupTitle = currentScreen.title,
+                                    tracks = drilldownTracks,
+                                    currentPlayingId = currentTrack?.id ?: -1L,
+                                    onBackToCategoryList = { navController.navigateUp() },
+                                    onBackToLibraryRoot = { navController.resetToLibraryRoot() },
+                                    onPlayAll = {
+                                        if (drilldownTracks.isNotEmpty()) {
+                                            playbackService?.playQueue(drilldownTracks, 0)
+                                            navController.openNowPlaying()
+                                        }
+                                    },
+                                    onShuffleAll = {
+                                        if (drilldownTracks.isNotEmpty()) {
+                                            playbackService?.queueManager?.setShuffleMode(ShuffleMode.ALL_TRACKS)
+                                            shuffleModeState.value = ShuffleMode.ALL_TRACKS
+                                            playbackService?.playQueue(drilldownTracks.shuffled(), 0)
+                                            navController.openNowPlaying()
+                                        }
+                                    },
+                                    onTrackClick = { _, position ->
+                                        playbackService?.playQueue(drilldownTracks, position)
+                                        navController.openNowPlaying()
+                                    },
+                                    onTrackLongClick = { track ->
+                                        trackContextMenuState.value = track
+                                    },
+                                    onTrackMenuClick = { track ->
+                                        trackContextMenuState.value = track
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
 
-                        // Letras Sincronizadas
-                        AnimatedVisibility(
-                            visible = showLyricsSheet,
-                            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(380)) + fadeIn(),
-                            exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(350)) + fadeOut(),
-                            modifier = Modifier.fillMaxSize()
-                        ) {
-                            GlassLyricsScreen(
-                                track = currentTrack,
-                                lyrics = activeLyrics,
-                                currentMs = progressMs,
-                                onSeekToTime = { targetMs ->
-                                    playbackService?.seekTo(targetMs)
-                                    progressMsState.longValue = targetMs
-                                },
-                                onClose = { showLyricsSheetState.value = false }
-                            )
-                        }
+                            is NavScreen.NowPlaying -> {
+                                val currentIndex = playbackService?.queueManager?.currentQueueIndex ?: 0
+                                val totalQueue = playbackService?.queueManager?.queueSize ?: 0
+                                val upcoming = playbackService?.queueManager?.getUpcomingTracks(2) ?: emptyList()
+                                AuroNowPlayingScreen(
+                                    track = currentTrack,
+                                    isPlaying = isPlaying,
+                                    progressMs = progressMs,
+                                    durationMs = durationMs,
+                                    coverBitmap = currentCover,
+                                    shuffleMode = shuffleMode,
+                                    repeatMode = repeatMode,
+                                    currentTrackIndex = currentIndex,
+                                    queueSize = totalQueue,
+                                    categoryTitle = currentCategoryState.value.title,
+                                    upcomingTracks = upcoming,
+                                    onPlayPause = { playbackService?.togglePlayPause() },
+                                    onNext = { playbackService?.playNext() },
+                                    onPrevious = { playbackService?.playPrevious() },
+                                    onSeek = { fraction ->
+                                        val dur = durationMs.coerceAtLeast(1L)
+                                        val target = (fraction * dur).toLong()
+                                        playbackService?.seekTo(target)
+                                        progressMsState.longValue = target
+                                    },
+                                    onSeekJumpForward = { playbackService?.seekJumpForward() },
+                                    onSeekJumpBackward = { playbackService?.seekJumpBackward() },
+                                    onBeginFastForward = { playbackService?.beginFastForward() },
+                                    onEndFastForward = { playbackService?.endFastForward() },
+                                    onBeginRewind = { playbackService?.beginRewind() },
+                                    onEndRewind = { playbackService?.endRewind() },
+                                    onRatingChanged = { r -> setTrackRating(currentTrack, r) },
+                                    onToggleShuffle = {
+                                        val newMode = playbackService?.toggleShuffleMode() ?: ShuffleMode.OFF
+                                        shuffleModeState.value = newMode
+                                        Toast.makeText(this@MainActivity, newMode.displayName, Toast.LENGTH_SHORT).show()
+                                    },
+                                    onToggleRepeat = {
+                                        val newMode = playbackService?.toggleRepeat() ?: RepeatMode.OFF
+                                        repeatModeState.value = newMode
+                                        Toast.makeText(this@MainActivity, newMode.displayName, Toast.LENGTH_SHORT).show()
+                                    },
+                                    onCollapse = { navController.navigateUp() },
+                                    onOpenEqualizer = { navController.navigateTo(NavScreen.Equalizer) },
+                                    onOpenLyrics = { showLyricsSheetState.value = true },
+                                    onOpenQueue = {
+                                        selectCategory(LibraryCategory.QUEUE)
+                                        navController.navigateTo(NavScreen.CategoryList(LibraryCategory.QUEUE))
+                                    },
+                                    onOpenTrackInfo = {
+                                        trackInfoDialogState.value = currentTrack
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
 
-                        // Modais com Vidro Real e Refração
-                        trackContextMenu?.let { track ->
-                            TrackContextMenuSheet(
-                                track = track,
-                                onPlayNext = {
-                                    playbackService?.enqueueNext(track)
-                                    trackContextMenuState.value = null
-                                    Toast.makeText(this@MainActivity, "Adicionada para tocar a seguir", Toast.LENGTH_SHORT).show()
-                                },
-                                onEnqueueEnd = {
-                                    playbackService?.enqueueEnd(track)
-                                    trackContextMenuState.value = null
-                                    Toast.makeText(this@MainActivity, "Adicionada ao fim da fila", Toast.LENGTH_SHORT).show()
-                                },
-                                onFavorite = {
-                                    libraryRepo.setTrackRating(track.id, 5)
-                                    trackContextMenuState.value = null
-                                    Toast.makeText(this@MainActivity, "Adicionada às Favoritas", Toast.LENGTH_SHORT).show()
-                                },
-                                onShowInfo = {
-                                    trackContextMenuState.value = null
-                                    trackInfoDialogState.value = track
-                                },
-                                onDismiss = { trackContextMenuState.value = null }
-                            )
-                        }
+                            is NavScreen.Equalizer -> {
+                                AuroEqualizerScreen(
+                                    eqEnabled = eqEnabled,
+                                    onToggleEq = { enabled ->
+                                        eqEnabledState.value = enabled
+                                        playbackService?.setEqualizerEnabled(enabled)
+                                        preferencesManager.saveEqualizerEnabled(enabled)
+                                    },
+                                    toneEnabled = toneEnabled,
+                                    onToggleTone = { enabled ->
+                                        toneEnabledState.value = enabled
+                                        playbackService?.setToneEnabled(enabled)
+                                        preferencesManager.saveToneEnabled(enabled)
+                                    },
+                                    preampDb = preampDb,
+                                    onPreampChange = { db ->
+                                        preampDbState.floatValue = db
+                                        playbackService?.setPreamp(db)
+                                        preferencesManager.savePreamp(db)
+                                    },
+                                    bassDb = bassDb,
+                                    onBassChange = { db ->
+                                        bassDbState.floatValue = db
+                                        playbackService?.setBass(db)
+                                        preferencesManager.saveBass(db)
+                                        if (!toneEnabled) {
+                                            toneEnabledState.value = true
+                                            playbackService?.setToneEnabled(true)
+                                            preferencesManager.saveToneEnabled(true)
+                                        }
+                                    },
+                                    trebleDb = trebleDb,
+                                    onTrebleChange = { db ->
+                                        trebleDbState.floatValue = db
+                                        playbackService?.setTreble(db)
+                                        preferencesManager.saveTreble(db)
+                                        if (!toneEnabled) {
+                                            toneEnabledState.value = true
+                                            playbackService?.setToneEnabled(true)
+                                            preferencesManager.saveToneEnabled(true)
+                                        }
+                                    },
+                                    balance = balance,
+                                    onBalanceChange = { bal ->
+                                        balanceState.floatValue = bal
+                                        playbackService?.setBalance(bal)
+                                    },
+                                    isMono = isMono,
+                                    onToggleMono = { mono ->
+                                        isMonoState.value = mono
+                                        playbackService?.setMono(mono)
+                                    },
+                                    bandGains = bandGainsState,
+                                    onBandGainChange = { band, db ->
+                                        if (band in bandGainsState.indices) {
+                                            bandGainsState[band] = db
+                                        }
+                                        playbackService?.setEqualizerBand(band, db)
+                                        preferencesManager.saveEqualizerBand(band, db)
+                                    },
+                                    activePresetName = activePresetName,
+                                    presets = presetsList,
+                                    onSelectPreset = { preset -> applyFullPreset(preset) },
+                                    onResetEq = { resetEqualizerToFlat() },
+                                    onSavePreset = { showSavePresetDialogState.value = true },
+                                    onDeletePreset = { preset -> deletePresetTargetState.value = preset },
+                                    onClose = { navController.navigateUp() },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
 
-                        trackInfoDialog?.let { track ->
-                            TrackInfoDialog(
-                                track = track,
-                                onDismiss = { trackInfoDialogState.value = null }
-                            )
-                        }
+                            is NavScreen.Search -> {
+                                AuroSearchScreen(
+                                    searchQuery = searchQuery,
+                                    onQueryChange = { q -> onSearchQueryChange(q) },
+                                    results = searchResults,
+                                    currentPlayingId = currentTrack?.id ?: -1L,
+                                    onTrackClick = { _, position ->
+                                        playbackService?.playQueue(searchResults, position)
+                                        navController.openNowPlaying()
+                                    },
+                                    onTrackMenuClick = { track ->
+                                        trackContextMenuState.value = track
+                                    },
+                                    onClose = { navController.navigateUp() },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
 
-                        if (showPriorityQueue) {
-                            PriorityQueueDialog(
-                                queueTracks = playbackService?.queueManager?.getPriorityQueue() ?: emptyList(),
-                                currentTrackId = currentTrack?.id ?: -1L,
-                                onTrackClick = { track, pos ->
-                                    playbackService?.queueManager?.getPriorityQueue()?.let { q ->
-                                        playbackService?.playQueue(q, pos)
-                                    }
-                                },
-                                onClearQueue = {
-                                    playbackService?.queueManager?.clearPriorityQueue()
-                                    showPriorityQueueState.value = false
-                                    Toast.makeText(this@MainActivity, "Fila prioritária limpa", Toast.LENGTH_SHORT).show()
-                                },
-                                onDismiss = { showPriorityQueueState.value = false }
-                            )
-                        }
-
-                        if (showSleepTimer) {
-                            SleepTimerDialog(
-                                remainingSeconds = playbackService?.getSleepTimerRemainingSeconds() ?: 0,
-                                onStartTimer = { min ->
-                                    playbackService?.startSleepTimer(min)
-                                    Toast.makeText(this@MainActivity, "Desligará em $min minutos", Toast.LENGTH_SHORT).show()
-                                },
-                                onCancelTimer = {
-                                    playbackService?.cancelSleepTimer()
-                                    Toast.makeText(this@MainActivity, "Temporizador cancelado", Toast.LENGTH_SHORT).show()
-                                },
-                                onDismiss = { showSleepTimerState.value = false }
-                            )
-                        }
-
-                        if (showSortOrder) {
-                            SortOrderDialog(
-                                currentSortMode = currentSortMode,
-                                onSelectSortMode = { onSelectSortMode(it) },
-                                onDismiss = { showSortOrderState.value = false }
-                            )
+                            is NavScreen.Queue -> {
+                                val priorityTracks = playbackService?.queueManager?.getPriorityQueue() ?: emptyList()
+                                val regularTracks = playbackService?.queueManager?.getTracks() ?: emptyList()
+                                AuroQueueScreen(
+                                    priorityTracks = priorityTracks,
+                                    regularTracks = regularTracks,
+                                    currentTrackId = currentTrack?.id ?: -1L,
+                                    onBackClick = { navController.navigateUp() },
+                                    onTrackClick = { _, index, isPriority ->
+                                        if (isPriority) {
+                                            playbackService?.queueManager?.skipTo(index)
+                                        } else {
+                                            playbackService?.skipToQueueIndex(index)
+                                        }
+                                        navController.openNowPlaying()
+                                    },
+                                    onRemoveTrack = { track ->
+                                        playbackService?.removeTrackFromQueue(track.id)
+                                        renderCurrentCategory()
+                                    },
+                                    onClearQueue = {
+                                        playbackService?.clearPriorityQueue()
+                                        renderCurrentCategory()
+                                        Toast.makeText(this@MainActivity, "Fila limpa", Toast.LENGTH_SHORT).show()
+                                    },
+                                    onShuffleQueue = {
+                                        playbackService?.shuffleCurrentQueue()
+                                        renderCurrentCategory()
+                                        Toast.makeText(this@MainActivity, "Fila aleatória", Toast.LENGTH_SHORT).show()
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                     }
-                )
+
+                    // Mini Player e Navbar Inferior Persistente (Estilo Poweramp presente em todas as telas)
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                    ) {
+                        if (currentScreen !is NavScreen.NowPlaying && currentTrack != null) {
+                            AuroMiniPlayer(
+                                track = currentTrack,
+                                isPlaying = isPlaying,
+                                progressMs = progressMs,
+                                durationMs = durationMs,
+                                coverBitmap = miniPlayerCover,
+                                onOpenNowPlaying = { navController.openNowPlaying() },
+                                onPlayPause = { playbackService?.togglePlayPause() },
+                                onNext = { playbackService?.playNext() },
+                                onPrevious = { playbackService?.playPrevious() }
+                            )
+                        }
+
+                        AuroNavbar(
+                            currentScreen = currentScreen,
+                            onEqClick = { navController.toggleEqualizer() },
+                            onLibraryClick = { navController.toggleLibrary() },
+                            onSearchClick = { navController.toggleSearch() },
+                            onMenuClick = { showMenuSheetState.value = true }
+                        )
+                    }
+
+                    // Diálogos Modais Funcionais e Limpos
+                    trackContextMenu?.let { track ->
+                        AuroTrackContextMenuDialog(
+                            track = track,
+                            onPlayNext = {
+                                playbackService?.enqueueNext(track)
+                                trackContextMenuState.value = null
+                                Toast.makeText(this@MainActivity, "Tocar a seguir (Fila prioritária)", Toast.LENGTH_SHORT).show()
+                            },
+                            onEnqueueEnd = {
+                                playbackService?.enqueueEnd(track)
+                                trackContextMenuState.value = null
+                                Toast.makeText(this@MainActivity, "Adicionada ao fim da fila", Toast.LENGTH_SHORT).show()
+                            },
+                            onAddToPlaylist = {
+                                trackContextMenuState.value = null
+                                addToPlaylistDialogTrack.value = track
+                            },
+                            onSetRating = { r ->
+                                setTrackRating(track, r)
+                                trackContextMenuState.value = null
+                            },
+                            onShowInfo = {
+                                trackContextMenuState.value = null
+                                trackInfoDialogState.value = track
+                            },
+                            onDismiss = { trackContextMenuState.value = null }
+                        )
+                    }
+
+                    addToPlaylistDialogTrack.value?.let { track ->
+                        AuroAddToPlaylistDialog(
+                            track = track,
+                            playlists = libraryRepo.getUserPlaylists(),
+                            onCreatePlaylist = { name ->
+                                val plId = libraryRepo.createPlaylist(name)
+                                if (plId > 0) {
+                                    libraryRepo.addTrackToUserPlaylist(plId, track.id)
+                                    Toast.makeText(this@MainActivity, "Playlist criada e faixa adicionada!", Toast.LENGTH_SHORT).show()
+                                }
+                                addToPlaylistDialogTrack.value = null
+                            },
+                            onSelectPlaylist = { pl ->
+                                libraryRepo.addTrackToUserPlaylist(pl.id, track.id)
+                                Toast.makeText(this@MainActivity, "Adicionada à playlist '${pl.name}'", Toast.LENGTH_SHORT).show()
+                                addToPlaylistDialogTrack.value = null
+                            },
+                            onDismiss = { addToPlaylistDialogTrack.value = null }
+                        )
+                    }
+
+                    trackInfoDialog?.let { track ->
+                        AuroTrackInfoDialog(
+                            track = track,
+                            onDismiss = { trackInfoDialogState.value = null }
+                        )
+                    }
+
+                    if (showSortOrder) {
+                        AuroSortDialog(
+                            currentSortMode = currentSortModeState.value,
+                            onSelectSort = { onSelectSortMode(it) },
+                            onDismiss = { showSortOrderState.value = false }
+                        )
+                    }
+
+                    if (showSleepTimer) {
+                        AuroSleepTimerDialog(
+                            remainingSeconds = playbackService?.getSleepTimerRemainingSeconds() ?: 0,
+                            onSetTimerMinutes = { min, stopAtEnd ->
+                                playbackService?.startSleepTimer(min, stopAtEnd)
+                                val msg = if (stopAtEnd) "Desligará em $min min (ao fim da faixa)" else "Desligará em $min min"
+                                Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
+                            },
+                            onCancelTimer = {
+                                playbackService?.cancelSleepTimer()
+                                Toast.makeText(this@MainActivity, "Temporizador desligado", Toast.LENGTH_SHORT).show()
+                            },
+                            onDismiss = { showSleepTimerState.value = false }
+                        )
+                    }
+
+                    if (showMenuSheetState.value) {
+                        AuroPowerampMenuSheet(
+                            onOpenEqualizer = { navController.navigateTo(NavScreen.Equalizer) },
+                            onOpenSleepTimer = { showSleepTimerState.value = true },
+                            onOpenAudioInfo = { showAudioInfoState.value = true },
+                            onRescanLibrary = {
+                                loadLibrary()
+                                Toast.makeText(this@MainActivity, "Biblioteca atualizada", Toast.LENGTH_SHORT).show()
+                            },
+                            onOpenAbout = { showAboutState.value = true },
+                            onDismiss = { showMenuSheetState.value = false }
+                        )
+                    }
+
+                    if (showAudioInfoState.value) {
+                        AuroAudioEngineDialog(
+                            sampleRate = currentTrack?.sampleRateHz ?: 48000,
+                            onDismiss = { showAudioInfoState.value = false }
+                        )
+                    }
+
+                    if (showAboutState.value) {
+                        AuroAboutDialog(
+                            onDismiss = { showAboutState.value = false }
+                        )
+                    }
+
+                    if (showLyricsSheetState.value && currentTrack != null) {
+                        val lyrics = remember(currentTrack) {
+                            LyricsManager.loadLyrics(this@MainActivity, currentTrack!!)
+                        }
+                        AuroLyricsSheet(
+                            track = currentTrack!!,
+                            lyrics = lyrics,
+                            currentProgressMs = progressMs,
+                            onSeekToMs = { ms ->
+                                playbackService?.seekTo(ms)
+                                progressMsState.longValue = ms
+                            },
+                            onDismiss = { showLyricsSheetState.value = false }
+                        )
+                    }
+
+                    if (showSavePresetDialogState.value) {
+                        AuroSavePresetDialog(
+                            onSave = { name ->
+                                saveCustomPreset(name)
+                                showSavePresetDialogState.value = false
+                            },
+                            onDismiss = { showSavePresetDialogState.value = false }
+                        )
+                    }
+
+                    deletePlaylistTargetState.value?.let { group ->
+                        AuroConfirmDeleteDialog(
+                            title = "Excluir Playlist",
+                            message = "Deseja excluir a lista '${group.title}'?",
+                            onConfirm = {
+                                deleteUserPlaylist(group.title)
+                                deletePlaylistTargetState.value = null
+                            },
+                            onDismiss = { deletePlaylistTargetState.value = null }
+                        )
+                    }
+
+                    deletePresetTargetState.value?.let { preset ->
+                        AuroConfirmDeleteDialog(
+                            title = "Excluir Preset",
+                            message = "Deseja excluir o preset '${preset.name}'?",
+                            onConfirm = {
+                                deleteCustomPreset(preset)
+                                deletePresetTargetState.value = null
+                            },
+                            onDismiss = { deletePresetTargetState.value = null }
+                        )
+                    }
+                }
             }
         }
 
@@ -509,19 +740,92 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         checkAndRequestPermissions()
     }
 
+    private fun resetEqualizerToFlat() {
+        val service = playbackService ?: return
+        activePresetNameState.value = "Flat"
+        preferencesManager.saveActivePresetName("Flat")
+
+        for (i in 0 until 10) {
+            if (i < bandGainsState.size) bandGainsState[i] = 0f
+            service.setEqualizerBand(i, 0f)
+            preferencesManager.saveEqualizerBand(i, 0f)
+        }
+        bassDbState.floatValue = 0f
+        service.setBass(0f)
+        preferencesManager.saveBass(0f)
+
+        trebleDbState.floatValue = 0f
+        service.setTreble(0f)
+        preferencesManager.saveTreble(0f)
+
+        preampDbState.floatValue = 0f
+        service.setPreamp(0f)
+        preferencesManager.savePreamp(0f)
+
+        Toast.makeText(this, "Equalizador redefinido para Flat (0dB)", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun saveCustomPreset(name: String) {
+        musicDb.savePreset(
+            name = name,
+            bandGains = bandGainsState.toList(),
+            bass = bassDbState.floatValue,
+            treble = trebleDbState.floatValue,
+            preamp = preampDbState.floatValue
+        )
+        presetsListState.value = musicDb.getAllPresets()
+        activePresetNameState.value = name
+        preferencesManager.saveActivePresetName(name)
+        Toast.makeText(this, "Preset '$name' salvo", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun deleteCustomPreset(preset: MusicDatabase.EqPreset) {
+        if (preset.isBuiltin) return
+        musicDb.deletePreset(preset.id)
+        presetsListState.value = musicDb.getAllPresets()
+        if (activePresetNameState.value == preset.name) {
+            activePresetNameState.value = "Flat"
+            preferencesManager.saveActivePresetName("Flat")
+        }
+        Toast.makeText(this, "Preset '${preset.name}' excluído", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun deleteUserPlaylist(playlistName: String) {
+        val pl = libraryRepo.getUserPlaylists().firstOrNull { it.name == playlistName }
+        if (pl != null) {
+            libraryRepo.deletePlaylist(pl.id)
+            renderCurrentCategory()
+            Toast.makeText(this, "Playlist '${pl.name}' excluída", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun setTrackRating(track: Track?, rating: Int) {
+        if (track == null) return
+        track.rating = rating
+        libraryRepo.setTrackRating(track.id, rating)
+        if (currentTrackState.value?.id == track.id) {
+            currentTrackState.value = track.copy(rating = rating)
+        }
+        renderCurrentCategory()
+        Toast.makeText(
+            this,
+            if (rating > 0) "Classificada com $rating estrelas" else "Classificação removida",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
     private fun selectCategory(category: LibraryCategory) {
         currentCategoryState.value = category
-        isInsideGroupDrilldownState.value = false
-        drilldownTitleState.value = ""
-        searchQueryState.value = ""
         renderCurrentCategory()
     }
 
     private fun renderCurrentCategory() {
-        when (currentCategoryState.value) {
+        val cat = currentCategoryState.value
+        val sort = currentSortModeState.value
+
+        when (cat) {
             LibraryCategory.ALL_SONGS -> {
-                val list = libraryRepo.applySorting(libraryRepo.getAllTracks(), currentSortModeState.value)
-                displayedTracksState.value = filterTracks(list, searchQueryState.value)
+                displayedTracksState.value = libraryRepo.applySorting(libraryRepo.getAllTracks(), sort)
                 displayedGroupsState.value = emptyList()
             }
             LibraryCategory.FOLDERS -> {
@@ -554,7 +858,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             }
             LibraryCategory.YEARS -> {
                 val years = libraryRepo.getYears()
-                displayedGroupsState.value = years.map { GroupItem(it.year.toString(), "Ano de Lançamento", "${it.trackCount} faixas") }
+                displayedGroupsState.value = years.map { GroupItem(it.year.toString(), "Ano", "${it.trackCount} faixas") }
                 displayedTracksState.value = emptyList()
             }
             LibraryCategory.COMPOSERS -> {
@@ -564,7 +868,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             }
             LibraryCategory.QUEUE -> {
                 val queueTracks = playbackService?.queueManager?.getPriorityQueue() ?: emptyList()
-                displayedTracksState.value = filterTracks(queueTracks, searchQueryState.value)
+                displayedTracksState.value = queueTracks
                 displayedGroupsState.value = emptyList()
             }
             LibraryCategory.PLAYLISTS -> {
@@ -573,61 +877,51 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 displayedTracksState.value = emptyList()
             }
             LibraryCategory.MOST_PLAYED -> {
-                val list = libraryRepo.getMostPlayed()
-                displayedTracksState.value = filterTracks(list, searchQueryState.value)
+                displayedTracksState.value = libraryRepo.getMostPlayed()
                 displayedGroupsState.value = emptyList()
             }
             LibraryCategory.RECENTLY_ADDED -> {
-                val list = libraryRepo.getRecentlyAdded()
-                displayedTracksState.value = filterTracks(list, searchQueryState.value)
+                displayedTracksState.value = libraryRepo.getRecentlyAdded()
                 displayedGroupsState.value = emptyList()
             }
             LibraryCategory.RECENTLY_PLAYED -> {
-                val list = libraryRepo.getRecentlyPlayed()
-                displayedTracksState.value = filterTracks(list, searchQueryState.value)
+                displayedTracksState.value = libraryRepo.getRecentlyPlayed()
                 displayedGroupsState.value = emptyList()
             }
             LibraryCategory.TOP_RATED -> {
-                val list = libraryRepo.getTopRated()
-                displayedTracksState.value = filterTracks(list, searchQueryState.value)
+                displayedTracksState.value = libraryRepo.getTopRated()
                 displayedGroupsState.value = emptyList()
             }
         }
     }
 
-    private fun drillDownGroup(groupName: String) {
-        val tracks = when (currentCategoryState.value) {
-            LibraryCategory.ALBUMS -> libraryRepo.getTracksForAlbum(groupName, currentSortModeState.value)
-            LibraryCategory.ARTISTS -> libraryRepo.getTracksForArtist(groupName, currentSortModeState.value)
-            LibraryCategory.ALBUM_ARTISTS -> libraryRepo.getTracksForAlbumArtist(groupName, currentSortModeState.value)
-            LibraryCategory.FOLDERS -> libraryRepo.getTracksForFolder(groupName, currentSortModeState.value)
-            LibraryCategory.GENRES -> libraryRepo.getTracksForGenre(groupName, currentSortModeState.value)
-            LibraryCategory.YEARS -> groupName.toIntOrNull()?.let { libraryRepo.getTracksForYear(it, currentSortModeState.value) } ?: emptyList()
-            LibraryCategory.COMPOSERS -> libraryRepo.getTracksForComposer(groupName, currentSortModeState.value)
+    private fun drillDownGroup(category: LibraryCategory, groupName: String) {
+        val sort = currentSortModeState.value
+        val tracks = when (category) {
+            LibraryCategory.ALBUMS -> libraryRepo.getTracksForAlbum(groupName, sort)
+            LibraryCategory.ARTISTS -> libraryRepo.getTracksForArtist(groupName, sort)
+            LibraryCategory.ALBUM_ARTISTS -> libraryRepo.getTracksForAlbumArtist(groupName, sort)
+            LibraryCategory.FOLDERS -> libraryRepo.getTracksForFolder(groupName, sort)
+            LibraryCategory.GENRES -> libraryRepo.getTracksForGenre(groupName, sort)
+            LibraryCategory.YEARS -> groupName.toIntOrNull()?.let { libraryRepo.getTracksForYear(it, sort) } ?: emptyList()
+            LibraryCategory.COMPOSERS -> libraryRepo.getTracksForComposer(groupName, sort)
             LibraryCategory.PLAYLISTS -> {
                 val pl = libraryRepo.getUserPlaylists().firstOrNull { it.name == groupName }
                 if (pl != null) libraryRepo.getTracksForUserPlaylist(pl.id) else emptyList()
             }
             else -> emptyList()
         }
+        drilldownTracksState.value = tracks
+    }
 
-        if (tracks.isNotEmpty()) {
-            isInsideGroupDrilldownState.value = true
-            drilldownTitleState.value = groupName
-            displayedTracksState.value = filterTracks(tracks, searchQueryState.value)
-            displayedGroupsState.value = emptyList()
+    private fun onSearchQueryChange(query: String) {
+        searchQueryState.value = query
+        if (query.isBlank()) {
+            searchResultsState.value = emptyList()
+            return
         }
-    }
-
-    private fun exitGroupDrilldown() {
-        isInsideGroupDrilldownState.value = false
-        drilldownTitleState.value = ""
-        renderCurrentCategory()
-    }
-
-    private fun filterTracks(list: List<Track>, query: String): List<Track> {
-        if (query.isEmpty()) return list
-        return list.filter { track ->
+        val all = libraryRepo.getAllTracks()
+        searchResultsState.value = all.filter { track ->
             track.title.contains(query, ignoreCase = true) ||
             track.artist.contains(query, ignoreCase = true) ||
             track.album.contains(query, ignoreCase = true) ||
@@ -636,22 +930,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         }
     }
 
-    private fun onSearchQueryChange(query: String) {
-        searchQueryState.value = query
-        if (isInsideGroupDrilldownState.value) {
-            drillDownGroup(drilldownTitleState.value)
-        } else {
-            renderCurrentCategory()
-        }
-    }
-
     private fun onSelectSortMode(mode: SortMode) {
         currentSortModeState.value = mode
-        if (isInsideGroupDrilldownState.value) {
-            drillDownGroup(drilldownTitleState.value)
-        } else {
-            renderCurrentCategory()
-        }
+        renderCurrentCategory()
     }
 
     private fun syncEqualizerState() {
@@ -662,9 +943,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         bassDbState.floatValue = service.getBass()
         trebleDbState.floatValue = service.getTreble()
         balanceState.floatValue = service.getBalance()
-        crossfadeMsState.intValue = service.getCrossfadeDurationMs()
         isMonoState.value = service.isMono()
-        replayGainModeState.intValue = service.getReplayGainMode()
         activePresetNameState.value = preferencesManager.getActivePresetName()
         presetsListState.value = musicDb.getAllPresets()
 
@@ -710,49 +989,6 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         }
     }
 
-    private fun saveCustomPreset(name: String) {
-        val service = playbackService ?: return
-        val gains = (0 until 10).map { service.getEqualizerBand(it) }
-        musicDb.savePreset(name, gains, service.getBass(), service.getTreble(), service.getPreamp())
-        preferencesManager.saveActivePresetName(name)
-        activePresetNameState.value = name
-        presetsListState.value = musicDb.getAllPresets()
-        Toast.makeText(this, "Preset '$name' salvo com sucesso!", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun loadLyricsForCurrentTrack(track: Track?) {
-        if (track == null) {
-            activeLyricsState.value = null
-            return
-        }
-        Thread {
-            val lyrics = LyricsManager.loadLyrics(this, track)
-            runOnUiThread {
-                activeLyricsState.value = lyrics
-            }
-        }.start()
-    }
-
-    private fun loadWaveformForTrack(track: Track) {
-        waveformPeaksState.value = null
-        val uri = track.uri
-        val service = playbackService ?: return
-        Thread {
-            try {
-                contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
-                    val peaks = service.audioEngine.scanWaveform(pfd, 70)
-                    if (peaks != null && peaks.isNotEmpty()) {
-                        runOnUiThread {
-                            if (playbackService?.queueManager?.currentTrack?.id == track.id) {
-                                waveformPeaksState.value = peaks
-                            }
-                        }
-                    }
-                }
-            } catch (_: Exception) {}
-        }.start()
-    }
-
     // PlaybackService.PlaybackListener Callbacks
     override fun onTrackChanged(track: Track?) {
         runOnUiThread {
@@ -760,14 +996,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             isPlayingState.value = playbackService?.audioEngine?.isPlaying() ?: false
             if (track != null) {
                 durationMsState.longValue = track.durationMs
-                loadWaveformForTrack(track)
-                if (showLyricsSheetState.value) {
-                    loadLyricsForCurrentTrack(track)
-                }
             } else {
                 durationMsState.longValue = 0L
-                waveformPeaksState.value = null
-                activeLyricsState.value = null
             }
         }
     }
@@ -816,8 +1046,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     }
 
     private fun loadLibrary() {
-        libraryRepo.loadTracks(this) { _ ->
+        libraryRepo.loadTracks(this) { list ->
             runOnUiThread {
+                totalTracksCountState.intValue = list.size
                 selectCategory(LibraryCategory.ALL_SONGS)
             }
         }

@@ -227,21 +227,170 @@ fun LibraryScreen(
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Carrossel Mixes / Álbuns no topo (Estilo Figma)
+        // Bento Grid Superior de 195.dp (Fiel a 1000020366.jpg)
         if (!isInsideGroupDrilldown && displayedTracks.isNotEmpty()) {
-            val previewTracks = remember(displayedTracks) { displayedTracks.take(8) }
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                contentPadding = PaddingValues(vertical = 6.dp),
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp)
+                    .height(195.dp)
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                itemsIndexed(previewTracks) { index, track ->
-                    AlbumMixCard(
-                        track = track,
-                        onClick = { onTrackClick(track, index) }
-                    )
+                // Coluna Esquerda (peso 1f): Cartão Rosa Magenta 'Tocando / Recente'
+                val firstTrack = displayedTracks.firstOrNull()
+                InnerAuraCard(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    cornerRadius = 28.dp,
+                    glowSpreadDp = 50.dp,
+                    auraColor = AuraPreset.MAGENTA_PULSE.auraColor,
+                    secondaryColor = AuraPreset.MAGENTA_PULSE.secondaryColor,
+                    topBias = AuraPreset.MAGENTA_PULSE.topBias,
+                    bottomBias = AuraPreset.MAGENTA_PULSE.bottomBias,
+                    coreColor = Color(0xFF050508),
+                    onClick = { if (firstTrack != null) onTrackClick(firstTrack, 0) }
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text(
+                                text = "Tocando / Recente",
+                                color = Color.White.copy(alpha = 0.65f),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "01",
+                                color = Color.White,
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = firstTrack?.title ?: "Nenhuma faixa",
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        DottedArcWaveDecoration(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp),
+                            dotColor = AuraPreset.MAGENTA_PULSE.glowHighlight,
+                            arcColor = Color.White.copy(alpha = 0.20f)
+                        )
+                    }
+                }
+
+                // Coluna Direita (peso 1f, dividida em 2 cartões empilhados)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Topo (height = 68.dp): Cartão Azul Cobalto 'Equalizador / DSP'
+                    var dspQuickToggle by remember { mutableStateOf(true) }
+                    InnerAuraCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(68.dp),
+                        cornerRadius = 24.dp,
+                        glowSpreadDp = 40.dp,
+                        auraColor = AuraPreset.COBALT_TRAINING.auraColor,
+                        secondaryColor = AuraPreset.COBALT_TRAINING.secondaryColor,
+                        topBias = AuraPreset.COBALT_TRAINING.topBias,
+                        bottomBias = AuraPreset.COBALT_TRAINING.bottomBias,
+                        coreColor = Color(0xFF050508)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Equalizador",
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "DSP 10-Band",
+                                    color = Color.White.copy(alpha = 0.55f),
+                                    fontSize = 10.sp
+                                )
+                            }
+                            TrainingPillToggle(
+                                checked = dspQuickToggle,
+                                onCheckedChange = { dspQuickToggle = it }
+                            )
+                        }
+                    }
+
+                    // Base (weight = 1f): Cartão Laranja Coral 'Biblioteca'
+                    InnerAuraCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        cornerRadius = 24.dp,
+                        glowSpreadDp = 46.dp,
+                        auraColor = AuraPreset.CORAL_BREATH.auraColor,
+                        secondaryColor = AuraPreset.CORAL_BREATH.secondaryColor,
+                        topBias = AuraPreset.CORAL_BREATH.topBias,
+                        bottomBias = AuraPreset.CORAL_BREATH.bottomBias,
+                        coreColor = Color(0xFF050508)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Biblioteca",
+                                    color = Color.White.copy(alpha = 0.65f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = "LOCAL",
+                                    color = AuraPreset.CORAL_BREATH.glowHighlight,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Text(
+                                text = "${displayedTracks.size}",
+                                color = Color.White,
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                            )
+                            Text(
+                                text = "faixas indexadas",
+                                color = Color.White.copy(alpha = 0.55f),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -412,36 +561,42 @@ fun GroupCardItem(
     group: GroupItem,
     onClick: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color(0xFF0E0A26).copy(alpha = 0.68f))
-            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick)
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically
+    InnerAuraCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 20.dp,
+        glowSpreadDp = 24.dp,
+        auraColor = Color(0xFF283252),
+        secondaryColor = Color(0xFF101424),
+        coreColor = Color(0xFF050508),
+        onClick = onClick
     ) {
-        Box(
-            contentAlignment = Alignment.Center,
+        Row(
             modifier = Modifier
-                .size(46.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color(0xFF3B2D8A).copy(alpha = 0.55f))
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Rounded.Folder, contentDescription = null, tint = Color(0xFFA8AEFF), modifier = Modifier.size(22.dp))
-        }
-
-        Spacer(modifier = Modifier.width(14.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = group.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (group.subtitle.isNotEmpty()) {
-                Text(text = group.subtitle, color = Color.White.copy(alpha = 0.50f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFF182038))
+            ) {
+                Icon(Icons.Rounded.Folder, contentDescription = null, tint = Color(0xFFA8AEFF), modifier = Modifier.size(22.dp))
             }
-        }
 
-        Text(text = group.countText, color = Color(0xFFA8AEFF).copy(alpha = 0.70f), fontSize = 12.sp)
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = group.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (group.subtitle.isNotEmpty()) {
+                    Text(text = group.subtitle, color = Color.White.copy(alpha = 0.50f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+
+            Text(text = group.countText, color = Color(0xFFA8AEFF).copy(alpha = 0.70f), fontSize = 12.sp)
+        }
     }
 }
 
@@ -455,104 +610,103 @@ fun TrackCardItem(
 ) {
     val coverBitmap = rememberTrackCover(track, 128)
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(
-                if (isPlaying) Color(0xFF382F72).copy(alpha = 0.75f)
-                else Color(0xFF0E0A26).copy(alpha = 0.68f)
-            )
-            .border(
-                width = if (isPlaying) 1.dp else 0.5.dp,
-                brush = Brush.linearGradient(
-                    if (isPlaying) listOf(Color.White.copy(alpha = 0.50f), Color(0xFFA8AEFF).copy(alpha = 0.35f))
-                    else listOf(Color.White.copy(alpha = 0.08f), Color.White.copy(alpha = 0.02f))
-                ),
-                shape = RoundedCornerShape(20.dp)
-            )
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+    InnerAuraCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 22.dp,
+        glowSpreadDp = if (isPlaying) 38.dp else 24.dp,
+        auraColor = if (isPlaying) AuraPreset.WALK_AMBER.auraColor else Color(0xFF283252),
+        secondaryColor = if (isPlaying) AuraPreset.WALK_AMBER.secondaryColor else Color(0xFF121728),
+        topBias = if (isPlaying) 0.25f else 0.35f,
+        bottomBias = if (isPlaying) 1.0f else 0.60f,
+        coreColor = Color(0xFF050508),
+        onClick = onClick
     ) {
-        // Capa
-        Box(
+        Row(
             modifier = Modifier
-                .size(46.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF1E173E)),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (coverBitmap != null) {
-                Image(
-                    bitmap = coverBitmap.asImageBitmap(),
-                    contentDescription = track.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Icon(Icons.Rounded.MusicNote, contentDescription = null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(22.dp))
-            }
-            if (isPlaying) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color(0xFF6368F2).copy(alpha = 0.40f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Rounded.GraphicEq, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+            // Capa
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF141724)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (coverBitmap != null) {
+                    Image(
+                        bitmap = coverBitmap.asImageBitmap(),
+                        contentDescription = track.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(Icons.Rounded.MusicNote, contentDescription = null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(22.dp))
                 }
-            }
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // Detalhes
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = track.title,
-                color = if (isPlaying) Color(0xFFA8AEFF) else Color.White,
-                fontSize = 14.sp,
-                fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "${track.artist} • ${track.album}",
-                    color = Color.White.copy(alpha = 0.55f),
-                    fontSize = 12.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-                if (track.formatTag.isNotEmpty()) {
-                    Spacer(modifier = Modifier.width(6.dp))
+                if (isPlaying) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color.White.copy(alpha = 0.12f))
-                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                            .fillMaxSize()
+                            .background(AuraPreset.WALK_AMBER.auraColor.copy(alpha = 0.35f)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = track.formatTag,
-                            color = Color.White.copy(alpha = 0.85f),
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Icon(Icons.Rounded.GraphicEq, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Detalhes
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = track.title,
+                    color = if (isPlaying) AuraPreset.WALK_AMBER.glowHighlight else Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "${track.artist} • ${track.album}",
+                        color = Color.White.copy(alpha = 0.55f),
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                    if (track.formatTag.isNotEmpty()) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color.White.copy(alpha = 0.12f))
+                                .padding(horizontal = 4.dp, vertical = 1.dp)
+                        ) {
+                            Text(
+                                text = track.formatTag,
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                text = formatTimeMs(track.durationMs),
+                color = Color.White.copy(alpha = 0.45f),
+                fontSize = 12.sp,
+                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+            )
         }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        Text(
-            text = formatTimeMs(track.durationMs),
-            color = Color.White.copy(alpha = 0.45f),
-            fontSize = 12.sp
-        )
     }
 }
 
@@ -584,14 +738,18 @@ fun FloatingMiniPlayerAndNav(
     ) {
         // Mini Player Flutuante
         if (track != null) {
-            RealLiquidGlassPanel(
+            InnerAuraCard(
                 cornerRadius = 24.dp,
-                blurRadius = 30.dp,
-                tint = Color(0xFF161238).copy(alpha = 0.70f),
+                glowSpreadDp = 35.dp,
+                auraColor = AuraPreset.WALK_AMBER.auraColor,
+                secondaryColor = AuraPreset.WALK_AMBER.secondaryColor,
+                topBias = 0.25f,
+                bottomBias = 0.85f,
+                coreColor = Color(0xFF050508),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp)
-                    .clickable(onClick = onMiniPlayerClick)
+                    .padding(bottom = 8.dp),
+                onClick = onMiniPlayerClick
             ) {
                 Column {
                     Row(
@@ -604,7 +762,7 @@ fun FloatingMiniPlayerAndNav(
                             modifier = Modifier
                                 .size(42.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF261D4C)),
+                                .background(Color(0xFF141724)),
                             contentAlignment = Alignment.Center
                         ) {
                             if (coverBitmap != null) {
@@ -673,7 +831,7 @@ fun FloatingMiniPlayerAndNav(
                                 .fillMaxWidth(progressFraction)
                                 .background(
                                     Brush.horizontalGradient(
-                                        listOf(Color(0xFF6368F2), Color(0xFFA8AEFF))
+                                        listOf(AuraPreset.WALK_AMBER.auraColor, AuraPreset.WALK_AMBER.glowHighlight)
                                     )
                                 )
                         )
@@ -682,11 +840,15 @@ fun FloatingMiniPlayerAndNav(
             }
         }
 
-        // Barra de Navegação Inferior Flutuante (Vidro Claro Figma UI)
-        RealLiquidGlassPanel(
+        // Barra de Navegação Inferior Flutuante
+        InnerAuraCard(
             cornerRadius = 28.dp,
-            blurRadius = 30.dp,
-            tint = Color(0xFF8C92F8).copy(alpha = 0.22f),
+            glowSpreadDp = 35.dp,
+            auraColor = Color(0xFF283655),
+            secondaryColor = Color(0xFF12192A),
+            topBias = 0.4f,
+            bottomBias = 0.8f,
+            coreColor = Color(0xFF050508),
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -740,274 +902,355 @@ fun NowPlayingScreen(
     modifier: Modifier = Modifier
 ) {
     val coverBitmap = rememberTrackCover(track, 512)
+    val seekProgress = if (durationMs > 0) (progressMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(Color(0xFF04040A))
     ) {
-        // Top Bar
-        Row(
+        AmbientDeepBackground(topGlowColor = AuraPreset.WALK_AMBER.secondaryColor.copy(alpha = 0.35f))
+
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            FigmaGlassCircleButton(
-                size = 42.dp,
-                onClick = onCollapse
+            // Top Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Recolher", tint = Color.White)
-            }
-
-            Text(
-                text = "Tocando Agora",
-                color = Color.White.copy(alpha = 0.70f),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FigmaGlassCircleButton(
                     size = 42.dp,
-                    onClick = onOpenSleepTimer
+                    onClick = onCollapse
                 ) {
-                    Icon(Icons.Rounded.Timer, contentDescription = "Sleep Timer", tint = Color.White, modifier = Modifier.size(18.dp))
+                    Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = "Recolher", tint = Color.White)
                 }
-                FigmaGlassCircleButton(
-                    size = 42.dp,
-                    onClick = { track?.let { onOpenTrackInfo(it) } }
-                ) {
-                    Icon(Icons.Rounded.MoreVert, contentDescription = "Mais", tint = Color.White, modifier = Modifier.size(18.dp))
+
+                Text(
+                    text = "Tocando Agora",
+                    color = Color.White.copy(alpha = 0.75f),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FigmaGlassCircleButton(
+                        size = 42.dp,
+                        onClick = onOpenSleepTimer
+                    ) {
+                        Icon(Icons.Rounded.Timer, contentDescription = "Sleep Timer", tint = Color.White, modifier = Modifier.size(18.dp))
+                    }
+                    FigmaGlassCircleButton(
+                        size = 42.dp,
+                        onClick = { track?.let { onOpenTrackInfo(it) } }
+                    ) {
+                        Icon(Icons.Rounded.MoreVert, contentDescription = "Mais", tint = Color.White, modifier = Modifier.size(18.dp))
+                    }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
-        // Capa do Álbum (Sem círculo escuro por trás!)
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                .shadow(
-                    elevation = 28.dp,
-                    shape = RoundedCornerShape(28.dp),
-                    spotColor = Color(0xFF6368F2),
-                    ambientColor = Color(0xFF382C83)
-                )
-                .clip(RoundedCornerShape(28.dp))
-                .background(Color(0xFF1E173E))
-                .border(
-                    width = 1.dp,
-                    brush = Brush.linearGradient(
-                        listOf(Color.White.copy(alpha = 0.45f), Color.White.copy(alpha = 0.08f), Color(0xFFA8AEFF).copy(alpha = 0.35f))
-                    ),
-                    shape = RoundedCornerShape(28.dp)
-                )
-        ) {
-            if (coverBitmap != null) {
-                Image(
-                    bitmap = coverBitmap.asImageBitmap(),
-                    contentDescription = track?.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Box(
+            // Grande Painel Squircle Inferior (InnerAuraCard)
+            InnerAuraCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                cornerRadius = 38.dp,
+                glowSpreadDp = 85.dp,
+                auraColor = AuraPreset.WALK_AMBER.auraColor,
+                secondaryColor = AuraPreset.WALK_AMBER.secondaryColor,
+                topBias = 0.20f,
+                bottomBias = 1.0f,
+                coreColor = Color(0xFF050508)
+            ) {
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(
-                            Brush.linearGradient(
-                                listOf(Color(0xFF70A6B8), Color(0xFFE56B1F), Color(0xFFFFE8BE))
+                        .padding(horizontal = 18.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.SpaceBetween,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // 1. Mostrador Radial Central (SensorRadialTickDial envolto na capa circular)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        SensorRadialTickDial(
+                            progress = seekProgress,
+                            modifier = Modifier.size(260.dp),
+                            accentColor = Color(0xFFD4FF4A),
+                            totalTicks = 72
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(145.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF090A12))
+                                    .border(1.5.dp, Color.White.copy(alpha = 0.65f), CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (coverBitmap != null) {
+                                    Image(
+                                        bitmap = coverBitmap.asImageBitmap(),
+                                        contentDescription = track?.title,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Rounded.MusicNote,
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = 0.70f),
+                                        modifier = Modifier.size(60.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. Título e Artista
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp)
+                    ) {
+                        Text(
+                            text = track?.title ?: "Nenhuma faixa selecionada",
+                            color = Color.White,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${track?.artist ?: "Artista"} • ${track?.album ?: "Álbum"}",
+                            color = Color.White.copy(alpha = 0.60f),
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 3. Métricas Técnicas em 3 Colunas (5.21 km | 413 min | 1343 kcal style)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Coluna 1: CODEC / FORMAT
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "FORMAT",
+                                color = Color.White.copy(alpha = 0.45f),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
                             )
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        Icons.Rounded.MusicNote,
-                        contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.85f),
-                        modifier = Modifier.size(96.dp)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = if (track != null && track.formatTag.isNotEmpty()) track.formatTag else "MP3",
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color.White.copy(alpha = 0.15f)))
+
+                        // Coluna 2: TEMPO ATUAL (22.sp Bold)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "TEMPO",
+                                color = Color.White.copy(alpha = 0.45f),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = formatTimeMs(progressMs),
+                                color = Color.White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                            )
+                        }
+
+                        Box(modifier = Modifier.width(1.dp).height(24.dp).background(Color.White.copy(alpha = 0.15f)))
+
+                        // Coluna 3: MOTOR DE ÁUDIO
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "ENGINE",
+                                color = Color.White.copy(alpha = 0.45f),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Oboe C++",
+                                color = AuraPreset.WALK_AMBER.glowHighlight,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 4. Barra de Progresso Estriada Luminosa (WalkAuraProgressBar)
+                    WalkAuraProgressBar(
+                        progress = seekProgress,
+                        onProgressChange = onSeek,
+                        height = 46.dp,
+                        striped = true,
+                        barColor = AuraPreset.WALK_AMBER.auraColor,
+                        glowColor = AuraPreset.WALK_AMBER.glowHighlight,
+                        overlayContent = {
+                            Text(
+                                text = formatTimeMs(progressMs),
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                            )
+                            Text(
+                                text = formatTimeMs(durationMs),
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                            )
+                        }
                     )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // 5. Controles de Reprodução Principais
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = onToggleShuffle) {
+                            Icon(
+                                imageVector = Icons.Rounded.Shuffle,
+                                contentDescription = "Shuffle",
+                                tint = if (shuffleMode != ShuffleMode.OFF) AuraPreset.WALK_AMBER.glowHighlight else Color.White.copy(alpha = 0.45f)
+                            )
+                        }
+
+                        FigmaGlassCircleButton(
+                            size = 52.dp,
+                            onClick = onPrevious
+                        ) {
+                            Icon(Icons.Rounded.SkipPrevious, contentDescription = "Anterior", tint = Color.White, modifier = Modifier.size(24.dp))
+                        }
+
+                        FigmaGlassCircleButton(
+                            size = 68.dp,
+                            isPrimaryPlay = true,
+                            onClick = onPlayPause
+                        ) {
+                            Icon(
+                                if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                contentDescription = "Play/Pause",
+                                tint = Color.White,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+
+                        FigmaGlassCircleButton(
+                            size = 52.dp,
+                            onClick = onNext
+                        ) {
+                            Icon(Icons.Rounded.SkipNext, contentDescription = "Próxima", tint = Color.White, modifier = Modifier.size(24.dp))
+                        }
+
+                        IconButton(onClick = onToggleRepeat) {
+                            Icon(
+                                imageVector = if (repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                                contentDescription = "Repeat",
+                                tint = if (repeatMode != RepeatMode.OFF) AuraPreset.WALK_AMBER.glowHighlight else Color.White.copy(alpha = 0.45f)
+                            )
+                        }
+                    }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-        // Título e Artista (Alinhados à esquerda estilo Figma + Botão MoreHoriz à direita)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = track?.title ?: "Nenhuma faixa selecionada",
-                    color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "${track?.artist ?: "Artista"} • ${track?.album ?: "Álbum"}",
-                    color = Color(0xFFB4B8DC),
-                    fontSize = 14.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                if (track != null && track.formatTag.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Engine C++ Nativa (Oboe) • ${track.formatTag}",
-                        color = Color(0xFFA8AEFF).copy(alpha = 0.80f),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            FigmaGlassCircleButton(
-                size = 40.dp,
-                onClick = { track?.let { onOpenTrackInfo(it) } }
-            ) {
-                Icon(Icons.Rounded.MoreHoriz, contentDescription = "Mais opções", tint = Color.White, modifier = Modifier.size(20.dp))
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Slider 52 Horizontal Meniscus Fiel à Imagem 3
-        val seekProgress = if (durationMs > 0) (progressMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
-        Slider52Horizontal(
-            progress = seekProgress,
-            onProgressChange = onSeek,
-            waveformPeaks = waveformPeaks,
-            leftText = formatTimeMs(progressMs),
-            rightText = formatTimeMs(durationMs),
-            leadingIcon = {
-                Icon(Icons.Rounded.GraphicEq, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-            }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Controles de Reprodução Principais
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onToggleShuffle) {
-                Icon(
-                    imageVector = Icons.Rounded.Shuffle,
-                    contentDescription = "Shuffle",
-                    tint = if (shuffleMode != ShuffleMode.OFF) Color(0xFFA8AEFF) else Color.White.copy(alpha = 0.45f)
-                )
-            }
-
-            FigmaGlassCircleButton(
-                size = 54.dp,
-                onClick = onPrevious
-            ) {
-                Icon(Icons.Rounded.SkipPrevious, contentDescription = "Anterior", tint = Color.White, modifier = Modifier.size(26.dp))
-            }
-
-            FigmaGlassCircleButton(
-                size = 72.dp,
-                isPrimaryPlay = true,
-                onClick = onPlayPause
-            ) {
-                Icon(
-                    if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = "Play/Pause",
-                    tint = Color.White,
-                    modifier = Modifier.size(34.dp)
-                )
-            }
-
-            FigmaGlassCircleButton(
-                size = 54.dp,
-                onClick = onNext
-            ) {
-                Icon(Icons.Rounded.SkipNext, contentDescription = "Próxima", tint = Color.White, modifier = Modifier.size(26.dp))
-            }
-
-            IconButton(onClick = onToggleRepeat) {
-                Icon(
-                    imageVector = if (repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                    contentDescription = "Repeat",
-                    tint = if (repeatMode != RepeatMode.OFF) Color(0xFFA8AEFF) else Color.White.copy(alpha = 0.45f)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Rodapé com 3 botões em cápsulas translúcidas (Sem emojis!)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            RealLiquidGlassPanel(
-                cornerRadius = 20.dp,
-                blurRadius = 24.dp,
-                tint = Color(0xFF1E1948).copy(alpha = 0.55f),
-                modifier = Modifier.clickable(onClick = onOpenLyrics)
+            // 6. Pílula Inferior de Ação (AuraCard translúcido com botões de alto contraste)
+            InnerAuraCard(
+                modifier = Modifier.fillMaxWidth(),
+                cornerRadius = 24.dp,
+                glowSpreadDp = 30.dp,
+                auraColor = Color(0xFF283655),
+                secondaryColor = Color(0xFF12192A),
+                coreColor = Color(0xFF050508)
             ) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp, horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Rounded.Subtitles, contentDescription = null, tint = Color(0xFFA8AEFF), modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Letras", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable(onClick = onOpenLyrics)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Rounded.Subtitles, contentDescription = null, tint = AuraPreset.WALK_AMBER.glowHighlight, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Letras", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
 
-            RealLiquidGlassPanel(
-                cornerRadius = 20.dp,
-                blurRadius = 24.dp,
-                tint = Color(0xFF1E1948).copy(alpha = 0.55f),
-                modifier = Modifier.clickable(onClick = onOpenEqualizer)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Icon(Icons.Rounded.GraphicEq, contentDescription = null, tint = Color(0xFFA8AEFF), modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Equalizador", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
+                    Box(modifier = Modifier.width(1.dp).height(18.dp).background(Color.White.copy(alpha = 0.12f)))
 
-            RealLiquidGlassPanel(
-                cornerRadius = 20.dp,
-                blurRadius = 24.dp,
-                tint = Color(0xFF1E1948).copy(alpha = 0.55f),
-                modifier = Modifier.clickable(onClick = onOpenQueue)
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    Icon(Icons.Rounded.QueueMusic, contentDescription = null, tint = Color(0xFFA8AEFF), modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Fila", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable(onClick = onOpenEqualizer)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Rounded.GraphicEq, contentDescription = null, tint = AuraPreset.WALK_AMBER.glowHighlight, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Equalizador", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+
+                    Box(modifier = Modifier.width(1.dp).height(18.dp).background(Color.White.copy(alpha = 0.12f)))
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable(onClick = onOpenQueue)
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Icon(Icons.Rounded.QueueMusic, contentDescription = null, tint = AuraPreset.WALK_AMBER.glowHighlight, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Fila", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }
@@ -1056,11 +1299,14 @@ fun GlassEqualizerSheet(
             .statusBarsPadding()
             .padding(12.dp)
     ) {
-        RealLiquidGlassPanel(
-            cornerRadius = 32.dp,
-            blurRadius = 38.dp,
-            refractionPx = 26f,
-            tint = Color(0xFF161238).copy(alpha = 0.68f),
+        InnerAuraCard(
+            cornerRadius = 36.dp,
+            glowSpreadDp = 85.dp,
+            auraColor = AuraPreset.SAGE_SENSOR.auraColor,
+            secondaryColor = AuraPreset.SAGE_SENSOR.secondaryColor,
+            topBias = AuraPreset.SAGE_SENSOR.topBias,
+            bottomBias = AuraPreset.SAGE_SENSOR.bottomBias,
+            coreColor = Color(0xFF050508),
             modifier = Modifier.fillMaxSize()
         ) {
             Column(
@@ -1307,7 +1553,7 @@ fun GlassEqualizerSheet(
             }
         }
 
-        // Sub-Modal de Lista de Presets (Vidro Real)
+        // Sub-Modal de Lista de Presets
         if (showPresetMenu) {
             Box(
                 modifier = Modifier
@@ -1315,10 +1561,12 @@ fun GlassEqualizerSheet(
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showPresetMenu = false },
                 contentAlignment = Alignment.Center
             ) {
-                RealLiquidGlassPanel(
+                InnerAuraCard(
                     cornerRadius = 28.dp,
-                    blurRadius = 38.dp,
-                    tint = Color(0xFF140F2D).copy(alpha = 0.85f),
+                    glowSpreadDp = 50.dp,
+                    auraColor = AuraPreset.SAGE_SENSOR.auraColor,
+                    secondaryColor = AuraPreset.SAGE_SENSOR.secondaryColor,
+                    coreColor = Color(0xFF050508),
                     modifier = Modifier
                         .fillMaxWidth(0.85f)
                         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
@@ -1359,7 +1607,7 @@ fun GlassEqualizerSheet(
             }
         }
 
-        // Sub-Modal de Salvar Preset (Vidro Real)
+        // Sub-Modal de Salvar Preset
         if (showSaveDialog) {
             Box(
                 modifier = Modifier
@@ -1367,10 +1615,12 @@ fun GlassEqualizerSheet(
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { showSaveDialog = false },
                 contentAlignment = Alignment.Center
             ) {
-                RealLiquidGlassPanel(
+                InnerAuraCard(
                     cornerRadius = 28.dp,
-                    blurRadius = 38.dp,
-                    tint = Color(0xFF140F2D).copy(alpha = 0.85f),
+                    glowSpreadDp = 50.dp,
+                    auraColor = AuraPreset.SAGE_SENSOR.auraColor,
+                    secondaryColor = AuraPreset.SAGE_SENSOR.secondaryColor,
+                    coreColor = Color(0xFF050508),
                     modifier = Modifier
                         .fillMaxWidth(0.85f)
                         .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
@@ -1449,11 +1699,14 @@ fun GlassLyricsScreen(
             .statusBarsPadding()
             .padding(12.dp)
     ) {
-        RealLiquidGlassPanel(
-            cornerRadius = 32.dp,
-            blurRadius = 38.dp,
-            refractionPx = 26f,
-            tint = Color(0xFF100C2A).copy(alpha = 0.75f),
+        InnerAuraCard(
+            cornerRadius = 36.dp,
+            glowSpreadDp = 85.dp,
+            auraColor = AuraPreset.MAGENTA_PULSE.auraColor,
+            secondaryColor = AuraPreset.MAGENTA_PULSE.secondaryColor,
+            topBias = AuraPreset.MAGENTA_PULSE.topBias,
+            bottomBias = AuraPreset.MAGENTA_PULSE.bottomBias,
+            coreColor = Color(0xFF050508),
             modifier = Modifier.fillMaxSize()
         ) {
             Column(

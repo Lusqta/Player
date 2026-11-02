@@ -218,6 +218,10 @@ class LibraryRepository {
         musicDb?.removeTrackFromPlaylist(playlistId, trackId)
     }
 
+    fun deletePlaylist(playlistId: Long) {
+        musicDb?.deletePlaylist(playlistId)
+    }
+
     // --- Ordenação Dinâmica ---
 
     fun applySorting(inputList: List<Track>, sortMode: SortMode): List<Track> {

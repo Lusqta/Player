@@ -5,18 +5,26 @@ import org.intellij.lang.annotations.Language
 object LiquidAgslShaders {
 
     /**
-     * 1. FIGMA ROYAL INDIGO & AURŌ FROSTED RELIEF BACKGROUND SHADER
-     * Cria um ambiente luminoso profundo (nunca preto chapado) com micro-relevo jateado
-     * inspirado na referência 'aurō' e iluminação espacial da referência do Figma.
+     * 1. INNER-RIM AURA SQUIRCLE SHADER (Estética exata dos cartões Walk, Last Test, Breath Volume e Sensor Sheet)
+     * - Centro preto profundo (#050508) para contraste absoluto.
+     * - Luz intensa sangrando das bordas para o interior (Inner Edge Glow) com assimetria vertical.
+     * - Textura micro-jateada (frosted grain) + anel especular fino de 1px na borda extrema.
      */
     @Language("AGSL")
-    const val AURA_BACKGROUND_SHADER = """
+    const val INNER_AURA_CARD_SHADER = """
         uniform float2 uResolution;
-        uniform float uTime;
-        uniform float4 uColorDeep;      // Base noturna rica (#0E0929)
-        uniform float4 uColorPrimary;   // Luz principal (#6468F0 ou #E56B1F)
-        uniform float4 uColorSecondary; // Luz média (#3E2F96 ou #6CA0B0)
-        uniform float4 uColorGlow;      // Aura luminosa alta (#A8AEFF ou #FFE8BE)
+        uniform float uCornerRadius;
+        uniform float uGlowSpread;     // Espessura da aura interna em px (ex: 68.0 para cards, 115.0 para sheets)
+        uniform float uTopBias;        // 1.0 = brilho forte no topo (estilo card rosa), 0.25 = suave no topo
+        uniform float uBottomBias;     // 1.0 = brilho forte na base (estilo card Walk âmbar / Breath laranja)
+        uniform float4 uAuraColor;     // Cor principal da borda (Âmbar, Rosa-Magenta, Laranja-Coral, Verde-Sálvia)
+        uniform float4 uSecondaryColor;// Cor secundária de transição
+        uniform float4 uCoreColor;     // Cor do núcleo central (#050509)
+
+        float sdRoundedBox(float2 p, float2 b, float r) {
+            float2 q = abs(p) - b + r;
+            return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
+        }
 
         float hash(float2 p) {
             p = fract(p * float2(123.34, 456.21));
@@ -24,57 +32,55 @@ object LiquidAgslShaders {
             return fract(p.x * p.y);
         }
 
-        float frostedGrain(float2 fragCoord) {
-            float n1 = hash(floor(fragCoord * 0.5));
-            float n2 = hash(floor(fragCoord * 0.25 + 19.1));
-            return (n1 * 0.6 + n2 * 0.4) - 0.5;
-        }
-
         half4 main(float2 fragCoord) {
+            float2 halfSize = uResolution * 0.5;
+            float2 p = fragCoord - halfSize;
+            float d = sdRoundedBox(p, halfSize, uCornerRadius);
+            if (d > 0.0) return half4(0.0);
+
             float2 uv = fragCoord / max(uResolution, float2(1.0));
-            float aspect = uResolution.x / max(uResolution.y, 1.0);
-            float2 uvA = float2(uv.x * aspect, uv.y);
 
-            float grain = frostedGrain(fragCoord);
-            float2 warpedUv = uvA + grain * 0.008;
+            // Distância normalizada da borda para o centro (1.0 na borda exata, 0.0 no centro escuro)
+            float edgeDist = clamp(1.0 - (-d / max(uGlowSpread, 1.0)), 0.0, 1.0);
+            float auraCurve = pow(edgeDist, 1.75);
 
-            // 3 focos amplos de luz difusa para preencher toda a tela (sem buracos pretos)
-            float2 p1 = float2(0.28 * aspect + 0.12 * sin(uTime * 0.35), 0.16 + 0.08 * cos(uTime * 0.28));
-            float2 p2 = float2(0.76 * aspect + 0.10 * cos(uTime * 0.25), 0.46 + 0.10 * sin(uTime * 0.32));
-            float2 p3 = float2(0.48 * aspect + 0.14 * sin(uTime * 0.22), 0.82 + 0.06 * cos(uTime * 0.38));
+            // Peso direcional (permite brilho intenso na base como no card 'Walk' ou no topo como em 'Last test')
+            float verticalWeight = mix(uTopBias, uBottomBias, smoothstep(0.0, 1.0, uv.y));
+            float sideWeight = pow(abs(uv.x - 0.5) * 2.0, 1.6) * 0.65;
+            float totalGlow = clamp(auraCurve * (verticalWeight + sideWeight * 0.5), 0.0, 1.0);
 
-            float g1 = exp(-length(warpedUv - p1) * 1.45);
-            float g2 = exp(-length(warpedUv - p2) * 1.65);
-            float g3 = exp(-length(warpedUv - p3) * 1.75);
+            // Bloom secundário na base/topo
+            float bottomPool = pow(uv.y, 2.4) * smoothstep(-uGlowSpread * 1.3, 0.0, d) * uBottomBias * 0.45;
+            float topPool = pow(1.0 - uv.y, 2.4) * smoothstep(-uGlowSpread * 1.3, 0.0, d) * uTopBias * 0.45;
 
-            // Gradiente vertical base iluminado (estilo Figma)
-            float3 baseGrad = mix(uColorSecondary.rgb * 0.55, uColorDeep.rgb, smoothstep(0.0, 0.95, uv.y));
+            float3 glowTint = mix(uSecondaryColor.rgb, uAuraColor.rgb, clamp(edgeDist * 1.2, 0.0, 1.0));
+            float3 col = mix(uCoreColor.rgb, glowTint, clamp(totalGlow + bottomPool + topPool, 0.0, 0.96));
 
-            float3 col = baseGrad;
-            col = mix(col, uColorPrimary.rgb, clamp(g1 * 0.88, 0.0, 1.0));
-            col = mix(col, uColorSecondary.rgb, clamp(g2 * 0.76, 0.0, 1.0));
-            col = mix(col, uColorGlow.rgb, clamp(pow(g3, 1.5) * 0.48, 0.0, 1.0));
+            // Micro-granulação jateada (frosted noise) na zona de transição da luz
+            float grain = (hash(fragCoord) - 0.5) * 0.032 * totalGlow;
+            col += grain;
 
-            // Micro-relevo fosco iluminado (efeito Aurō)
-            col += grain * 0.026 * (0.5 + g1 + g3);
+            // Borda especular vítrea fina de 1.2px
+            float rim = smoothstep(-1.8, -0.2, d);
+            float3 rimLight = mix(uAuraColor.rgb, float3(1.0), 0.55);
+            col = mix(col, rimLight, rim * 0.72);
 
             return half4(clamp(col, 0.0, 1.0), 1.0);
         }
     """
 
     /**
-     * 2. REAL SDF LENS REFRACTION & CHROMATIC ABERRATION SHADER (iOS 26 / PrismalAGSL)
-     * Usa 'uniform shader content;' para dobrar a imagem real de fundo (já desfocada)
-     * nas bordas curvas do vidro, adicionando dispersão RGB e luz especular diagonal.
+     * 2. GLOWING RIBBED & MENISCUS CAPSULE SLIDER SHADER (Fusão do Slider Âmbar 'Walk' + Slider 52)
+     * Trilho escuro cavado + preenchimento líquido iluminado com estrias diagonais subtis
+     * e menisco brilhante na extremidade direita.
      */
     @Language("AGSL")
-    const val REAL_GLASS_LENS_SHADER = """
-        uniform shader content;
+    const val AURA_CAPSULE_SLIDER_SHADER = """
         uniform float2 uResolution;
-        uniform float uCornerRadius;
-        uniform float uRefractionPx;   // Força da lente na borda (ex: 24.0)
-        uniform float uDispersion;     // Aberração cromática (ex: 0.32)
-        uniform float4 uTint;          // Cor translúcida do vidro
+        uniform float uProgress;      // 0.0 a 1.0
+        uniform float uStripeMode;    // 1.0 = estrias diagonais luminosas (estilo Walk), 0.0 = vidro liso com menisco
+        uniform float4 uBarColor;     // Cor principal da barra (ex: Âmbar #FF9824, Coral #F05228, Rosa #E84A9C)
+        uniform float4 uGlowColor;    // Cor de luz alta (ex: Creme #FFE6A3)
 
         float sdRoundedBox(float2 p, float2 b, float r) {
             float2 q = abs(p) - b + r;
@@ -82,188 +88,121 @@ object LiquidAgslShaders {
         }
 
         half4 main(float2 fragCoord) {
-            float2 halfSize = uResolution * 0.5;
-            float2 p = fragCoord - halfSize;
-            float d = sdRoundedBox(p, halfSize, uCornerRadius);
-
-            // Normal analítica da borda do SDF
-            float e = 1.5;
-            float nx = sdRoundedBox(p + float2(e, 0.0), halfSize, uCornerRadius) -
-                       sdRoundedBox(p - float2(e, 0.0), halfSize, uCornerRadius);
-            float ny = sdRoundedBox(p + float2(0.0, e), halfSize, uCornerRadius) -
-                       sdRoundedBox(p - float2(0.0, e), halfSize, uCornerRadius);
-            float2 normal = normalize(float2(nx, ny) + 0.0001);
-
-            // Anel de curvatura óptica nos 32px próximos à borda
-            float bevel = smoothstep(-32.0, 0.0, d);
-            float lensCurve = bevel * bevel;
-            float2 offset = normal * lensCurve * uRefractionPx;
-
-            float2 minB = float2(1.0);
-            float2 maxB = max(uResolution - 1.0, float2(2.0));
-
-            half r = content.eval(clamp(fragCoord - offset * (1.0 + uDispersion), minB, maxB)).r;
-            half g = content.eval(clamp(fragCoord - offset, minB, maxB)).g;
-            half b = content.eval(clamp(fragCoord - offset * (1.0 - uDispersion), minB, maxB)).b;
-            float3 refracted = float3(r, g, b);
-
-            // Mistura com o tint vítreo
-            float3 col = mix(refracted, uTint.rgb, uTint.a);
-
-            // Luz especular direcional (topo-esquerda e base-direita)
             float2 uv = fragCoord / max(uResolution, float2(1.0));
-            float topLight = pow(max(0.0, 1.0 - (uv.x * 0.6 + uv.y * 0.7)), 2.2);
-            float botLight = pow(max(0.0, (uv.x * 0.5 + uv.y * 0.5) - 0.35), 2.6);
+            float radius = min(uResolution.y * 0.34, 18.0);
+            float2 halfSize = uResolution * 0.5;
+            float dTrack = sdRoundedBox(fragCoord - halfSize, halfSize, radius);
+            if (dTrack > 0.0) return half4(0.0);
 
-            // Brilho interno de refração + borda especular nítida
-            col += float3(0.78, 0.84, 1.0) * (bevel * 0.16 * (topLight + 0.4));
-            col += float3(1.0) * topLight * 0.09;
+            // Trilho de fundo escuro translúcido com brilho interno da cor nas bordas
+            float trackEdge = smoothstep(-22.0, 0.0, dTrack);
+            float3 trackCol = mix(float3(0.05, 0.05, 0.07), uBarColor.rgb * 0.42, pow(trackEdge, 1.8));
+            float trackRim = smoothstep(-1.5, -0.2, dTrack);
+            trackCol += uBarColor.rgb * trackRim * 0.35;
 
-            float rim = smoothstep(-2.2, -0.2, d);
-            float rimLight = 0.28 + 0.55 * topLight + 0.30 * botLight;
-            col = mix(col, float3(0.92, 0.95, 1.0), clamp(rim * rimLight, 0.0, 0.85));
+            float3 finalCol = trackCol;
 
+            // Cápsula preenchida
+            float fillW = max(radius * 2.0, uResolution.x * clamp(uProgress, 0.0, 1.0));
+            float2 fillHalf = float2(fillW * 0.5, halfSize.y);
+            float2 fillCenter = float2(fillW * 0.5, halfSize.y);
+            float dFill = sdRoundedBox(fragCoord - fillCenter, fillHalf, radius);
+
+            // Halo externo difuso emitido pela ponta da barra sobre o trilho escuro
+            if (dFill > 0.0) {
+                float outerBloom = exp(-dFill * 0.12) * 0.45;
+                finalCol += uBarColor.rgb * outerBloom;
+            } else {
+                float fillUvX = fragCoord.x / max(fillW, 1.0);
+                float3 fillCol = mix(uBarColor.rgb * 0.85, uGlowColor.rgb, pow(fillUvX, 1.3) * 0.75);
+
+                // Estrias diagonais luminosas (exatamente como na barra 'Walk' 1000020365.jpg)
+                if (uStripeMode > 0.5) {
+                    float diag = (fragCoord.x + fragCoord.y * 0.42) * 0.18;
+                    float stripe = smoothstep(-0.2, 0.4, sin(diag));
+                    fillCol = mix(fillCol * 0.86, fillCol * 1.12, stripe * 0.45);
+                }
+
+                // Menisco luminoso na ponta direita
+                float tipDist = length(fragCoord - float2(fillW - radius * 0.6, halfSize.y));
+                float tipGlow = exp(-tipDist / max(radius * 0.9, 1.0));
+                fillCol = mix(fillCol, float3(1.0, 0.98, 0.92), tipGlow * 0.55);
+
+                float fillRim = smoothstep(-1.6, -0.2, dFill);
+                fillCol = mix(fillCol, float3(1.0, 0.96, 0.88), fillRim * 0.55);
+                finalCol = fillCol;
+            }
+
+            return half4(clamp(finalCol, 0.0, 1.0), 1.0);
+        }
+    """
+
+    /**
+     * 3. AMBIENT DEEP BACKGROUND SHADER (Fundo atmosférico escuro azul-cobalto/obsidiana da Imagem 1)
+     */
+    @Language("AGSL")
+    const val DEEP_AMBIENT_BG_SHADER = """
+        uniform float2 uResolution;
+        uniform float4 uTopGlowColor; // Azul cobalto profundo (#142266) ou cor escura da capa
+
+        half4 main(float2 fragCoord) {
+            float2 uv = fragCoord / max(uResolution, float2(1.0));
+            float2 centerTop = float2(0.52, 0.22);
+            float d = length((uv - centerTop) * float2(1.0, 1.35));
+            float glow = exp(-d * 2.8) * 0.55;
+            float3 col = mix(float3(0.015, 0.015, 0.03), uTopGlowColor.rgb, glow);
             return half4(clamp(col, 0.0, 1.0), 1.0);
         }
     """
 
     /**
-     * 3. SLIDER '52' HORIZONTAL MENISCUS SHADER (Reprodução Fiel da Imagem 3)
-     * Cápsula externa em vidro fumê metálico + cápsula interna escura com o
-     * menisco luminoso branco e franja cromática azul-gelo na ponta direita.
+     * 4. VERTICAL CAPSULE SLIDER SHADER (Para as bandas verticais do equalizador)
      */
     @Language("AGSL")
-    const val SLIDER_52_HORIZONTAL_SHADER = """
+    const val AURA_CAPSULE_VERTICAL_SLIDER_SHADER = """
         uniform float2 uResolution;
-        uniform float uProgress;      // 0.0 a 1.0
-        uniform float uDragHighlight; // 0.0 a 1.0
+        uniform float uProgress;      // 0.0 (base) a 1.0 (topo)
+        uniform float4 uBarColor;
+        uniform float4 uGlowColor;
 
-        float sdCapsuleBox(float2 p, float2 b, float r) {
+        float sdRoundedBox(float2 p, float2 b, float r) {
             float2 q = abs(p) - b + r;
             return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
         }
 
         half4 main(float2 fragCoord) {
             float2 uv = fragCoord / max(uResolution, float2(1.0));
-            float radius = uResolution.y * 0.5;
-            float2 outerHalf = uResolution * 0.5;
-            float dOuter = sdCapsuleBox(fragCoord - outerHalf, outerHalf, radius);
-            if (dOuter > 0.0) return half4(0.0);
+            float radius = min(uResolution.x * 0.42, 16.0);
+            float2 halfSize = uResolution * 0.5;
+            float dTrack = sdRoundedBox(fragCoord - halfSize, halfSize, radius);
+            if (dTrack > 0.0) return half4(0.0);
 
-            // Trilha externa: vidro fumê com reflexo diagonal acetinado (igual à Imagem 3)
-            float diagonalSheen = exp(-pow((uv.x - 0.56) * 2.8 + (uv.y - 0.45) * 1.3, 2.0));
-            float3 trackCol = mix(float3(0.16, 0.17, 0.22), float3(0.38, 0.40, 0.46), diagonalSheen * 0.72 + uv.x * 0.22);
-            float outerRim = smoothstep(-1.8, -0.2, dOuter);
-            trackCol = mix(trackCol, float3(0.82, 0.85, 0.90), outerRim * 0.55);
+            float trackEdge = smoothstep(-16.0, 0.0, dTrack);
+            float3 trackCol = mix(float3(0.06, 0.06, 0.08), uBarColor.rgb * 0.35, pow(trackEdge, 1.6));
+            float trackRim = smoothstep(-1.5, -0.2, dTrack);
+            trackCol += uBarColor.rgb * trackRim * 0.3;
 
-            float3 finalCol = trackCol;
-            float finalAlpha = 0.86;
-
-            // Cápsula interna (Progresso líquido)
-            float pad = 3.5;
-            float innerR = max(radius - pad, 4.0);
-            float minW = uResolution.y;
-            float fillW = mix(minW, max(uResolution.x - pad * 2.0, minW), clamp(uProgress, 0.0, 1.0));
-            float2 innerHalf = float2(fillW * 0.5, innerR);
-            float2 innerCenter = float2(pad + fillW * 0.5, radius);
-            float dInner = sdCapsuleBox(fragCoord - innerCenter, innerHalf, innerR);
-
-            if (dInner <= 0.0) {
-                // Vidro fumê escuro interno
-                float3 innerCol = mix(float3(0.10, 0.11, 0.15), float3(0.20, 0.21, 0.27), (1.0 - uv.y) * 0.55);
-
-                // Menisco luminoso na curva direita (a meia-lua branca com halo azul da Imagem 3)
-                float2 rightCapCenter = float2(pad + fillW - innerR, radius);
-                float2 pCap = fragCoord - rightCapCenter;
-
-                float rNorm = length(pCap) / innerR;
-                float rCut = length(pCap - float2(-innerR * 0.34, innerR * 0.20)) / (innerR * 0.80);
-
-                float meniscusShape = smoothstep(1.02, 0.86, rNorm) *
-                                      smoothstep(0.52, 0.96, rCut) *
-                                      smoothstep(-innerR * 0.15, innerR * 0.25, pCap.x) *
-                                      smoothstep(innerR * 0.55, -innerR * 0.40, pCap.y);
-
-                float chromaticHalo = smoothstep(1.02, 0.68, rNorm) *
-                                      smoothstep(0.42, 0.88, rCut) *
-                                      smoothstep(-innerR * 0.28, innerR * 0.30, pCap.x);
-
-                // Halo azul-gelo de dispersão cromática + núcleo branco translúcido do menisco
-                innerCol += float3(0.35, 0.68, 1.0) * chromaticHalo * (0.65 + 0.25 * uDragHighlight);
-                innerCol = mix(innerCol, float3(0.93, 0.96, 1.0), clamp(meniscusShape * (0.92 + 0.08 * uDragHighlight), 0.0, 1.0));
-
-                // Anel fino especular da cápsula interna
-                float innerRim = smoothstep(-1.8, -0.2, dInner);
-                float rightTipFactor = smoothstep(-innerR * 0.5, innerR, pCap.x);
-                float3 rimColor = mix(float3(0.62, 0.66, 0.74), float3(0.70, 0.88, 1.0), rightTipFactor);
-                innerCol = mix(innerCol, rimColor, innerRim * 0.70);
-
-                finalCol = innerCol;
-                finalAlpha = 0.95;
-            }
-
-            return half4(clamp(finalCol, 0.0, 1.0), finalAlpha);
-        }
-    """
-
-    /**
-     * 4. SLIDER '52' VERTICAL MENISCUS SHADER (Para as 10 bandas do Equalizador)
-     * Versão vertical da cápsula líquida com menisco luminoso no topo.
-     */
-    @Language("AGSL")
-    const val SLIDER_52_VERTICAL_SHADER = """
-        uniform float2 uResolution;
-        uniform float uProgress; // 0.0 (base) a 1.0 (topo)
-
-        float sdCapsuleBox(float2 p, float2 b, float r) {
-            float2 q = abs(p) - b + r;
-            return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
-        }
-
-        half4 main(float2 fragCoord) {
-            float2 uv = fragCoord / max(uResolution, float2(1.0));
-            float radius = uResolution.x * 0.5;
-            float2 outerHalf = uResolution * 0.5;
-            float dOuter = sdCapsuleBox(fragCoord - outerHalf, outerHalf, radius);
-            if (dOuter > 0.0) return half4(0.0);
-
-            float3 trackCol = mix(float3(0.12, 0.13, 0.18), float3(0.24, 0.26, 0.33), 1.0 - uv.y * 0.6);
-            float outerRim = smoothstep(-1.5, -0.2, dOuter);
-            trackCol = mix(trackCol, float3(0.70, 0.75, 0.85), outerRim * 0.40);
-
-            float pad = 2.0;
-            float innerR = max(radius - pad, 3.0);
-            float minH = uResolution.x;
-            float fillH = mix(minH, max(uResolution.y - pad * 2.0, minH), clamp(uProgress, 0.0, 1.0));
-            float topY = uResolution.y - pad - fillH;
-            float2 innerHalf = float2(innerR, fillH * 0.5);
-            float2 innerCenter = float2(radius, topY + fillH * 0.5);
-            float dInner = sdCapsuleBox(fragCoord - innerCenter, innerHalf, innerR);
+            float fillH = max(radius * 2.0, uResolution.y * clamp(uProgress, 0.0, 1.0));
+            float topY = uResolution.y - fillH;
+            float2 fillHalf = float2(halfSize.x, fillH * 0.5);
+            float2 fillCenter = float2(halfSize.x, topY + fillH * 0.5);
+            float dFill = sdRoundedBox(fragCoord - fillCenter, fillHalf, radius);
 
             float3 finalCol = trackCol;
-            float finalAlpha = 0.78;
-
-            if (dInner <= 0.0) {
-                float3 innerCol = mix(float3(0.18, 0.20, 0.30), float3(0.32, 0.36, 0.52), 1.0 - uv.y);
-                float2 topCapCenter = float2(radius, topY + innerR);
-                float2 pCap = fragCoord - topCapCenter;
-
-                float rNorm = length(pCap) / innerR;
-                float rCut = length(pCap - float2(innerR * 0.15, innerR * 0.35)) / (innerR * 0.78);
-                float meniscus = smoothstep(1.0, 0.82, rNorm) * smoothstep(0.50, 0.95, rCut) * smoothstep(innerR * 0.3, -innerR * 0.3, pCap.y);
-                float blueHalo = smoothstep(1.0, 0.60, rNorm) * smoothstep(0.40, 0.85, rCut);
-
-                innerCol += float3(0.38, 0.70, 1.0) * blueHalo * 0.65;
-                innerCol = mix(innerCol, float3(0.95, 0.98, 1.0), clamp(meniscus * 0.92, 0.0, 1.0));
-
-                float innerRim = smoothstep(-1.5, -0.2, dInner);
-                innerCol = mix(innerCol, float3(0.78, 0.88, 1.0), innerRim * 0.65);
-
-                finalCol = innerCol;
-                finalAlpha = 0.95;
+            if (dFill <= 0.0) {
+                float fillUvY = 1.0 - (fragCoord.y - topY) / max(fillH, 1.0);
+                float3 fillCol = mix(uBarColor.rgb * 0.85, uGlowColor.rgb, pow(fillUvY, 1.3) * 0.7);
+                float topTipDist = length(fragCoord - float2(halfSize.x, topY + radius * 0.6));
+                float tipGlow = exp(-topTipDist / max(radius * 0.9, 1.0));
+                fillCol = mix(fillCol, float3(1.0, 0.98, 0.92), tipGlow * 0.55);
+                float fillRim = smoothstep(-1.5, -0.2, dFill);
+                fillCol = mix(fillCol, float3(1.0, 0.96, 0.88), fillRim * 0.55);
+                finalCol = fillCol;
+            } else {
+                float outerBloom = exp(-dFill * 0.14) * 0.4;
+                finalCol += uBarColor.rgb * outerBloom;
             }
-
-            return half4(clamp(finalCol, 0.0, 1.0), finalAlpha);
+            return half4(clamp(finalCol, 0.0, 1.0), 1.0);
         }
     """
 }

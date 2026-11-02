@@ -128,6 +128,28 @@ class QueueManager {
 
     fun getPriorityQueue(): List<Track> = synchronized(this) { priorityQueue.toList() }
 
+    fun getUpcomingTracks(maxCount: Int = 2): List<Track> = synchronized(this) {
+        val result = mutableListOf<Track>()
+        if (priorityQueue.isNotEmpty()) {
+            val startIdx = if (isPlayingFromPriorityQueue) 1 else 0
+            for (i in startIdx until priorityQueue.size) {
+                result.add(priorityQueue[i])
+                if (result.size >= maxCount) return result
+            }
+        }
+        if (originalTracks.isNotEmpty()) {
+            val startIdx = currentIndex + 1
+            for (i in startIdx until originalTracks.size) {
+                val actualIndex = if (isShuffle && i in shuffleIndices.indices) shuffleIndices[i] else i
+                if (actualIndex in originalTracks.indices) {
+                    result.add(originalTracks[actualIndex])
+                    if (result.size >= maxCount) return result
+                }
+            }
+        }
+        return result
+    }
+
     fun clearPriorityQueue() {
         synchronized(this) {
             priorityQueue.clear()
@@ -336,6 +358,60 @@ class QueueManager {
     fun setRepeat(mode: RepeatMode) {
         synchronized(this) {
             repeatMode = mode
+        }
+    }
+
+    fun removePriorityQueueItem(index: Int): Boolean {
+        synchronized(this) {
+            if (index in priorityQueue.indices) {
+                priorityQueue.removeAt(index)
+                if (priorityQueue.isEmpty() && isPlayingFromPriorityQueue) {
+                    restorePreQueue()
+                }
+                return true
+            }
+            return false
+        }
+    }
+
+    fun removeTrackById(trackId: Long): Boolean {
+        synchronized(this) {
+            val pqIdx = priorityQueue.indexOfFirst { it.id == trackId }
+            if (pqIdx != -1) {
+                return removePriorityQueueItem(pqIdx)
+            }
+            val origIdx = originalTracks.indexOfFirst { it.id == trackId }
+            if (origIdx != -1) {
+                originalTracks.removeAt(origIdx)
+                if (currentIndex >= originalTracks.size) {
+                    currentIndex = (originalTracks.size - 1).coerceAtLeast(0)
+                }
+                rebuildShuffleIndices(preserveCurrentIndex = currentIndex)
+                return true
+            }
+            return false
+        }
+    }
+
+    fun clearAllQueue() {
+        synchronized(this) {
+            priorityQueue.clear()
+            originalTracks.clear()
+            currentIndex = -1
+            shuffleIndices.clear()
+            preQueueSnapshot = null
+            isPlayingFromPriorityQueue = false
+        }
+    }
+
+    fun shuffleQueue() {
+        synchronized(this) {
+            if (originalTracks.isNotEmpty()) {
+                rebuildShuffleIndices(preserveCurrentIndex = currentIndex)
+            }
+            if (priorityQueue.isNotEmpty()) {
+                priorityQueue.shuffle()
+            }
         }
     }
 
