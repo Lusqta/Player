@@ -3,7 +3,6 @@ package com.lucas.player.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,7 +18,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -32,14 +30,16 @@ import com.lucas.player.data.LyricsManager
 import com.lucas.player.model.SortMode
 import com.lucas.player.model.Track
 import com.lucas.player.model.UserPlaylist
+import com.lucas.player.ui.components.AuroOverlay
+import com.lucas.player.ui.components.AuroOverlayType
 import com.lucas.player.ui.components.AuroRatingBar
 import com.lucas.player.ui.components.formatTimeMs
 import com.lucas.player.ui.theme.*
-import java.util.Locale
 
 /**
- * AURŌ DESIGN SYSTEM v2 - DIÁLOGOS E SOBREPOSIÇÕES
+ * AURŌ DESIGN SYSTEM v3 - DIÁLOGOS E SOBREPOSIÇÕES (Fase 2.3 & 2.4)
  * Fundo #000000 absoluto, fios Hairline (0x14FFFFFF), sem cinzas de superfície.
+ * Todos os modais e sheets utilizam AuroOverlay com PredictiveBackHandler e molas de movimento.
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -55,16 +55,10 @@ fun AuroTrackContextMenuDialog(
     onShowInfo: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.80f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            ),
-        contentAlignment = Alignment.Center
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.Dialog
     ) {
         Surface(
             color = AuroColor.Black,
@@ -72,11 +66,6 @@ fun AuroTrackContextMenuDialog(
             modifier = Modifier
                 .fillMaxWidth(0.90f)
                 .border(1.dp, AuroColor.Hairline, RoundedCornerShape(AuroRadius.card))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(
@@ -170,16 +159,10 @@ fun AuroSortDialog(
     onSelectSort: (SortMode) -> Unit,
     onDismiss: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.80f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            ),
-        contentAlignment = Alignment.Center
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.Dialog
     ) {
         Surface(
             color = AuroColor.Black,
@@ -188,11 +171,6 @@ fun AuroSortDialog(
                 .fillMaxWidth(0.88f)
                 .fillMaxHeight(0.70f)
                 .border(1.dp, AuroColor.Hairline, RoundedCornerShape(AuroRadius.card))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(
@@ -259,16 +237,10 @@ fun AuroTrackInfoDialog(
     track: Track,
     onDismiss: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.80f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            ),
-        contentAlignment = Alignment.Center
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.Dialog
     ) {
         Surface(
             color = AuroColor.Black,
@@ -277,11 +249,6 @@ fun AuroTrackInfoDialog(
                 .fillMaxWidth(0.92f)
                 .fillMaxHeight(0.75f)
                 .border(1.dp, AuroColor.Hairline, RoundedCornerShape(AuroRadius.card))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(
@@ -343,16 +310,10 @@ fun AuroAddToPlaylistDialog(
     var newPlaylistName by remember { mutableStateOf("") }
     val accent = LocalAuroAccent.current.a.value
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.80f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            ),
-        contentAlignment = Alignment.Center
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.Dialog
     ) {
         Surface(
             color = AuroColor.Black,
@@ -361,11 +322,6 @@ fun AuroAddToPlaylistDialog(
                 .fillMaxWidth(0.90f)
                 .fillMaxHeight(0.70f)
                 .border(1.dp, AuroColor.Hairline, RoundedCornerShape(AuroRadius.card))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(
@@ -514,16 +470,10 @@ fun AuroSleepTimerDialog(
     var stopAtTrackEnd by remember { mutableStateOf(false) }
     val accent = LocalAuroAccent.current.a.value
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.80f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            ),
-        contentAlignment = Alignment.Center
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.Dialog
     ) {
         Surface(
             color = AuroColor.Black,
@@ -531,11 +481,6 @@ fun AuroSleepTimerDialog(
             modifier = Modifier
                 .fillMaxWidth(0.88f)
                 .border(1.dp, AuroColor.Hairline, RoundedCornerShape(AuroRadius.card))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(
@@ -632,16 +577,10 @@ fun AuroPowerampMenuSheet(
     onOpenAbout: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.80f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            ),
-        contentAlignment = Alignment.BottomCenter
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.BottomSheet
     ) {
         Surface(
             color = AuroColor.Black,
@@ -649,11 +588,6 @@ fun AuroPowerampMenuSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .border(1.dp, AuroColor.Hairline, RoundedCornerShape(topStart = AuroRadius.card, topEnd = AuroRadius.card))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
                 .navigationBarsPadding()
         ) {
             Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
@@ -745,16 +679,10 @@ fun AuroAudioEngineDialog(
     bufferSizeFrames: Int = 192,
     onDismiss: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.80f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            ),
-        contentAlignment = Alignment.Center
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.Dialog
     ) {
         Surface(
             color = AuroColor.Black,
@@ -762,11 +690,6 @@ fun AuroAudioEngineDialog(
             modifier = Modifier
                 .fillMaxWidth(0.90f)
                 .border(1.dp, AuroColor.Hairline, RoundedCornerShape(AuroRadius.card))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Row(
@@ -838,16 +761,10 @@ fun AuroLyricsSheet(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.85f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            ),
-        contentAlignment = Alignment.BottomCenter
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.BottomSheet
     ) {
         Surface(
             color = AuroColor.Black,
@@ -856,11 +773,6 @@ fun AuroLyricsSheet(
                 .fillMaxWidth()
                 .fillMaxHeight(0.82f)
                 .border(1.dp, AuroColor.Hairline, RoundedCornerShape(topStart = AuroRadius.card, topEnd = AuroRadius.card))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
                 .navigationBarsPadding()
         ) {
             Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
@@ -971,16 +883,10 @@ fun AuroSavePresetDialog(
     var presetName by remember { mutableStateOf("") }
     val accent = LocalAuroAccent.current.a.value
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.80f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            ),
-        contentAlignment = Alignment.Center
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.Dialog
     ) {
         Surface(
             color = AuroColor.Black,
@@ -988,11 +894,6 @@ fun AuroSavePresetDialog(
             modifier = Modifier
                 .fillMaxWidth(0.88f)
                 .border(1.dp, AuroColor.Hairline, RoundedCornerShape(AuroRadius.card))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
@@ -1055,16 +956,10 @@ fun AuroConfirmDeleteDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.80f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            ),
-        contentAlignment = Alignment.Center
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.Dialog
     ) {
         Surface(
             color = AuroColor.Black,
@@ -1072,11 +967,6 @@ fun AuroConfirmDeleteDialog(
             modifier = Modifier
                 .fillMaxWidth(0.88f)
                 .border(1.dp, AuroColor.Hairline, RoundedCornerShape(AuroRadius.card))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
@@ -1126,16 +1016,10 @@ fun AuroConfirmDeleteDialog(
 fun AuroAboutDialog(
     onDismiss: () -> Unit
 ) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.80f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss
-            ),
-        contentAlignment = Alignment.Center
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.Dialog
     ) {
         Surface(
             color = AuroColor.Black,
@@ -1143,11 +1027,6 @@ fun AuroAboutDialog(
             modifier = Modifier
                 .fillMaxWidth(0.88f)
                 .border(1.dp, AuroColor.Hairline, RoundedCornerShape(AuroRadius.card))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {}
-                )
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(

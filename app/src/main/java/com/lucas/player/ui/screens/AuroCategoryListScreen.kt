@@ -56,6 +56,7 @@ fun AuroCategoryListScreen(
     onPlayAll: () -> Unit = {},
     onShuffleAll: () -> Unit = {},
     onCreatePlaylist: () -> Unit = {},
+    listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
     onSortClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -183,7 +184,6 @@ fun AuroCategoryListScreen(
             HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
         }
 
-        val listState = rememberLazyListState()
         val coroutineScope = rememberCoroutineScope()
 
         Box(modifier = Modifier.fillMaxSize()) {

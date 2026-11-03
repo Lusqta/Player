@@ -16,7 +16,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.activity.BackEventCompat
+import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.runtime.*
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -93,6 +100,27 @@ fun AuroNowPlayingScreen(
     }
 
     val view = LocalView.current
+    val reduceMotion = rememberReduceMotion()
+    val backProgress = remember { Animatable(0f) }
+
+    PredictiveBackHandler(enabled = true) { progressFlow: Flow<BackEventCompat> ->
+        try {
+            progressFlow.collect { event ->
+                if (!reduceMotion) {
+                    backProgress.snapTo(event.progress)
+                }
+            }
+            onCollapse()
+        } catch (_: CancellationException) {
+            if (!reduceMotion) {
+                backProgress.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = 300f))
+            }
+        } finally {
+            if (!reduceMotion) {
+                backProgress.snapTo(0f)
+            }
+        }
+    }
     val currentProgressFraction = if (durationMs > 0) {
         (progressMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
     } else 0f
@@ -101,6 +129,14 @@ fun AuroNowPlayingScreen(
         modifier = modifier
             .fillMaxSize()
             .background(AuroColor.Black)
+            .graphicsLayer {
+                val p = backProgress.value
+                scaleX = 1f - 0.08f * p
+                scaleY = 1f - 0.08f * p
+                alpha = 1f - 0.3f * p
+                shape = RoundedCornerShape((28f * p).dp)
+                clip = p > 0.001f
+            }
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp)

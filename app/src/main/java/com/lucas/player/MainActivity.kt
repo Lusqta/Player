@@ -14,7 +14,8 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -53,6 +54,16 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
     // Controlador de Navegação com Pilha de Histórico estilo Poweramp
     private val navController = PlayerNavController(NavScreen.LibraryRoot)
+
+    private fun screenDepth(screen: NavScreen): Int = when (screen) {
+        is NavScreen.LibraryRoot -> 0
+        is NavScreen.CategoryList,
+        is NavScreen.Search,
+        is NavScreen.Equalizer,
+        is NavScreen.Queue -> 1
+        is NavScreen.Drilldown -> 2
+        is NavScreen.NowPlaying -> 3
+    }
 
     // Estados Reativos do Player
     private val currentTrackState = mutableStateOf<Track?>(null)
@@ -143,6 +154,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
         setContent {
             val currentScreen = navController.currentScreen
+            val reduceMotion = rememberReduceMotion()
+            val scrollStates = remember { mutableMapOf<String, LazyListState>() }
+            fun getScrollState(key: String): LazyListState = scrollStates.getOrPut(key) { LazyListState() }
             val currentTrack by currentTrackState
             val isPlaying by isPlayingState
             val progressMs by progressMsState
@@ -236,10 +250,39 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             .fillMaxSize()
                             .padding(bottom = if (currentScreen is NavScreen.NowPlaying) 58.dp else if (currentTrack != null) 118.dp else 58.dp)
                     ) {
-                        when (currentScreen) {
+                        AnimatedContent(
+                            targetState = currentScreen,
+                            transitionSpec = {
+                                if (reduceMotion) {
+                                    EnterTransition.None togetherWith ExitTransition.None
+                                } else if (targetState is NavScreen.NowPlaying) {
+                                    (slideInVertically(spring(dampingRatio = 0.85f, stiffness = 250f)) { it } + fadeIn(spring(0.85f, 250f)))
+                                        .togetherWith(fadeOut(tween(160, easing = LinearEasing)))
+                                } else if (initialState is NavScreen.NowPlaying) {
+                                    fadeIn(tween(220))
+                                        .togetherWith(slideOutVertically(spring(dampingRatio = 0.85f, stiffness = 250f)) { it } + fadeOut(spring(0.85f, 250f)))
+                                } else {
+                                    val initialDepth = screenDepth(initialState)
+                                    val targetDepth = screenDepth(targetState)
+                                    if (targetDepth > initialDepth) {
+                                        (slideInHorizontally(spring(dampingRatio = 0.85f, stiffness = 300f)) { it / 10 } + fadeIn(spring(0.85f, 300f)))
+                                            .togetherWith(slideOutHorizontally(spring(dampingRatio = 0.85f, stiffness = 300f)) { -it / 14 } + fadeOut(tween(160, easing = LinearEasing)))
+                                    } else if (targetDepth < initialDepth) {
+                                        (slideInHorizontally(spring(dampingRatio = 0.85f, stiffness = 300f)) { -it / 14 } + fadeIn(spring(0.85f, 300f)))
+                                            .togetherWith(slideOutHorizontally(spring(dampingRatio = 0.85f, stiffness = 300f)) { it / 10 } + fadeOut(tween(160, easing = LinearEasing)))
+                                    } else {
+                                        fadeIn(tween(220)).togetherWith(fadeOut(tween(140)))
+                                    }
+                                }
+                            },
+                            label = "ScreenTransition",
+                            modifier = Modifier.fillMaxSize()
+                        ) { activeScreen ->
+                            when (activeScreen) {
                             is NavScreen.LibraryRoot -> {
                                 AuroLibraryRootScreen(
                                     totalTracksCount = totalTracksCount,
+                                    listState = getScrollState("library_root"),
                                     onSelectCategory = { cat ->
                                         selectCategory(cat)
                                         navController.navigateTo(NavScreen.CategoryList(cat))
@@ -251,13 +294,14 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             }
 
                             is NavScreen.CategoryList -> {
-                                if (currentScreen.category == LibraryCategory.QUEUE) {
+                                if (activeScreen.category == LibraryCategory.QUEUE) {
                                     val priorityTracks = playbackService?.queueManager?.getPriorityQueue() ?: emptyList()
                                     val regularTracks = playbackService?.queueManager?.getTracks() ?: emptyList()
                                     AuroQueueScreen(
                                         priorityTracks = priorityTracks,
                                         regularTracks = regularTracks,
                                         currentTrackId = currentTrack?.id ?: -1L,
+                                        listState = getScrollState("queue"),
                                         onBackClick = { navController.navigateUp() },
                                         onTrackClick = { _, index, isPriority ->
                                             if (isPriority) {
@@ -285,7 +329,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     )
                                 } else {
                                     AuroCategoryListScreen(
-                                        category = currentScreen.category,
+                                        category = activeScreen.category,
+                                        listState = getScrollState("category_${activeScreen.category.name}"),
                                         displayedTracks = displayedTracks,
                                         displayedGroups = displayedGroups,
                                         currentPlayingId = currentTrack?.id ?: -1L,
@@ -301,17 +346,17 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                             trackContextMenuState.value = track
                                         },
                                         onGroupClick = { group ->
-                                            drillDownGroup(currentScreen.category, group.title)
+                                            drillDownGroup(activeScreen.category, group.title)
                                             navController.navigateTo(
                                                 NavScreen.Drilldown(
-                                                    category = currentScreen.category,
+                                                    category = activeScreen.category,
                                                     title = group.title,
                                                     subtitle = group.subtitle
                                                 )
                                             )
                                         },
                                         onGroupLongClick = { group ->
-                                            if (currentScreen.category == LibraryCategory.PLAYLISTS) {
+                                            if (activeScreen.category == LibraryCategory.PLAYLISTS) {
                                                 deletePlaylistTargetState.value = group
                                             }
                                         },
@@ -343,8 +388,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                             is NavScreen.Drilldown -> {
                                 AuroDrilldownScreen(
-                                    category = currentScreen.category,
-                                    groupTitle = currentScreen.title,
+                                    category = activeScreen.category,
+                                    groupTitle = activeScreen.title,
+                                    listState = getScrollState("drilldown_${activeScreen.category.name}_${activeScreen.title}"),
                                     tracks = drilldownTracks,
                                     currentPlayingId = currentTrack?.id ?: -1L,
                                     onBackToCategoryList = { navController.navigateUp() },
@@ -435,6 +481,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                             is NavScreen.Equalizer -> {
                                 AuroEqualizerScreen(
+                                    listState = getScrollState("equalizer"),
                                     eqEnabled = eqEnabled,
                                     onToggleEq = { enabled ->
                                         eqEnabledState.value = enabled
@@ -506,6 +553,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                             is NavScreen.Search -> {
                                 AuroSearchScreen(
+                                    listState = getScrollState("search"),
                                     searchQuery = searchQuery,
                                     onQueryChange = { q -> onSearchQueryChange(q) },
                                     results = searchResults,
@@ -529,6 +577,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     priorityTracks = priorityTracks,
                                     regularTracks = regularTracks,
                                     currentTrackId = currentTrack?.id ?: -1L,
+                                        listState = getScrollState("queue"),
                                     onBackClick = { navController.navigateUp() },
                                     onTrackClick = { _, index, isPriority ->
                                         if (isPriority) {
@@ -554,6 +603,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     },
                                     modifier = Modifier.fillMaxSize()
                                 )
+                            }
                             }
                         }
                     }
@@ -581,7 +631,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
                     ) {
-                        if (currentScreen !is NavScreen.NowPlaying && currentTrack != null) {
+                        AnimatedVisibility(
+                            visible = currentScreen !is NavScreen.NowPlaying && currentTrack != null,
+                            enter = if (reduceMotion) EnterTransition.None else fadeIn(tween(220)),
+                            exit = if (reduceMotion) ExitTransition.None else fadeOut(tween(160))
+                        ) {
+                            if (currentTrack != null) {
                             AuroMiniPlayer(
                                 track = currentTrack,
                                 isPlaying = isPlaying,
@@ -593,6 +648,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 onNext = { playbackService?.playNext() },
                                 onPrevious = { playbackService?.playPrevious() }
                             )
+                            }
                         }
 
                         AuroNavbar(

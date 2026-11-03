@@ -47,6 +47,7 @@ fun AuroDrilldownScreen(
     onTrackClick: (Track, Int) -> Unit,
     onTrackLongClick: (Track) -> Unit,
     onTrackMenuClick: (Track) -> Unit,
+    listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
     modifier: Modifier = Modifier
 ) {
     val totalDurationMs = remember(tracks) { tracks.sumOf { it.durationMs } }
@@ -159,7 +160,6 @@ fun AuroDrilldownScreen(
 
         HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
 
-        val listState = rememberLazyListState()
         val coroutineScope = rememberCoroutineScope()
 
         Box(modifier = Modifier.fillMaxSize()) {
