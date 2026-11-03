@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lucas.player.BuildConfig
 import com.lucas.player.data.LyricsManager
 import com.lucas.player.model.SortMode
 import com.lucas.player.model.Track
@@ -1156,9 +1157,10 @@ fun AuroAboutDialog(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Poweramp Native Core • Aurō Design System v2",
+                    text = "v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE}) • Aurō DS v3 (Fase 1)",
                     color = AuroColor.TextSecondary,
-                    fontSize = 12.sp
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
                 )
 
                 HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp, modifier = Modifier.padding(vertical = 12.dp))

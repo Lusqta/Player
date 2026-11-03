@@ -15,3 +15,4 @@ core_dump.txt
 non_ui_code/
 non_ui_files/
 non_ui_files.zip
+*.apk

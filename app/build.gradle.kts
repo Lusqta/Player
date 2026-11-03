@@ -12,8 +12,8 @@ android {
         applicationId = "com.lucas.player"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1.0"
 
         externalNativeBuild {
             cmake {
@@ -52,6 +52,7 @@ android {
     buildFeatures {
         prefab = true
         compose = true
+        buildConfig = true
     }
 
     composeOptions {
@@ -95,10 +96,13 @@ dependencies {
 afterEvaluate {
     tasks.findByName("assembleDebug")?.doLast {
         val src = layout.buildDirectory.file("outputs/apk/debug/app-debug.apk").get().asFile
-        val dest = File(rootDir, "AuroPlayer-Debug.apk")
+        val version = android.defaultConfig.versionName ?: "debug"
+        val destVersioned = File(rootDir, "AuroPlayer-v${version}.apk")
+        val destLatest = File(rootDir, "AuroPlayer-latest.apk")
         if (src.exists()) {
-            src.copyTo(dest, overwrite = true)
-            println(">>> AuroPlayer-Debug.apk atualizado com sucesso na raiz do projeto <<<")
+            src.copyTo(destVersioned, overwrite = true)
+            src.copyTo(destLatest, overwrite = true)
+            println(">>> AuroPlayer-v${version}.apk gerado na raiz com sucesso <<<")
         }
     }
 }
