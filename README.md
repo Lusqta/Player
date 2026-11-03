@@ -6,25 +6,23 @@ Um reprodutor de música offline de alta fidelidade para Android, combinando um 
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.0-purple?logo=kotlin)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202024-blue?logo=jetpackcompose)
 ![License](https://img.shields.io/badge/License-Proprietary-gray)
-[![Download APK](https://img.shields.io/badge/⬇️%20Download-AuroPlayer--Debug.apk-00C853?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Lusqta/Player/releases/download/latest/AuroPlayer-Debug.apk)
-[![Releases](https://img.shields.io/badge/📦%20Ver-Releases-blue?style=for-the-badge&logo=github)](https://github.com/Lusqta/Player/releases)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/Lusqta/Player/build-apk.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Lusqta/Player/actions)
+[![Download APK](https://img.shields.io/badge/⬇️%20Download-AuroPlayer--Debug.apk-00C853?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Lusqta/Player/raw/main/AuroPlayer-Debug.apk)
+[![Ver no Repositório](https://img.shields.io/badge/📁%20Arquivo-AuroPlayer--Debug.apk-blue?style=for-the-badge&logo=github)](https://github.com/Lusqta/Player/blob/main/AuroPlayer-Debug.apk)
 
 ---
 
-## 📲 Download do APK
+## 📲 Download Direto do APK
 
-Para instalar o **Aurō Player** diretamente no seu dispositivo Android:
+Para baixar e instalar o **Aurō Player** no seu Android:
 
-* **[⬇️ Baixar APK Direto (Última Versão Compilada)](https://github.com/Lusqta/Player/releases/download/latest/AuroPlayer-Debug.apk)**
-* **[📦 Página de Releases no GitHub](https://github.com/Lusqta/Player/releases)**
-* **[⚙️ Builds Automatizados (GitHub Actions Artifacts)](https://github.com/Lusqta/Player/actions)**
+* 👉 **[⬇️ CLIQUE AQUI PARA BAIXAR O APK (Download Direto)](https://github.com/Lusqta/Player/raw/main/AuroPlayer-Debug.apk)**
+* 📁 **[Ver arquivo no repositório (`AuroPlayer-Debug.apk`)](https://github.com/Lusqta/Player/blob/main/AuroPlayer-Debug.apk)**
 
 > 💡 **Como instalar:**
-> 1. Baixe o arquivo `AuroPlayer-Debug.apk` no seu celular.
-> 2. Abra a notificação de download ou o app de arquivos e toque no `.apk`.
-> 3. Caso o Android solicite, habilite *"Permitir instalação a partir desta fonte"*.
-> 4. Toque em **Instalar** e aproveite!
+> 1. Toque no link acima para baixar o `AuroPlayer-Debug.apk`.
+> 2. Ao terminar, abra o arquivo no seu celular.
+> 3. Se solicitado, permita a instalação de apps desta fonte nas configurações.
+> 4. Toque em **Instalar**!
 
 ---
 
