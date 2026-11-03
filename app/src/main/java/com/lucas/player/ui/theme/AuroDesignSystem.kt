@@ -52,6 +52,9 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import com.lucas.player.ui.components.AuroHaptics
+import android.view.View
 import androidx.compose.ui.unit.dp
 import androidx.palette.graphics.Palette
 import kotlin.math.PI
@@ -353,11 +356,13 @@ fun AuroGlass(
     modifier: Modifier = Modifier,
     kind: AuroGlassKind = AuroGlassKind.Card,
     onClick: (() -> Unit)? = null,
+    haptic: ((View) -> Unit)? = { AuroHaptics.click(it) },
     soft: Float = 0.6f, // 0 = reflexo agudo, 1 = bem borrado
     content: @Composable BoxScope.() -> Unit,
 ) {
     val density = LocalDensity.current.density
     val cfg = LocalConfiguration.current
+    val view = LocalView.current
     val screenH = cfg.screenHeightDp * density
     var center by remember { mutableStateOf(Offset.Zero) } // centro do objeto na janela, px
     val interaction = remember { MutableInteractionSource() }
@@ -365,6 +370,13 @@ fun AuroGlass(
     val press by animateFloatAsState(if (pressed) 1f else 0f, AuroMotion.press(), label = "press")
     val isButton = kind == AuroGlassKind.Button
     val shape = if (isButton) CircleShape else RoundedCornerShape(AuroRadius.card)
+
+    val clickModifier = if (onClick != null) {
+        Modifier.clickable(interaction, indication = null) {
+            haptic?.invoke(view)
+            onClick()
+        }
+    } else Modifier
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         val shader = remember { RuntimeShader(AURO_GLASS_AGSL) }
@@ -400,7 +412,7 @@ fun AuroGlass(
                     drawRect(brush)
                 }
                 .clip(shape)
-                .then(if (onClick != null) Modifier.clickable(interaction, indication = null, onClick = onClick) else Modifier),
+                .then(clickModifier),
             content = content,
         )
     } else {
@@ -411,7 +423,7 @@ fun AuroGlass(
                 .background(AuroColor.Black, shape)
                 .border(1.dp, Color(0x1AFFFFFF), shape)
                 .clip(shape)
-                .then(if (onClick != null) Modifier.clickable(interaction, indication = null, onClick = onClick) else Modifier),
+                .then(clickModifier),
             content = content,
         )
     }

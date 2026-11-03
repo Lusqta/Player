@@ -8,14 +8,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lucas.player.R
 import com.lucas.player.model.Track
+import com.lucas.player.ui.components.AuroEmptyState
 import com.lucas.player.ui.components.AuroTrackRow
 import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.AuroGlass
@@ -115,20 +119,29 @@ fun AuroSearchScreen(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
         )
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 120.dp)
-        ) {
-            itemsIndexed(results, key = { _, t -> t.id }) { index, track ->
-                AuroTrackRow(
-                    track = track,
-                    trackIndex = index,
-                    isPlayingThis = track.id == currentPlayingId,
-                    onClick = { onTrackClick(track, index) },
-                    onLongClick = {},
-                    onMenuClick = { onTrackMenuClick(track) }
-                )
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+        if (searchQuery.isNotBlank() && results.isEmpty()) {
+            AuroEmptyState(
+                icon = Icons.Rounded.SearchOff,
+                title = stringResource(R.string.empty_search_title, searchQuery),
+                message = stringResource(R.string.empty_search_message),
+                modifier = Modifier.padding(bottom = 120.dp)
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 120.dp)
+            ) {
+                itemsIndexed(results, key = { _, t -> t.id }) { index, track ->
+                    AuroTrackRow(
+                        track = track,
+                        trackIndex = index,
+                        isPlayingThis = track.id == currentPlayingId,
+                        onClick = { onTrackClick(track, index) },
+                        onLongClick = {},
+                        onMenuClick = { onTrackMenuClick(track) }
+                    )
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                }
             }
         }
     }

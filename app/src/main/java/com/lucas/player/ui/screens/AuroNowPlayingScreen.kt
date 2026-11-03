@@ -23,14 +23,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lucas.player.R
 import com.lucas.player.model.Track
 import com.lucas.player.queue.RepeatMode
 import com.lucas.player.queue.ShuffleMode
+import com.lucas.player.ui.components.AuroCoverPlaceholder
+import com.lucas.player.ui.components.AuroEmptyState
+import com.lucas.player.ui.components.AuroHaptics
 import com.lucas.player.ui.components.AuroProgressBar
 import com.lucas.player.ui.theme.*
 
@@ -72,14 +77,16 @@ fun AuroNowPlayingScreen(
     modifier: Modifier = Modifier
 ) {
     if (track == null) {
-        Box(
+        AuroEmptyState(
+            icon = Icons.Rounded.MusicOff,
+            title = stringResource(R.string.no_file_loaded),
+            message = stringResource(R.string.empty_queue_message),
+            actionLabel = stringResource(R.string.empty_queue_action),
+            onAction = onCollapse,
             modifier = modifier
                 .fillMaxSize()
-                .background(AuroColor.Black),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("Nenhuma faixa selecionada", color = AuroColor.TextSecondary)
-        }
+                .background(AuroColor.Black)
+        )
         return
     }
 
@@ -137,7 +144,6 @@ fun AuroNowPlayingScreen(
                 .fillMaxWidth()
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(AuroRadius.cover))
-                .background(AuroColor.Track)
                 .pointerInput(Unit) {
                     var totalDragX = 0f
                     var totalDragY = 0f
@@ -173,11 +179,9 @@ fun AuroNowPlayingScreen(
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
-                Icon(
-                    imageVector = Icons.Rounded.MusicNote,
-                    contentDescription = null,
-                    tint = AuroColor.TextTertiary,
-                    modifier = Modifier.size(72.dp)
+                AuroCoverPlaceholder(
+                    modifier = Modifier.fillMaxSize(),
+                    glass = true
                 )
             }
         }
@@ -222,6 +226,7 @@ fun AuroNowPlayingScreen(
                 AuroGlass(
                     kind = AuroGlassKind.Button,
                     onClick = { onRatingChanged(if (isFavorite) 0 else 5) },
+                    haptic = { AuroHaptics.confirm(it) },
                     modifier = Modifier.size(40.dp)
                 ) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -311,6 +316,7 @@ fun AuroNowPlayingScreen(
             AuroGlass(
                 kind = AuroGlassKind.Button,
                 onClick = onPlayPause,
+                haptic = { AuroHaptics.confirm(it) },
                 modifier = Modifier.size(76.dp)
             ) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

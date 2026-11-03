@@ -116,6 +116,7 @@ A suíte legada (`Dry*`, `Liquid*`, `Player*`, XML layouts e RecyclerView Adapte
 | [`AuroSearchScreen.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroSearchScreen.kt) | Busca instantânea de faixas e artistas. |
 | [`AuroQueueScreen.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroQueueScreen.kt) | Fila dedicada com separação entre Fila Prioritária e Fila Normal. |
 | [`AuroComponents.kt`](app/src/main/java/com/lucas/player/ui/components/AuroComponents.kt) | Componentes atômicos: `AuroProgressBar`, `AuroMiniPlayer`, `AuroNavbar`, `AuroTrackRow`, `AuroBreadcrumbHeader`, `AuroAlphabetFastScroller`, `rememberTrackCover`. |
+| [`AuroFeedback.kt`](app/src/main/java/com/lucas/player/ui/components/AuroFeedback.kt) | Peças base de feedback do Aurō DS v3: `AuroHaptics` (vibração tátil calibrada), `AuroSnackbarHost` (snackbars fluidos em vidro preto), `AuroEmptyState`, `AuroLoadingBar` e `AuroCoverPlaceholder`. |
 | [`AuroOverlays.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroOverlays.kt) | Modais e diálogos: Menu contextual da faixa, info de áudio, temporizador de sono, editor de playlists, salvar presets. |
 | [`MainActivity.kt`](app/src/main/java/com/lucas/player/MainActivity.kt) | Orquestração central de estados (`isPlaying`, `progressMs`, `currentTrack`), conexão com o serviço e injeção do `AuroTheme`. |
 

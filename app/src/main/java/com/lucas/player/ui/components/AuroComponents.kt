@@ -29,6 +29,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -240,29 +241,24 @@ fun AuroMiniPlayer(
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val view = LocalView.current
+
                 // Capa quadrada (40x40) com cantos arredondados
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(AuroColor.Track),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (coverBitmap != null) {
-                        Image(
-                            bitmap = coverBitmap.asImageBitmap(),
-                            contentDescription = "Capa",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Rounded.MusicNote,
-                            contentDescription = null,
-                            tint = AuroColor.TextTertiary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                if (coverBitmap != null) {
+                    Image(
+                        bitmap = coverBitmap.asImageBitmap(),
+                        contentDescription = "Capa",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                    )
+                } else {
+                    AuroCoverPlaceholder(
+                        modifier = Modifier.size(40.dp),
+                        glass = true,
+                        shape = RoundedCornerShape(8.dp)
+                    )
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -288,7 +284,7 @@ fun AuroMiniPlayer(
                 }
 
                 // Ações de reprodução
-                IconButton(onClick = onPrevious, modifier = Modifier.size(44.dp)) {
+                IconButton(onClick = { AuroHaptics.click(view); onPrevious() }, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = Icons.Rounded.SkipPrevious,
                         contentDescription = "Anterior",
@@ -297,7 +293,7 @@ fun AuroMiniPlayer(
                     )
                 }
 
-                IconButton(onClick = onPlayPause, modifier = Modifier.size(44.dp)) {
+                IconButton(onClick = { AuroHaptics.confirm(view); onPlayPause() }, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = if (isPlaying) "Pausar" else "Reproduzir",
@@ -306,7 +302,7 @@ fun AuroMiniPlayer(
                     )
                 }
 
-                IconButton(onClick = onNext, modifier = Modifier.size(44.dp)) {
+                IconButton(onClick = { AuroHaptics.click(view); onNext() }, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = Icons.Rounded.SkipNext,
                         contentDescription = "Próxima",
@@ -385,6 +381,7 @@ private fun AuroNavbarTab(
     onClick: () -> Unit
 ) {
     val tint = if (isActive) AuroColor.TextPrimary else AuroColor.TextTertiary
+    val view = LocalView.current
 
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -400,7 +397,10 @@ private fun AuroNavbarTab(
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
-                onClick = onClick
+                onClick = {
+                    AuroHaptics.click(view)
+                    onClick()
+                }
             )
             .padding(horizontal = 14.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -438,13 +438,20 @@ fun AuroTrackRow(
     modifier: Modifier = Modifier
 ) {
     val accent = LocalAuroAccent.current.a.value
+    val view = LocalView.current
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
+                onClick = {
+                    AuroHaptics.click(view)
+                    onClick()
+                },
+                onLongClick = {
+                    AuroHaptics.longPress(view)
+                    onLongClick()
+                }
             )
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically

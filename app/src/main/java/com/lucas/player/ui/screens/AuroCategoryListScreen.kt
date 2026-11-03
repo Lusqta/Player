@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.Sort
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.HorizontalDivider
@@ -20,10 +21,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lucas.player.R
 import com.lucas.player.model.LibraryCategory
 import com.lucas.player.model.Track
 import com.lucas.player.ui.GroupItem
@@ -185,101 +188,132 @@ fun AuroCategoryListScreen(
 
         Box(modifier = Modifier.fillMaxSize()) {
             if (isAllSongs) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 120.dp, end = if (displayedTracks.size > 15) 28.dp else 0.dp)
-                ) {
-                    itemsIndexed(displayedTracks, key = { _, t -> t.id }) { index, track ->
-                        AuroTrackRow(
-                            track = track,
-                            trackIndex = index,
-                            isPlayingThis = track.id == currentPlayingId,
-                            onClick = { onTrackClick(track, index) },
-                            onLongClick = { onTrackLongClick(track) },
-                            onMenuClick = { onTrackMenuClick(track) }
-                        )
-                        HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-                    }
-                }
-
-                if (displayedTracks.size > 15) {
-                    AuroAlphabetFastScroller(
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .padding(bottom = 120.dp),
-                        onLetterSelected = { letter ->
-                            val targetIndex = if (letter == '#') {
-                                displayedTracks.indexOfFirst { it.title.firstOrNull()?.isLetter() == false }
-                            } else {
-                                displayedTracks.indexOfFirst { it.title.startsWith(letter, ignoreCase = true) }
-                            }
-                            if (targetIndex >= 0) {
-                                coroutineScope.launch { listState.scrollToItem(targetIndex) }
-                            }
-                        }
+                if (displayedTracks.isEmpty()) {
+                    AuroEmptyState(
+                        icon = Icons.Rounded.MusicOff,
+                        title = stringResource(R.string.empty_library_title),
+                        message = stringResource(R.string.empty_library_message),
+                        actionLabel = stringResource(R.string.empty_library_action),
+                        onAction = onBackClick,
+                        modifier = Modifier.padding(bottom = 120.dp)
                     )
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 120.dp, end = if (displayedTracks.size > 15) 28.dp else 0.dp)
+                    ) {
+                        itemsIndexed(displayedTracks, key = { _, t -> t.id }) { index, track ->
+                            AuroTrackRow(
+                                track = track,
+                                trackIndex = index,
+                                isPlayingThis = track.id == currentPlayingId,
+                                onClick = { onTrackClick(track, index) },
+                                onLongClick = { onTrackLongClick(track) },
+                                onMenuClick = { onTrackMenuClick(track) }
+                            )
+                            HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                        }
+                    }
+
+                    if (displayedTracks.size > 15) {
+                        AuroAlphabetFastScroller(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(bottom = 120.dp),
+                            onLetterSelected = { letter ->
+                                val targetIndex = if (letter == '#') {
+                                    displayedTracks.indexOfFirst { it.title.firstOrNull()?.isLetter() == false }
+                                } else {
+                                    displayedTracks.indexOfFirst { it.title.startsWith(letter, ignoreCase = true) }
+                                }
+                                if (targetIndex >= 0) {
+                                    coroutineScope.launch { listState.scrollToItem(targetIndex) }
+                                }
+                            }
+                        )
+                    }
                 }
             } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 120.dp, end = if (displayedGroups.size > 15) 28.dp else 0.dp)
-                ) {
-                    items(displayedGroups, key = { it.title }) { group ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .combinedClickable(
-                                    onClick = { onGroupClick(group) },
-                                    onLongClick = { onGroupLongClick(group) }
-                                )
-                                .padding(horizontal = 16.dp, vertical = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = group.title,
-                                    color = AuroColor.TextPrimary,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = group.subtitle,
-                                    color = AuroColor.TextSecondary,
-                                    fontSize = 12.sp
-                                )
-                            }
-                            Icon(
-                                imageVector = Icons.Rounded.ChevronRight,
-                                contentDescription = null,
-                                tint = AuroColor.TextTertiary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                if (displayedGroups.isEmpty()) {
+                    if (isPlaylists) {
+                        AuroEmptyState(
+                            icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                            title = stringResource(R.string.empty_playlist_title),
+                            message = stringResource(R.string.empty_playlist_message),
+                            actionLabel = stringResource(R.string.create_playlist),
+                            onAction = onCreatePlaylist,
+                            modifier = Modifier.padding(bottom = 120.dp)
+                        )
+                    } else {
+                        AuroEmptyState(
+                            icon = Icons.Rounded.FolderOff,
+                            title = stringResource(R.string.empty_library_title),
+                            message = stringResource(R.string.empty_library_message),
+                            modifier = Modifier.padding(bottom = 120.dp)
+                        )
                     }
-                }
-
-                if (displayedGroups.size > 15) {
-                    AuroAlphabetFastScroller(
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .padding(bottom = 120.dp),
-                        onLetterSelected = { letter ->
-                            val targetIndex = if (letter == '#') {
-                                displayedGroups.indexOfFirst { it.title.firstOrNull()?.isLetter() == false }
-                            } else {
-                                displayedGroups.indexOfFirst { it.title.startsWith(letter, ignoreCase = true) }
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 120.dp, end = if (displayedGroups.size > 15) 28.dp else 0.dp)
+                    ) {
+                        items(displayedGroups, key = { it.title }) { group ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .combinedClickable(
+                                        onClick = { onGroupClick(group) },
+                                        onLongClick = { onGroupLongClick(group) }
+                                    )
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = group.title,
+                                        color = AuroColor.TextPrimary,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = group.subtitle,
+                                        color = AuroColor.TextSecondary,
+                                        fontSize = 12.sp
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.Rounded.ChevronRight,
+                                    contentDescription = null,
+                                    tint = AuroColor.TextTertiary,
+                                    modifier = Modifier.size(18.dp)
+                                )
                             }
-                            if (targetIndex >= 0) {
-                                coroutineScope.launch { listState.scrollToItem(targetIndex) }
-                            }
+                            HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
                         }
-                    )
+                    }
+
+                    if (displayedGroups.size > 15) {
+                        AuroAlphabetFastScroller(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(bottom = 120.dp),
+                            onLetterSelected = { letter ->
+                                val targetIndex = if (letter == '#') {
+                                    displayedGroups.indexOfFirst { it.title.firstOrNull()?.isLetter() == false }
+                                } else {
+                                    displayedGroups.indexOfFirst { it.title.startsWith(letter, ignoreCase = true) }
+                                }
+                                if (targetIndex >= 0) {
+                                    coroutineScope.launch { listState.scrollToItem(targetIndex) }
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }

@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">Aurō Player</string>
+    <string name="open_file">Open File (WAV/FLAC)</string>
+    <string name="no_file_loaded">No file loaded</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="stop">Stop</string>
+    <string name="initial_time">00:00</string>
+
+    <!-- Empty States -->
+    <string name="empty_library_title">No music found</string>
+    <string name="empty_library_message">No audio files found on this device.</string>
+    <string name="empty_library_action">Refresh library</string>
+    <string name="empty_queue_title">The queue is empty</string>
+    <string name="empty_queue_message">Choose a song from the library.</string>
+    <string name="empty_queue_action">Open library</string>
+    <string name="empty_playlist_title">Empty playlist</string>
+    <string name="empty_playlist_message">Add songs using the track menu.</string>
+    <string name="create_playlist">New playlist</string>
+    <string name="empty_search_title">Nothing found for “%1$s”</string>
+    <string name="empty_search_message">Check the spelling or try another word.</string>
+</resources>

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Shuffle
@@ -16,14 +17,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lucas.player.R
 import com.lucas.player.model.Track
 import com.lucas.player.ui.components.AuroBreadcrumbHeader
 import com.lucas.player.ui.components.AuroBreadcrumbItem
+import com.lucas.player.ui.components.AuroEmptyState
 import com.lucas.player.ui.components.formatTimeMs
 import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.LocalAuroAccent
@@ -81,94 +85,105 @@ fun AuroQueueScreen(
             }
         )
 
-        // Banner informativo
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "FILA TOTAL",
-                    color = AuroColor.TextTertiary,
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "$totalCount faixas • ${formatTimeMs(totalDuration)}",
-                    color = AuroColor.TextPrimary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            if (priorityTracks.isNotEmpty()) {
-                Text(
-                    text = "${priorityTracks.size} prioritárias",
-                    color = LocalAuroAccent.current.a.value,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 120.dp)
-        ) {
-            // Seção Prioritária (A SEGUIR)
-            if (priorityTracks.isNotEmpty()) {
-                item {
+        if (totalCount == 0) {
+            AuroEmptyState(
+                icon = Icons.AutoMirrored.Rounded.QueueMusic,
+                title = stringResource(R.string.empty_queue_title),
+                message = stringResource(R.string.empty_queue_message),
+                actionLabel = stringResource(R.string.empty_queue_action),
+                onAction = onBackClick,
+                modifier = Modifier.padding(bottom = 120.dp)
+            )
+        } else {
+            // Banner informativo
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
                     Text(
-                        text = "A SEGUIR (PRIORITÁRIA)",
-                        color = LocalAuroAccent.current.a.value,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
-                }
-
-                itemsIndexed(priorityTracks, key = { idx, t -> "prio_${t.id}_$idx" }) { index, track ->
-                    AuroQueueTrackRow(
-                        track = track,
-                        index = index,
-                        isPlaying = track.id == currentTrackId,
-                        isPriority = true,
-                        onClick = { onTrackClick(track, index, true) },
-                        onRemove = { onRemoveTrack(track) }
-                    )
-                    HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-                }
-            }
-
-            // Seção Regular
-            if (regularTracks.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "REPRODUÇÃO NORMAL",
+                        text = "FILA TOTAL",
                         color = AuroColor.TextTertiary,
                         fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "$totalCount faixas • ${formatTimeMs(totalDuration)}",
+                        color = AuroColor.TextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
 
-                itemsIndexed(regularTracks, key = { idx, t -> "reg_${t.id}_$idx" }) { index, track ->
-                    AuroQueueTrackRow(
-                        track = track,
-                        index = index,
-                        isPlaying = track.id == currentTrackId,
-                        isPriority = false,
-                        onClick = { onTrackClick(track, index, false) },
-                        onRemove = { onRemoveTrack(track) }
+                if (priorityTracks.isNotEmpty()) {
+                    Text(
+                        text = "${priorityTracks.size} prioritárias",
+                        color = LocalAuroAccent.current.a.value,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
                     )
-                    HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                }
+            }
+
+            HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 120.dp)
+            ) {
+                // Seção Prioritária (A SEGUIR)
+                if (priorityTracks.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "A SEGUIR (PRIORITÁRIA)",
+                            color = LocalAuroAccent.current.a.value,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
+
+                    itemsIndexed(priorityTracks, key = { idx, t -> "prio_${t.id}_$idx" }) { index, track ->
+                        AuroQueueTrackRow(
+                            track = track,
+                            index = index,
+                            isPlaying = track.id == currentTrackId,
+                            isPriority = true,
+                            onClick = { onTrackClick(track, index, true) },
+                            onRemove = { onRemoveTrack(track) }
+                        )
+                        HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                    }
+                }
+
+                // Seção Regular
+                if (regularTracks.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "REPRODUÇÃO NORMAL",
+                            color = AuroColor.TextTertiary,
+                            fontSize = 11.sp,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
+
+                    itemsIndexed(regularTracks, key = { idx, t -> "reg_${t.id}_$idx" }) { index, track ->
+                        AuroQueueTrackRow(
+                            track = track,
+                            index = index,
+                            isPlaying = track.id == currentTrackId,
+                            isPriority = false,
+                            onClick = { onTrackClick(track, index, false) },
+                            onRemove = { onRemoveTrack(track) }
+                        )
+                        HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                    }
                 }
             }
         }

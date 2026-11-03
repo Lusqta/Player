@@ -1,9 +1,22 @@
 <resources>
-    <string name="app_name">Player</string>
+    <string name="app_name">Aurō Player</string>
     <string name="open_file">Abrir Arquivo (WAV/FLAC)</string>
     <string name="no_file_loaded">Nenhum arquivo carregado</string>
     <string name="play">Play</string>
     <string name="pause">Pause</string>
     <string name="stop">Stop</string>
     <string name="initial_time">00:00</string>
+
+    <!-- Empty States -->
+    <string name="empty_library_title">Nenhuma música encontrada</string>
+    <string name="empty_library_message">Não achei arquivos de áudio neste aparelho.</string>
+    <string name="empty_library_action">Atualizar biblioteca</string>
+    <string name="empty_queue_title">A fila está vazia</string>
+    <string name="empty_queue_message">Escolha uma música na biblioteca.</string>
+    <string name="empty_queue_action">Abrir biblioteca</string>
+    <string name="empty_playlist_title">Playlist vazia</string>
+    <string name="empty_playlist_message">Adicione músicas pelo menu da faixa.</string>
+    <string name="create_playlist">Nova playlist</string>
+    <string name="empty_search_title">Nada encontrado para “%1$s”</string>
+    <string name="empty_search_message">Confira a ortografia ou tente outra palavra.</string>
 </resources>

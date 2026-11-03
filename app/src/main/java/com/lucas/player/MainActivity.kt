@@ -9,7 +9,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -50,6 +49,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     private val preferencesManager by lazy { PreferencesManager(this) }
     private var playbackService: PlaybackService? = null
     private var isBound = false
+    private val snackbarState = AuroSnackbarState()
 
     // Controlador de Navegação com Pilha de Histórico estilo Poweramp
     private val navController = PlayerNavController(NavScreen.LibraryRoot)
@@ -132,7 +132,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         if (audioGranted) {
             loadLibrary()
         } else {
-            Toast.makeText(this, "Permissão necessária para ler músicas locais.", Toast.LENGTH_LONG).show()
+            snackbarState.show("Permissão necessária para ler músicas locais.")
         }
     }
 
@@ -179,6 +179,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             val isMono by isMonoState
             val activePresetName by activePresetNameState
             val presetsList by presetsListState
+
+            val coroutineScope = rememberCoroutineScope()
+            DisposableEffect(coroutineScope) {
+                snackbarState.bindScope(coroutineScope)
+                onDispose { }
+            }
 
             val currentCover = rememberTrackCover(currentTrack, 350)
             val miniPlayerCover = rememberTrackCover(currentTrack, 120)
@@ -267,12 +273,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         onClearQueue = {
                                             playbackService?.clearPriorityQueue()
                                             renderCurrentCategory()
-                                            Toast.makeText(this@MainActivity, "Fila limpa", Toast.LENGTH_SHORT).show()
+                                            snackbarState.show("Fila limpa")
                                         },
                                         onShuffleQueue = {
                                             playbackService?.shuffleCurrentQueue()
                                             renderCurrentCategory()
-                                            Toast.makeText(this@MainActivity, "Fila aleatória", Toast.LENGTH_SHORT).show()
+                                            snackbarState.show("Fila aleatória")
                                         },
                                         modifier = Modifier.fillMaxSize()
                                     )
@@ -405,12 +411,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onToggleShuffle = {
                                         val newMode = playbackService?.toggleShuffleMode() ?: ShuffleMode.OFF
                                         shuffleModeState.value = newMode
-                                        Toast.makeText(this@MainActivity, newMode.displayName, Toast.LENGTH_SHORT).show()
+                                        snackbarState.show(newMode.displayName)
                                     },
                                     onToggleRepeat = {
                                         val newMode = playbackService?.toggleRepeat() ?: RepeatMode.OFF
                                         repeatModeState.value = newMode
-                                        Toast.makeText(this@MainActivity, newMode.displayName, Toast.LENGTH_SHORT).show()
+                                        snackbarState.show(newMode.displayName)
                                     },
                                     onCollapse = { navController.navigateUp() },
                                     onOpenEqualizer = { navController.navigateTo(NavScreen.Equalizer) },
@@ -538,18 +544,35 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onClearQueue = {
                                         playbackService?.clearPriorityQueue()
                                         renderCurrentCategory()
-                                        Toast.makeText(this@MainActivity, "Fila limpa", Toast.LENGTH_SHORT).show()
+                                        snackbarState.show("Fila limpa")
                                     },
                                     onShuffleQueue = {
                                         playbackService?.shuffleCurrentQueue()
                                         renderCurrentCategory()
-                                        Toast.makeText(this@MainActivity, "Fila aleatória", Toast.LENGTH_SHORT).show()
+                                        snackbarState.show("Fila aleatória")
                                     },
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
                         }
                     }
+
+                    // AuroSnackbarHost posicionado acima do mini player / navbar
+                    val snackbarBottomPadding = if (currentScreen is NavScreen.NowPlaying) {
+                        16.dp
+                    } else if (currentTrack != null) {
+                        142.dp
+                    } else {
+                        70.dp
+                    }
+
+                    AuroSnackbarHost(
+                        state = snackbarState,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(horizontal = 16.dp)
+                            .padding(bottom = snackbarBottomPadding)
+                    )
 
                     // Mini Player e Navbar Inferior Persistente (Estilo Poweramp presente em todas as telas)
                     Column(
@@ -587,12 +610,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             onPlayNext = {
                                 playbackService?.enqueueNext(track)
                                 trackContextMenuState.value = null
-                                Toast.makeText(this@MainActivity, "Tocar a seguir (Fila prioritária)", Toast.LENGTH_SHORT).show()
+                                snackbarState.show("Tocar a seguir (Fila prioritária)")
                             },
                             onEnqueueEnd = {
                                 playbackService?.enqueueEnd(track)
                                 trackContextMenuState.value = null
-                                Toast.makeText(this@MainActivity, "Adicionada ao fim da fila", Toast.LENGTH_SHORT).show()
+                                snackbarState.show("Adicionada ao fim da fila")
                             },
                             onAddToPlaylist = {
                                 trackContextMenuState.value = null
@@ -618,13 +641,13 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 val plId = libraryRepo.createPlaylist(name)
                                 if (plId > 0) {
                                     libraryRepo.addTrackToUserPlaylist(plId, track.id)
-                                    Toast.makeText(this@MainActivity, "Playlist criada e faixa adicionada!", Toast.LENGTH_SHORT).show()
+                                    snackbarState.show("Playlist criada e faixa adicionada!")
                                 }
                                 addToPlaylistDialogTrack.value = null
                             },
                             onSelectPlaylist = { pl ->
                                 libraryRepo.addTrackToUserPlaylist(pl.id, track.id)
-                                Toast.makeText(this@MainActivity, "Adicionada à playlist '${pl.name}'", Toast.LENGTH_SHORT).show()
+                                snackbarState.show("Adicionada à playlist '${pl.name}'")
                                 addToPlaylistDialogTrack.value = null
                             },
                             onDismiss = { addToPlaylistDialogTrack.value = null }
@@ -652,11 +675,11 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             onSetTimerMinutes = { min, stopAtEnd ->
                                 playbackService?.startSleepTimer(min, stopAtEnd)
                                 val msg = if (stopAtEnd) "Desligará em $min min (ao fim da faixa)" else "Desligará em $min min"
-                                Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
+                                snackbarState.show(msg)
                             },
                             onCancelTimer = {
                                 playbackService?.cancelSleepTimer()
-                                Toast.makeText(this@MainActivity, "Temporizador desligado", Toast.LENGTH_SHORT).show()
+                                snackbarState.show("Temporizador desligado")
                             },
                             onDismiss = { showSleepTimerState.value = false }
                         )
@@ -669,7 +692,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             onOpenAudioInfo = { showAudioInfoState.value = true },
                             onRescanLibrary = {
                                 loadLibrary()
-                                Toast.makeText(this@MainActivity, "Biblioteca atualizada", Toast.LENGTH_SHORT).show()
+                                snackbarState.show("Biblioteca atualizada")
                             },
                             onOpenAbout = { showAboutState.value = true },
                             onDismiss = { showMenuSheetState.value = false }
@@ -768,7 +791,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         service.setPreamp(0f)
         preferencesManager.savePreamp(0f)
 
-        Toast.makeText(this, "Equalizador redefinido para Flat (0dB)", Toast.LENGTH_SHORT).show()
+        snackbarState.show("Equalizador redefinido para Flat (0dB)")
     }
 
     private fun saveCustomPreset(name: String) {
@@ -782,7 +805,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         presetsListState.value = musicDb.getAllPresets()
         activePresetNameState.value = name
         preferencesManager.saveActivePresetName(name)
-        Toast.makeText(this, "Preset '$name' salvo", Toast.LENGTH_SHORT).show()
+        snackbarState.show("Preset '$name' salvo")
     }
 
     private fun deleteCustomPreset(preset: MusicDatabase.EqPreset) {
@@ -793,7 +816,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             activePresetNameState.value = "Flat"
             preferencesManager.saveActivePresetName("Flat")
         }
-        Toast.makeText(this, "Preset '${preset.name}' excluído", Toast.LENGTH_SHORT).show()
+        snackbarState.show("Preset '${preset.name}' excluído")
     }
 
     private fun deleteUserPlaylist(playlistName: String) {
@@ -801,7 +824,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         if (pl != null) {
             libraryRepo.deletePlaylist(pl.id)
             renderCurrentCategory()
-            Toast.makeText(this, "Playlist '${pl.name}' excluída", Toast.LENGTH_SHORT).show()
+            snackbarState.show("Playlist '${pl.name}' excluída")
         }
     }
 
@@ -813,11 +836,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             currentTrackState.value = track.copy(rating = rating)
         }
         renderCurrentCategory()
-        Toast.makeText(
-            this,
-            if (rating > 0) "Classificada com $rating estrelas" else "Classificação removida",
-            Toast.LENGTH_SHORT
-        ).show()
+        snackbarState.show(if (rating > 0) "Classificada com $rating estrelas" else "Classificação removida")
     }
 
     private fun selectCategory(category: LibraryCategory) {
