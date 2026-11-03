@@ -3,6 +3,7 @@
 #include "decoder.h"
 #include "dr_mp3.h"
 #include <unistd.h>
+#include <vector>
 
 class Mp3Decoder : public IDecoder {
 public:
@@ -26,4 +27,5 @@ private:
     bool isOpened_ = false;
     int64_t currentFrame_ = 0;
     int64_t totalFrames_ = 0;
+    std::vector<float> tempBuffer_;
 };

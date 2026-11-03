@@ -3,6 +3,7 @@
 #include "decoder.h"
 #include "dr_wav.h"
 #include <unistd.h>
+#include <vector>
 
 class WavDecoder : public IDecoder {
 public:
@@ -25,4 +26,5 @@ private:
     drwav wav_;
     bool isOpened_ = false;
     int64_t currentFrame_ = 0;
+    std::vector<float> tempBuffer_;
 };

@@ -6,6 +6,25 @@ Um reprodutor de música offline de alta fidelidade para Android, combinando um 
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.0-purple?logo=kotlin)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202024-blue?logo=jetpackcompose)
 ![License](https://img.shields.io/badge/License-Proprietary-gray)
+[![Download APK](https://img.shields.io/badge/⬇️%20Download-AuroPlayer--Debug.apk-00C853?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Lusqta/Player/releases/download/latest/AuroPlayer-Debug.apk)
+[![Releases](https://img.shields.io/badge/📦%20Ver-Releases-blue?style=for-the-badge&logo=github)](https://github.com/Lusqta/Player/releases)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/Lusqta/Player/build-apk.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Lusqta/Player/actions)
+
+---
+
+## 📲 Download do APK
+
+Para instalar o **Aurō Player** diretamente no seu dispositivo Android:
+
+* **[⬇️ Baixar APK Direto (Última Versão Compilada)](https://github.com/Lusqta/Player/releases/download/latest/AuroPlayer-Debug.apk)**
+* **[📦 Página de Releases no GitHub](https://github.com/Lusqta/Player/releases)**
+* **[⚙️ Builds Automatizados (GitHub Actions Artifacts)](https://github.com/Lusqta/Player/actions)**
+
+> 💡 **Como instalar:**
+> 1. Baixe o arquivo `AuroPlayer-Debug.apk` no seu celular.
+> 2. Abra a notificação de download ou o app de arquivos e toque no `.apk`.
+> 3. Caso o Android solicite, habilite *"Permitir instalação a partir desta fonte"*.
+> 4. Toque em **Instalar** e aproveite!
 
 ---
 

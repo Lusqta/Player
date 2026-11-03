@@ -24,6 +24,10 @@ struct BiquadState {
 
     inline float process(float in, const BiquadCoeffs& c) {
         float out = c.b0 * in + c.b1 * x1 + c.b2 * x2 - c.a1 * y1 - c.a2 * y2;
+        if (!std::isfinite(out)) {
+            reset();
+            return 0.0f;
+        }
         x2 = x1;
         x1 = in;
         y2 = y1;
@@ -35,6 +39,7 @@ struct BiquadState {
 /**
  * Studio-grade 10-Band Biquad Graphic Equalizer, Tone Controls (Bass/Treble),
  * Digital Preamp, and Analog-Warmth Soft Limiter (Poweramp DSP Architecture).
+ * Uses atomic double-buffering for coefficients to ensure zero torn reads across threads.
  */
 class BiquadEqualizer {
 public:
@@ -45,10 +50,17 @@ public:
     };
     static constexpr float kDefaultQ = 1.4142f; // ~1 octave bandwidth per band
 
+    struct EqCoefficients {
+        std::array<BiquadCoeffs, kNumBands> bands;
+        BiquadCoeffs bass;
+        BiquadCoeffs treble;
+    };
+
     BiquadEqualizer() {
         for (size_t i = 0; i < kNumBands; ++i) {
             gainsDb_[i].store(0.0f, std::memory_order_relaxed);
-            coeffs_[i] = BiquadCoeffs{1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+            coeffBuffers_[0].bands[i] = BiquadCoeffs{1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+            coeffBuffers_[1].bands[i] = BiquadCoeffs{1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
         }
         preampDb_.store(0.0f, std::memory_order_relaxed);
         preampLinear_.store(1.0f, std::memory_order_relaxed);
@@ -56,8 +68,13 @@ public:
         bassGainDb_.store(0.0f, std::memory_order_relaxed);
         trebleGainDb_.store(0.0f, std::memory_order_relaxed);
 
-        bassCoeffs_ = BiquadCoeffs{1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-        trebleCoeffs_ = BiquadCoeffs{1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+        coeffBuffers_[0].bass = BiquadCoeffs{1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+        coeffBuffers_[1].bass = BiquadCoeffs{1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+
+        coeffBuffers_[0].treble = BiquadCoeffs{1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+        coeffBuffers_[1].treble = BiquadCoeffs{1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+
+        activeCoeffIndex_.store(0, std::memory_order_relaxed);
 
         enabled_.store(false, std::memory_order_relaxed);
         toneEnabled_.store(false, std::memory_order_relaxed);
@@ -160,6 +177,10 @@ public:
             return;
         }
 
+        // Snapshot coefficients atomically at start of processing block
+        int readIdx = activeCoeffIndex_.load(std::memory_order_acquire);
+        const EqCoefficients& activeCoeffs = coeffBuffers_[readIdx];
+
         for (size_t f = 0; f < numFrames; ++f) {
             float l = buffer[f * 2] * preamp;
             float r = buffer[f * 2 + 1] * preamp;
@@ -167,7 +188,7 @@ public:
             // 1. 10-Band Graphic Equalizer
             if (eqOn) {
                 for (size_t b = 0; b < kNumBands; ++b) {
-                    const auto& c = coeffs_[b];
+                    const auto& c = activeCoeffs.bands[b];
                     l = stateL_[b].process(l, c);
                     r = stateR_[b].process(r, c);
                 }
@@ -175,10 +196,10 @@ public:
 
             // 2. Tone Controls (Bass Low-Shelf & Treble High-Shelf)
             if (toneOn) {
-                l = stateBassL_.process(l, bassCoeffs_);
-                r = stateBassR_.process(r, bassCoeffs_);
-                l = stateTrebleL_.process(l, trebleCoeffs_);
-                r = stateTrebleR_.process(r, trebleCoeffs_);
+                l = stateBassL_.process(l, activeCoeffs.bass);
+                r = stateBassR_.process(r, activeCoeffs.bass);
+                l = stateTrebleL_.process(l, activeCoeffs.treble);
+                r = stateTrebleR_.process(r, activeCoeffs.treble);
             }
 
             // 3. Analog-warmth soft limiter (preserves dynamics, eliminates harsh clipping)
@@ -201,7 +222,7 @@ private:
         return x;
     }
 
-    void recalculateBand(size_t band, float gainDb) {
+    void computeBandCoeffs(size_t band, float gainDb, BiquadCoeffs& out) {
         if (sampleRate_ <= 0) return;
 
         float f0 = kFrequencies[band];
@@ -210,7 +231,7 @@ private:
         }
 
         if (std::abs(gainDb) < 0.01f) {
-            coeffs_[band] = BiquadCoeffs{1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+            out = BiquadCoeffs{1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
             return;
         }
 
@@ -227,19 +248,17 @@ private:
         float a1 = -2.0f * cosW;
         float a2 = 1.0f - alpha / A;
 
-        BiquadCoeffs c;
-        c.b0 = b0 / a0;
-        c.b1 = b1 / a0;
-        c.b2 = b2 / a0;
-        c.a1 = a1 / a0;
-        c.a2 = a2 / a0;
-        coeffs_[band] = c;
+        out.b0 = b0 / a0;
+        out.b1 = b1 / a0;
+        out.b2 = b2 / a0;
+        out.a1 = a1 / a0;
+        out.a2 = a2 / a0;
     }
 
-    void recalculateLowShelf(float gainDb) {
+    void computeLowShelfCoeffs(float gainDb, BiquadCoeffs& out) {
         if (sampleRate_ <= 0) return;
         if (std::abs(gainDb) < 0.01f) {
-            bassCoeffs_ = BiquadCoeffs{1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+            out = BiquadCoeffs{1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
             return;
         }
 
@@ -258,13 +277,13 @@ private:
         float a1 = -2.0f * ((A - 1.0f) + (A + 1.0f) * cosW);
         float a2 =         (A + 1.0f) + (A - 1.0f) * cosW - 2.0f * sqrtA * alpha;
 
-        bassCoeffs_ = BiquadCoeffs{b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0};
+        out = BiquadCoeffs{b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0};
     }
 
-    void recalculateHighShelf(float gainDb) {
+    void computeHighShelfCoeffs(float gainDb, BiquadCoeffs& out) {
         if (sampleRate_ <= 0) return;
         if (std::abs(gainDb) < 0.01f) {
-            trebleCoeffs_ = BiquadCoeffs{1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+            out = BiquadCoeffs{1.0f, 0.0f, 0.0f, 0.0f, 0.0f};
             return;
         }
 
@@ -283,15 +302,38 @@ private:
         float a1 =  2.0f * ((A - 1.0f) - (A + 1.0f) * cosW);
         float a2 =         (A + 1.0f) - (A - 1.0f) * cosW - 2.0f * sqrtA * alpha;
 
-        trebleCoeffs_ = BiquadCoeffs{b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0};
+        out = BiquadCoeffs{b0 / a0, b1 / a0, b2 / a0, a1 / a0, a2 / a0};
+    }
+
+    void recalculateBand(size_t band, float gainDb) {
+        int writeIdx = 1 - activeCoeffIndex_.load(std::memory_order_relaxed);
+        coeffBuffers_[writeIdx] = coeffBuffers_[1 - writeIdx];
+        computeBandCoeffs(band, gainDb, coeffBuffers_[writeIdx].bands[band]);
+        activeCoeffIndex_.store(writeIdx, std::memory_order_release);
+    }
+
+    void recalculateLowShelf(float gainDb) {
+        int writeIdx = 1 - activeCoeffIndex_.load(std::memory_order_relaxed);
+        coeffBuffers_[writeIdx] = coeffBuffers_[1 - writeIdx];
+        computeLowShelfCoeffs(gainDb, coeffBuffers_[writeIdx].bass);
+        activeCoeffIndex_.store(writeIdx, std::memory_order_release);
+    }
+
+    void recalculateHighShelf(float gainDb) {
+        int writeIdx = 1 - activeCoeffIndex_.load(std::memory_order_relaxed);
+        coeffBuffers_[writeIdx] = coeffBuffers_[1 - writeIdx];
+        computeHighShelfCoeffs(gainDb, coeffBuffers_[writeIdx].treble);
+        activeCoeffIndex_.store(writeIdx, std::memory_order_release);
     }
 
     void recalculateAll() {
+        int writeIdx = 1 - activeCoeffIndex_.load(std::memory_order_relaxed);
         for (size_t i = 0; i < kNumBands; ++i) {
-            recalculateBand(i, gainsDb_[i].load(std::memory_order_relaxed));
+            computeBandCoeffs(i, gainsDb_[i].load(std::memory_order_relaxed), coeffBuffers_[writeIdx].bands[i]);
         }
-        recalculateLowShelf(bassGainDb_.load(std::memory_order_relaxed));
-        recalculateHighShelf(trebleGainDb_.load(std::memory_order_relaxed));
+        computeLowShelfCoeffs(bassGainDb_.load(std::memory_order_relaxed), coeffBuffers_[writeIdx].bass);
+        computeHighShelfCoeffs(trebleGainDb_.load(std::memory_order_relaxed), coeffBuffers_[writeIdx].treble);
+        activeCoeffIndex_.store(writeIdx, std::memory_order_release);
     }
 
     int32_t sampleRate_ = 44100;
@@ -299,7 +341,9 @@ private:
     std::atomic<bool> toneEnabled_{false};
 
     std::array<std::atomic<float>, kNumBands> gainsDb_;
-    std::array<BiquadCoeffs, kNumBands> coeffs_;
+    EqCoefficients coeffBuffers_[2];
+    std::atomic<int> activeCoeffIndex_{0};
+
     std::array<BiquadState, kNumBands> stateL_;
     std::array<BiquadState, kNumBands> stateR_;
 
@@ -308,8 +352,7 @@ private:
 
     std::atomic<float> bassGainDb_{0.0f};
     std::atomic<float> trebleGainDb_{0.0f};
-    BiquadCoeffs bassCoeffs_;
-    BiquadCoeffs trebleCoeffs_;
+
     BiquadState stateBassL_, stateBassR_;
     BiquadState stateTrebleL_, stateTrebleR_;
 };

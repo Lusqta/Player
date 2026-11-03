@@ -1,11 +1,14 @@
 package com.lucas.player.ui.components
 
 import android.graphics.Bitmap
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,11 +20,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -115,14 +122,23 @@ private fun NavbarTab(
 ) {
     val tint = if (isActive) DryColors.TextPrimary else DryColors.TextSecondary
 
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.94f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 500f),
+        label = "tabScale"
+    )
+
     Column(
         modifier = Modifier
+            .scale(scale)
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick
             )
-            .padding(horizontal = 14.dp, vertical = 4.dp),
+            .padding(horizontal = 14.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -269,7 +285,7 @@ fun DryMiniPlayer(
                 }
 
                 // Anterior
-                IconButton(onClick = onPrevious, modifier = Modifier.size(34.dp)) {
+                IconButton(onClick = onPrevious, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = Icons.Rounded.SkipPrevious,
                         contentDescription = "Anterior",
@@ -279,7 +295,7 @@ fun DryMiniPlayer(
                 }
 
                 // Play/Pause
-                IconButton(onClick = onPlayPause, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = onPlayPause, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = if (isPlaying) "Pausar" else "Reproduzir",
@@ -289,7 +305,7 @@ fun DryMiniPlayer(
                 }
 
                 // Próxima
-                IconButton(onClick = onNext, modifier = Modifier.size(34.dp)) {
+                IconButton(onClick = onNext, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = Icons.Rounded.SkipNext,
                         contentDescription = "Próxima",
@@ -330,7 +346,7 @@ fun DryBreadcrumbHeader(
             if (canGoBack) {
                 IconButton(
                     onClick = onBackClick,
-                    modifier = Modifier.size(34.dp)
+                    modifier = Modifier.size(44.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -433,7 +449,8 @@ fun DryTrackRow(
                     text = "${trackIndex + 1}",
                     color = DryColors.TextTertiary,
                     fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace
+                    fontFamily = FontFamily.Monospace,
+                    style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
                 )
             }
         }
@@ -474,6 +491,7 @@ fun DryTrackRow(
                     color = DryColors.TextSecondary,
                     fontSize = 10.sp,
                     fontFamily = FontFamily.Monospace,
+                    style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"),
                     modifier = Modifier.padding(start = 2.dp)
                 )
             }
@@ -496,13 +514,14 @@ fun DryTrackRow(
             text = dryFormatTimeMs(track.durationMs),
             color = DryColors.TextSecondary,
             fontSize = 11.sp,
-            fontFamily = FontFamily.Monospace
+            fontFamily = FontFamily.Monospace,
+            style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
         )
 
         // Menu 3 pontinhos
         IconButton(
             onClick = onMenuClick,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(44.dp)
         ) {
             Icon(
                 imageVector = Icons.Rounded.MoreVert,
@@ -594,6 +613,7 @@ fun DryAlphabetFastScroller(
     onLetterSelected: (Char) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptics = LocalHapticFeedback.current
     var activeLetter by remember { mutableStateOf<Char?>(null) }
 
     Box(
@@ -607,13 +627,30 @@ fun DryAlphabetFastScroller(
                 .fillMaxHeight()
                 .width(24.dp)
                 .pointerInput(availableLetters) {
+                    detectTapGestures { offset ->
+                        val letterIndex = (offset.y / size.height * availableLetters.size).toInt()
+                            .coerceIn(0, availableLetters.size - 1)
+                        val letter = availableLetters[letterIndex]
+                        if (letter != activeLetter) {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            activeLetter = letter
+                            onLetterSelected(letter)
+                        } else {
+                            onLetterSelected(letter)
+                        }
+                    }
+                }
+                .pointerInput(availableLetters) {
                     detectDragGestures(
                         onDragStart = { offset ->
                             val letterIndex = (offset.y / size.height * availableLetters.size).toInt()
                                 .coerceIn(0, availableLetters.size - 1)
                             val letter = availableLetters[letterIndex]
-                            activeLetter = letter
-                            onLetterSelected(letter)
+                            if (letter != activeLetter) {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                activeLetter = letter
+                                onLetterSelected(letter)
+                            }
                         },
                         onDragEnd = {
                             activeLetter = null
@@ -627,6 +664,7 @@ fun DryAlphabetFastScroller(
                             .coerceIn(0, availableLetters.size - 1)
                         val letter = availableLetters[letterIndex]
                         if (letter != activeLetter) {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             activeLetter = letter
                             onLetterSelected(letter)
                         }
@@ -709,6 +747,7 @@ fun DryRatingBar(
                 color = DryColors.TextSecondary,
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
+                style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"),
                 modifier = Modifier.padding(start = 4.dp)
             )
         }
@@ -727,6 +766,7 @@ fun DryWaveformSeekbar(
     peaks: FloatArray? = null,
     modifier: Modifier = Modifier
 ) {
+    val haptics = LocalHapticFeedback.current
     val barCount = 70
     val wavePeaks = remember(peaks) {
         if (peaks != null && peaks.isNotEmpty()) {
@@ -748,12 +788,13 @@ fun DryWaveformSeekbar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(44.dp)
+            .height(48.dp)
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { offset ->
                         isDragging = true
                         dragFraction = (offset.x / size.width).coerceIn(0f, 1f)
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     },
                     onDragEnd = {
                         onSeek(dragFraction)
@@ -770,6 +811,7 @@ fun DryWaveformSeekbar(
             .pointerInput(Unit) {
                 detectTapGestures { offset ->
                     val frac = (offset.x / size.width).coerceIn(0f, 1f)
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onSeek(frac)
                 }
             }

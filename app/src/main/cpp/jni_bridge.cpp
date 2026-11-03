@@ -161,6 +161,16 @@ Java_com_lucas_player_AudioEngine_nativeIsPaused(JNIEnv* /*env*/, jobject /*thiz
     }
 }
 
+JNIEXPORT jboolean JNICALL
+Java_com_lucas_player_AudioEngine_nativeConsumeTrackCompleted(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return (engine && engine->consumeTrackCompleted()) ? JNI_TRUE : JNI_FALSE;
+    } catch (...) {
+        return JNI_FALSE;
+    }
+}
+
 JNIEXPORT void JNICALL
 Java_com_lucas_player_AudioEngine_nativeSetEqualizerBand(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jint band, jfloat gainDb) {
     try {

@@ -159,6 +159,19 @@ class QueueManager {
         }
     }
 
+    fun skipToPriority(index: Int): Track? {
+        synchronized(this) {
+            if (index in priorityQueue.indices) {
+                if (index > 0) {
+                    priorityQueue.subList(0, index).clear()
+                }
+                isPlayingFromPriorityQueue = true
+                return priorityQueue.firstOrNull()
+            }
+            return null
+        }
+    }
+
     private fun restorePreQueue() {
         preQueueSnapshot?.let { snapshot ->
             originalTracks.clear()
@@ -180,8 +193,11 @@ class QueueManager {
             if (priorityQueue.isNotEmpty()) {
                 if (isPlayingFromPriorityQueue) {
                     if (priorityQueue.size > 1) return priorityQueue[1]
-                    return preQueueSnapshot?.let {
-                        if (it.index in it.tracks.indices) it.tracks[it.index] else null
+                    return preQueueSnapshot?.let { snapshot ->
+                        val nextIdx = snapshot.index + 1
+                        if (nextIdx in snapshot.tracks.indices) snapshot.tracks[nextIdx]
+                        else if (repeatMode == RepeatMode.ALL || repeatMode == RepeatMode.CATEGORY) snapshot.tracks.firstOrNull()
+                        else null
                     }
                 } else {
                     return priorityQueue.firstOrNull()
@@ -228,8 +244,6 @@ class QueueManager {
                 } else {
                     // Priority queue just emptied: seamless restore to original category!
                     restorePreQueue()
-                    // Return the song that was playing or next in line
-                    return currentTrack
                 }
             }
 

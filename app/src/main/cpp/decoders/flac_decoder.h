@@ -3,6 +3,7 @@
 #include "decoder.h"
 #include "dr_flac.h"
 #include <unistd.h>
+#include <vector>
 
 class FlacDecoder : public IDecoder {
 public:
@@ -25,4 +26,5 @@ private:
     drflac* flac_ = nullptr;
     bool isOpened_ = false;
     int64_t currentFrame_ = 0;
+    std::vector<float> tempBuffer_;
 };

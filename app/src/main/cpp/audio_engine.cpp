@@ -34,6 +34,7 @@ void AudioEngine::stopInternal() {
         decoder_->seek(0);
     }
     isEos_.store(false, std::memory_order_relaxed);
+    trackCompleted_.store(false, std::memory_order_relaxed);
     wakeDecoderThread();
 }
 
@@ -42,9 +43,13 @@ bool AudioEngine::openFile(int fd) {
 
     // Stop current playback safely without deadlock
     stopInternal();
+    trackCompleted_.store(false, std::memory_order_relaxed);
 
     auto newDecoder = DecoderFactory::createDecoder(fd);
     if (!newDecoder) {
+        sampleRate_.store(0, std::memory_order_release);
+        channelCount_.store(0, std::memory_order_release);
+        durationFrames_.store(0, std::memory_order_release);
         return false;
     }
 
@@ -53,8 +58,15 @@ bool AudioEngine::openFile(int fd) {
     const int32_t sampleRate = decoder_->getSampleRate();
     if (!audioOutput_->openStream(sampleRate)) {
         decoder_.reset();
+        sampleRate_.store(0, std::memory_order_release);
+        channelCount_.store(0, std::memory_order_release);
+        durationFrames_.store(0, std::memory_order_release);
         return false;
     }
+
+    sampleRate_.store(sampleRate, std::memory_order_release);
+    channelCount_.store(decoder_->getChannelCount(), std::memory_order_release);
+    durationFrames_.store(decoder_->getTotalFrames(), std::memory_order_release);
 
     ringBuffer_.reset();
     audioOutput_->resetPlayedFrames(0);
@@ -71,26 +83,14 @@ bool AudioEngine::play() {
     PlaybackState current = state_.load(std::memory_order_acquire);
     if (current == PlaybackState::Playing) return true;
 
+    trackCompleted_.store(false, std::memory_order_relaxed);
+
     // If stream was closed or at EOF, seek to start
     if (isEos_.load(std::memory_order_relaxed)) {
         decoder_->seek(0);
         ringBuffer_.reset();
         audioOutput_->resetPlayedFrames(0);
         isEos_.store(false, std::memory_order_relaxed);
-    }
-
-    // Prefill some frames into the buffer before starting stream to prevent initial underrun
-    constexpr size_t kPrefillChunks = 8;
-    constexpr size_t kChunkFrames = 2048;
-    std::vector<float> prefill(kChunkFrames * 2);
-    for (size_t i = 0; i < kPrefillChunks; ++i) {
-        if (ringBuffer_.availableWrite() < kChunkFrames) break;
-        size_t r = decoder_->read(prefill.data(), kChunkFrames);
-        if (r == 0) {
-            isEos_.store(true, std::memory_order_relaxed);
-            break;
-        }
-        ringBuffer_.write(prefill.data(), r);
     }
 
     if (!audioOutput_->start()) {
@@ -142,8 +142,6 @@ float AudioEngine::getVolume() const {
 }
 
 int64_t AudioEngine::getPositionFrames() const {
-    PlaybackState s = state_.load(std::memory_order_acquire);
-    if (s == PlaybackState::Stopped) return 0;
     int64_t pos = audioOutput_->getPlayedFrames();
     int64_t total = getDurationFrames();
     if (total > 0 && pos > total) pos = total;
@@ -151,18 +149,19 @@ int64_t AudioEngine::getPositionFrames() const {
 }
 
 int64_t AudioEngine::getDurationFrames() const {
-    if (!decoder_) return 0;
-    return decoder_->getTotalFrames();
+    return durationFrames_.load(std::memory_order_acquire);
 }
 
 int32_t AudioEngine::getSampleRate() const {
-    if (!decoder_) return 0;
-    return decoder_->getSampleRate();
+    return sampleRate_.load(std::memory_order_acquire);
 }
 
 int32_t AudioEngine::getChannelCount() const {
-    if (!decoder_) return 0;
-    return decoder_->getChannelCount();
+    return channelCount_.load(std::memory_order_acquire);
+}
+
+bool AudioEngine::consumeTrackCompleted() {
+    return trackCompleted_.exchange(false, std::memory_order_acq_rel);
 }
 
 bool AudioEngine::isPlaying() const {
@@ -207,10 +206,10 @@ void AudioEngine::decodeLoop() {
         if (isEos_.load(std::memory_order_relaxed)) {
             if (ringBuffer_.availableRead() == 0) {
                 // All audio in ring buffer has been played out by Oboe callback
+                trackCompleted_.store(true, std::memory_order_release);
                 state_.store(PlaybackState::Stopped, std::memory_order_release);
                 audioOutput_->stop();
                 ringBuffer_.reset();
-                audioOutput_->resetPlayedFrames(0);
                 if (decoder_) {
                     decoder_->seek(0);
                 }

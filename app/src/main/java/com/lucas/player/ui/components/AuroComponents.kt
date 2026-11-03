@@ -1,10 +1,13 @@
 package com.lucas.player.ui.components
 
 import android.graphics.Bitmap
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,11 +20,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -64,6 +71,7 @@ fun AuroProgressBar(
     modifier: Modifier = Modifier
 ) {
     val accent = LocalAuroAccent.current.a.value
+    val haptics = LocalHapticFeedback.current
     var isDragging by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableFloatStateOf(0f) }
     var showRemainingTime by remember { mutableStateOf(true) }
@@ -77,12 +85,13 @@ fun AuroProgressBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(30.dp)
+                .height(48.dp) // Aumentado de 30.dp para 48.dp (trilho interno continua 3.dp)
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragStart = { offset ->
                             isDragging = true
                             dragFraction = (offset.x / size.width).coerceIn(0f, 1f)
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         },
                         onDragEnd = {
                             onSeek(dragFraction)
@@ -99,6 +108,7 @@ fun AuroProgressBar(
                 .pointerInput(Unit) {
                     detectTapGestures { offset ->
                         val frac = (offset.x / size.width).coerceIn(0f, 1f)
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onSeek(frac)
                     }
                 },
@@ -131,6 +141,7 @@ fun AuroProgressBar(
         }
 
         // Tempos (ex: 1:24 e -3:41 conforme o espécime)
+        val tabularStyle = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -142,13 +153,15 @@ fun AuroProgressBar(
                 text = formatTimeMs(displayedMs),
                 color = AuroColor.TextSecondary,
                 fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace
+                fontFamily = FontFamily.Monospace,
+                style = tabularStyle
             )
             Text(
                 text = if (showRemainingTime) "-${formatTimeMs(remainingMs)}" else formatTimeMs(durationMs),
                 color = AuroColor.TextSecondary,
                 fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace,
+                style = tabularStyle,
                 modifier = Modifier.clickable { showRemainingTime = !showRemainingTime }
             )
         }
@@ -257,7 +270,7 @@ fun AuroMiniPlayer(
                 }
 
                 // Ações de reprodução
-                IconButton(onClick = onPrevious, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = onPrevious, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = Icons.Rounded.SkipPrevious,
                         contentDescription = "Anterior",
@@ -266,7 +279,7 @@ fun AuroMiniPlayer(
                     )
                 }
 
-                IconButton(onClick = onPlayPause, modifier = Modifier.size(40.dp)) {
+                IconButton(onClick = onPlayPause, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = if (isPlaying) "Pausar" else "Reproduzir",
@@ -275,7 +288,7 @@ fun AuroMiniPlayer(
                     )
                 }
 
-                IconButton(onClick = onNext, modifier = Modifier.size(36.dp)) {
+                IconButton(onClick = onNext, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = Icons.Rounded.SkipNext,
                         contentDescription = "Próxima",
@@ -355,10 +368,19 @@ private fun AuroNavbarTab(
 ) {
     val tint = if (isActive) AuroColor.TextPrimary else AuroColor.TextTertiary
 
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.94f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 500f),
+        label = "tabScale"
+    )
+
     Column(
         modifier = Modifier
+            .scale(scale)
             .clickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interactionSource,
                 indication = null,
                 onClick = onClick
             )
@@ -415,18 +437,19 @@ fun AuroTrackRow(
             contentAlignment = Alignment.CenterStart
         ) {
             if (isPlayingThis) {
-                Text(
-                    text = "ılı",
-                    color = accent,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
+                Icon(
+                    imageVector = Icons.Rounded.Equalizer,
+                    contentDescription = "Tocando",
+                    tint = accent,
+                    modifier = Modifier.size(16.dp)
                 )
             } else {
                 Text(
                     text = "${trackIndex + 1}",
                     color = AuroColor.TextTertiary,
                     fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace
+                    fontFamily = FontFamily.Monospace,
+                    style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
                 )
             }
         }
@@ -459,7 +482,8 @@ fun AuroTrackRow(
                     Text(
                         text = "★ ${track.rating}",
                         color = accent,
-                        fontSize = 10.sp
+                        fontSize = 10.sp,
+                        style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
                     )
                 }
             }
@@ -472,7 +496,8 @@ fun AuroTrackRow(
             text = formatTimeMs(track.durationMs),
             color = AuroColor.TextSecondary,
             fontSize = 11.sp,
-            fontFamily = FontFamily.Monospace
+            fontFamily = FontFamily.Monospace,
+            style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
         )
 
         Spacer(modifier = Modifier.width(4.dp))
@@ -480,7 +505,7 @@ fun AuroTrackRow(
         // Menu da faixa
         IconButton(
             onClick = onMenuClick,
-            modifier = Modifier.size(32.dp)
+            modifier = Modifier.size(44.dp)
         ) {
             Icon(
                 imageVector = Icons.Rounded.MoreVert,
@@ -522,7 +547,7 @@ fun AuroBreadcrumbHeader(
             if (canGoBack) {
                 IconButton(
                     onClick = onBackClick,
-                    modifier = Modifier.size(34.dp)
+                    modifier = Modifier.size(44.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -576,6 +601,7 @@ fun AuroAlphabetFastScroller(
     onLetterSelected: (Char) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptics = LocalHapticFeedback.current
     val alphabet = remember { listOf('#') + ('A'..'Z').toList() }
     var selectedLetter by remember { mutableStateOf<Char?>(null) }
 
@@ -589,23 +615,31 @@ fun AuroAlphabetFastScroller(
             modifier = Modifier
                 .fillMaxHeight()
                 .padding(vertical = 12.dp)
-                .pointerInput(Unit) {
+                .pointerInput(alphabet) {
                     detectTapGestures { offset ->
                         val itemHeight = size.height / alphabet.size.toFloat()
                         val index = (offset.y / itemHeight).toInt().coerceIn(0, alphabet.size - 1)
                         val letter = alphabet[index]
-                        selectedLetter = letter
-                        onLetterSelected(letter)
+                        if (letter != selectedLetter) {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            selectedLetter = letter
+                            onLetterSelected(letter)
+                        } else {
+                            onLetterSelected(letter)
+                        }
                     }
                 }
-                .pointerInput(Unit) {
+                .pointerInput(alphabet) {
                     detectDragGestures(
                         onDragStart = { offset ->
                             val itemHeight = size.height / alphabet.size.toFloat()
                             val index = (offset.y / itemHeight).toInt().coerceIn(0, alphabet.size - 1)
                             val letter = alphabet[index]
-                            selectedLetter = letter
-                            onLetterSelected(letter)
+                            if (letter != selectedLetter) {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                selectedLetter = letter
+                                onLetterSelected(letter)
+                            }
                         },
                         onDragEnd = { selectedLetter = null },
                         onDragCancel = { selectedLetter = null }
@@ -615,6 +649,7 @@ fun AuroAlphabetFastScroller(
                         val index = (change.position.y / itemHeight).toInt().coerceIn(0, alphabet.size - 1)
                         val letter = alphabet[index]
                         if (letter != selectedLetter) {
+                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                             selectedLetter = letter
                             onLetterSelected(letter)
                         }
@@ -696,6 +731,7 @@ fun AuroRatingBar(
                 color = AuroColor.TextSecondary,
                 fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace,
+                style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"),
                 modifier = Modifier.padding(start = 4.dp)
             )
         }
@@ -712,6 +748,7 @@ fun AuroWaveformSeekbar(
     onSeek: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptics = LocalHapticFeedback.current
     val accent = LocalAuroAccent.current.a.value
     val barCount = 70
     val wavePeaks = remember {
@@ -730,12 +767,13 @@ fun AuroWaveformSeekbar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(44.dp)
+            .height(48.dp)
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { offset ->
                         isDragging = true
                         dragFraction = (offset.x / size.width).coerceIn(0f, 1f)
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     },
                     onDragEnd = {
                         onSeek(dragFraction)
@@ -752,6 +790,7 @@ fun AuroWaveformSeekbar(
             .pointerInput(Unit) {
                 detectTapGestures { offset ->
                     val frac = (offset.x / size.width).coerceIn(0f, 1f)
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onSeek(frac)
                 }
             }

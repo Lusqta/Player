@@ -19,14 +19,14 @@ static drwav_bool32 onWavSeekFd(void* pUserData, int offset, drwav_seek_origin o
     int whence = SEEK_SET;
     if (origin == DRWAV_SEEK_CUR) whence = SEEK_CUR;
     else if (origin == DRWAV_SEEK_END) whence = SEEK_END;
-    off_t res = ::lseek(fd, offset, whence);
-    return (res != (off_t)-1) ? DRWAV_TRUE : DRWAV_FALSE;
+    off64_t res = ::lseek64(fd, offset, whence);
+    return (res != (off64_t)-1) ? DRWAV_TRUE : DRWAV_FALSE;
 }
 
 static drwav_bool32 onWavTellFd(void* pUserData, drwav_int64* pCursor) {
     int fd = *reinterpret_cast<int*>(pUserData);
-    off_t res = ::lseek(fd, 0, SEEK_CUR);
-    if (res == (off_t)-1) return DRWAV_FALSE;
+    off64_t res = ::lseek64(fd, 0, SEEK_CUR);
+    if (res == (off64_t)-1) return DRWAV_FALSE;
     *pCursor = res;
     return DRWAV_TRUE;
 }
@@ -58,7 +58,7 @@ bool WavDecoder::open(int fd) {
     fd_ = ::dup(fd);
     if (fd_ < 0) return false;
 
-    ::lseek(fd_, 0, SEEK_SET);
+    ::lseek64(fd_, 0, SEEK_SET);
 
     if (!drwav_init(&wav_, onWavReadFd, onWavSeekFd, onWavTellFd, &fd_, nullptr)) {
         close();
@@ -73,20 +73,38 @@ bool WavDecoder::open(int fd) {
 size_t WavDecoder::read(float* outBuffer, size_t framesToRead) {
     if (!isOpened_ || framesToRead == 0) return 0;
 
-    drwav_uint64 framesRead = drwav_read_pcm_frames_f32(&wav_, framesToRead, outBuffer);
-    if (framesRead == 0) return 0;
-
-    if (wav_.channels == 1) {
-        // Expand mono to interleaved stereo in-place from back to front
-        for (int64_t i = static_cast<int64_t>(framesRead) - 1; i >= 0; --i) {
-            float sample = outBuffer[i];
-            outBuffer[i * 2] = sample;
-            outBuffer[i * 2 + 1] = sample;
+    const uint32_t channels = wav_.channels;
+    if (channels > 2) {
+        size_t totalSamples = framesToRead * channels;
+        if (tempBuffer_.size() < totalSamples) {
+            tempBuffer_.resize(totalSamples);
         }
-    }
+        drwav_uint64 framesRead = drwav_read_pcm_frames_f32(&wav_, framesToRead, tempBuffer_.data());
+        if (framesRead == 0) return 0;
 
-    currentFrame_ += static_cast<int64_t>(framesRead);
-    return static_cast<size_t>(framesRead);
+        for (size_t i = 0; i < framesRead; ++i) {
+            outBuffer[i * 2] = tempBuffer_[i * channels];
+            outBuffer[i * 2 + 1] = tempBuffer_[i * channels + 1];
+        }
+
+        currentFrame_ += static_cast<int64_t>(framesRead);
+        return static_cast<size_t>(framesRead);
+    } else {
+        drwav_uint64 framesRead = drwav_read_pcm_frames_f32(&wav_, framesToRead, outBuffer);
+        if (framesRead == 0) return 0;
+
+        if (channels == 1) {
+            // Expand mono to interleaved stereo in-place from back to front
+            for (int64_t i = static_cast<int64_t>(framesRead) - 1; i >= 0; --i) {
+                float sample = outBuffer[i];
+                outBuffer[i * 2] = sample;
+                outBuffer[i * 2 + 1] = sample;
+            }
+        }
+
+        currentFrame_ += static_cast<int64_t>(framesRead);
+        return static_cast<size_t>(framesRead);
+    }
 }
 
 bool WavDecoder::seek(int64_t frameIndex) {

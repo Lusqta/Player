@@ -19,14 +19,14 @@ static drmp3_bool32 onMp3SeekFd(void* pUserData, int offset, drmp3_seek_origin o
     int whence = SEEK_SET;
     if (origin == DRMP3_SEEK_CUR) whence = SEEK_CUR;
     else if (origin == DRMP3_SEEK_END) whence = SEEK_END;
-    off_t res = ::lseek(fd, offset, whence);
-    return (res != (off_t)-1) ? DRMP3_TRUE : DRMP3_FALSE;
+    off64_t res = ::lseek64(fd, offset, whence);
+    return (res != (off64_t)-1) ? DRMP3_TRUE : DRMP3_FALSE;
 }
 
 static drmp3_bool32 onMp3TellFd(void* pUserData, drmp3_int64* pCursor) {
     int fd = *reinterpret_cast<int*>(pUserData);
-    off_t res = ::lseek(fd, 0, SEEK_CUR);
-    if (res == (off_t)-1) return DRMP3_FALSE;
+    off64_t res = ::lseek64(fd, 0, SEEK_CUR);
+    if (res == (off64_t)-1) return DRMP3_FALSE;
     *pCursor = res;
     return DRMP3_TRUE;
 }
@@ -57,7 +57,7 @@ bool Mp3Decoder::open(int fd) {
     fd_ = ::dup(fd);
     if (fd_ < 0) return false;
 
-    ::lseek(fd_, 0, SEEK_SET);
+    ::lseek64(fd_, 0, SEEK_SET);
 
     if (!drmp3_init(&mp3_, onMp3ReadFd, onMp3SeekFd, onMp3TellFd, nullptr, &fd_, nullptr)) {
         close();
@@ -73,20 +73,38 @@ bool Mp3Decoder::open(int fd) {
 size_t Mp3Decoder::read(float* outBuffer, size_t framesToRead) {
     if (!isOpened_ || framesToRead == 0) return 0;
 
-    drmp3_uint64 framesRead = drmp3_read_pcm_frames_f32(&mp3_, framesToRead, outBuffer);
-    if (framesRead == 0) return 0;
-
-    if (mp3_.channels == 1) {
-        // Expand mono to interleaved stereo in-place from back to front
-        for (int64_t i = static_cast<int64_t>(framesRead) - 1; i >= 0; --i) {
-            float sample = outBuffer[i];
-            outBuffer[i * 2] = sample;
-            outBuffer[i * 2 + 1] = sample;
+    const uint32_t channels = mp3_.channels;
+    if (channels > 2) {
+        size_t totalSamples = framesToRead * channels;
+        if (tempBuffer_.size() < totalSamples) {
+            tempBuffer_.resize(totalSamples);
         }
-    }
+        drmp3_uint64 framesRead = drmp3_read_pcm_frames_f32(&mp3_, framesToRead, tempBuffer_.data());
+        if (framesRead == 0) return 0;
 
-    currentFrame_ += static_cast<int64_t>(framesRead);
-    return static_cast<size_t>(framesRead);
+        for (size_t i = 0; i < framesRead; ++i) {
+            outBuffer[i * 2] = tempBuffer_[i * channels];
+            outBuffer[i * 2 + 1] = tempBuffer_[i * channels + 1];
+        }
+
+        currentFrame_ += static_cast<int64_t>(framesRead);
+        return static_cast<size_t>(framesRead);
+    } else {
+        drmp3_uint64 framesRead = drmp3_read_pcm_frames_f32(&mp3_, framesToRead, outBuffer);
+        if (framesRead == 0) return 0;
+
+        if (channels == 1) {
+            // Expand mono to interleaved stereo in-place from back to front
+            for (int64_t i = static_cast<int64_t>(framesRead) - 1; i >= 0; --i) {
+                float sample = outBuffer[i];
+                outBuffer[i * 2] = sample;
+                outBuffer[i * 2 + 1] = sample;
+            }
+        }
+
+        currentFrame_ += static_cast<int64_t>(framesRead);
+        return static_cast<size_t>(framesRead);
+    }
 }
 
 bool Mp3Decoder::seek(int64_t frameIndex) {

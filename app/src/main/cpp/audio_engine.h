@@ -39,6 +39,7 @@ public:
     int64_t getDurationFrames() const;
     int32_t getSampleRate() const;
     int32_t getChannelCount() const;
+    bool consumeTrackCompleted();
 
     bool isPlaying() const;
     bool isPaused() const;
@@ -78,6 +79,11 @@ private:
     std::atomic<bool> seekRequested_{false};
     std::atomic<int64_t> seekTargetFrame_{0};
     std::atomic<bool> isEos_{false};
+    std::atomic<bool> trackCompleted_{false};
+
+    std::atomic<int64_t> durationFrames_{0};
+    std::atomic<int32_t> sampleRate_{0};
+    std::atomic<int32_t> channelCount_{0};
 
     std::thread decodeThread_;
     std::mutex decodeMutex_;

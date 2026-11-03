@@ -103,6 +103,11 @@ class AudioEngine {
         return nativeIsPaused(nativeHandle)
     }
 
+    fun consumeTrackCompleted(): Boolean {
+        if (nativeHandle == 0L) return false
+        return nativeConsumeTrackCompleted(nativeHandle)
+    }
+
     fun setEqualizerBand(band: Int, gainDb: Float) {
         if (nativeHandle == 0L) return
         nativeSetEqualizerBand(nativeHandle, band, gainDb)
@@ -224,6 +229,7 @@ class AudioEngine {
     private external fun nativeGetChannelCount(handle: Long): Int
     private external fun nativeIsPlaying(handle: Long): Boolean
     private external fun nativeIsPaused(handle: Long): Boolean
+    private external fun nativeConsumeTrackCompleted(handle: Long): Boolean
     private external fun nativeSetEqualizerBand(handle: Long, band: Int, gainDb: Float)
     private external fun nativeGetEqualizerBand(handle: Long, band: Int): Float
     private external fun nativeSetEqualizerEnabled(handle: Long, enabled: Boolean)

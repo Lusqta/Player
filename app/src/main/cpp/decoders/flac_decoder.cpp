@@ -19,14 +19,14 @@ static drflac_bool32 onFlacSeekFd(void* pUserData, int offset, drflac_seek_origi
     int whence = SEEK_SET;
     if (origin == DRFLAC_SEEK_CUR) whence = SEEK_CUR;
     else if (origin == DRFLAC_SEEK_END) whence = SEEK_END;
-    off_t res = ::lseek(fd, offset, whence);
-    return (res != (off_t)-1) ? DRFLAC_TRUE : DRFLAC_FALSE;
+    off64_t res = ::lseek64(fd, offset, whence);
+    return (res != (off64_t)-1) ? DRFLAC_TRUE : DRFLAC_FALSE;
 }
 
 static drflac_bool32 onFlacTellFd(void* pUserData, drflac_int64* pCursor) {
     int fd = *reinterpret_cast<int*>(pUserData);
-    off_t res = ::lseek(fd, 0, SEEK_CUR);
-    if (res == (off_t)-1) return DRFLAC_FALSE;
+    off64_t res = ::lseek64(fd, 0, SEEK_CUR);
+    if (res == (off64_t)-1) return DRFLAC_FALSE;
     *pCursor = res;
     return DRFLAC_TRUE;
 }
@@ -57,7 +57,7 @@ bool FlacDecoder::open(int fd) {
     fd_ = ::dup(fd);
     if (fd_ < 0) return false;
 
-    ::lseek(fd_, 0, SEEK_SET);
+    ::lseek64(fd_, 0, SEEK_SET);
 
     flac_ = drflac_open(onFlacReadFd, onFlacSeekFd, onFlacTellFd, &fd_, nullptr);
     if (!flac_) {
@@ -73,20 +73,38 @@ bool FlacDecoder::open(int fd) {
 size_t FlacDecoder::read(float* outBuffer, size_t framesToRead) {
     if (!isOpened_ || !flac_ || framesToRead == 0) return 0;
 
-    drflac_uint64 framesRead = drflac_read_pcm_frames_f32(flac_, framesToRead, outBuffer);
-    if (framesRead == 0) return 0;
-
-    if (flac_->channels == 1) {
-        // Expand mono to interleaved stereo in-place from back to front
-        for (int64_t i = static_cast<int64_t>(framesRead) - 1; i >= 0; --i) {
-            float sample = outBuffer[i];
-            outBuffer[i * 2] = sample;
-            outBuffer[i * 2 + 1] = sample;
+    const uint32_t channels = flac_->channels;
+    if (channels > 2) {
+        size_t totalSamples = framesToRead * channels;
+        if (tempBuffer_.size() < totalSamples) {
+            tempBuffer_.resize(totalSamples);
         }
-    }
+        drflac_uint64 framesRead = drflac_read_pcm_frames_f32(flac_, framesToRead, tempBuffer_.data());
+        if (framesRead == 0) return 0;
 
-    currentFrame_ += static_cast<int64_t>(framesRead);
-    return static_cast<size_t>(framesRead);
+        for (size_t i = 0; i < framesRead; ++i) {
+            outBuffer[i * 2] = tempBuffer_[i * channels];
+            outBuffer[i * 2 + 1] = tempBuffer_[i * channels + 1];
+        }
+
+        currentFrame_ += static_cast<int64_t>(framesRead);
+        return static_cast<size_t>(framesRead);
+    } else {
+        drflac_uint64 framesRead = drflac_read_pcm_frames_f32(flac_, framesToRead, outBuffer);
+        if (framesRead == 0) return 0;
+
+        if (channels == 1) {
+            // Expand mono to interleaved stereo in-place from back to front
+            for (int64_t i = static_cast<int64_t>(framesRead) - 1; i >= 0; --i) {
+                float sample = outBuffer[i];
+                outBuffer[i * 2] = sample;
+                outBuffer[i * 2 + 1] = sample;
+            }
+        }
+
+        currentFrame_ += static_cast<int64_t>(framesRead);
+        return static_cast<size_t>(framesRead);
+    }
 }
 
 bool FlacDecoder::seek(int64_t frameIndex) {

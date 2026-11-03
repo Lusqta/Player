@@ -124,7 +124,7 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
                 wasPlaying = false
                 val current = audioEngine.getPositionMs()
                 val total = audioEngine.getDurationMs()
-                if (total > 0 && current >= (total - 500)) {
+                if (audioEngine.consumeTrackCompleted() || (total > 0 && current >= (total - 500))) {
                     if (sleepTimerStopAtTrackEnd) {
                         sleepTimerStopAtTrackEnd = false
                         cancelSleepTimer()
@@ -155,6 +155,7 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
 
     override fun onCreate() {
         super.onCreate()
+        LibraryRepository.init(this)
         preferencesManager = PreferencesManager(this)
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
 
@@ -237,9 +238,14 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
 
         playbackExecutor.execute {
             try {
-                contentResolver.openFileDescriptor(track.uri, "r")?.use { pfd ->
+                val effectiveTrack = if (track.replayGainTrackGain == 0.0f && track.path.isNotEmpty()) {
+                    libraryRepo.ensureReplayGainLoaded(track)
+                } else {
+                    track
+                }
+                contentResolver.openFileDescriptor(effectiveTrack.uri, "r")?.use { pfd ->
                     if (audioEngine.open(pfd)) {
-                        applyEffectivePreamp(track)
+                        applyEffectivePreamp(effectiveTrack)
                         if (requestAudioFocus()) {
                             audioEngine.play()
                             wasPlaying = true
@@ -258,9 +264,9 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
                                         startForeground(NOTIFICATION_ID, buildNotification())
                                     }
                                 } catch (_: Exception) {}
-                                updateMediaSessionMetadata(track)
+                                updateMediaSessionMetadata(effectiveTrack)
                                 updateMediaSessionState(PlaybackState.STATE_PLAYING, 0)
-                                notifyTrack(track)
+                                notifyTrack(effectiveTrack)
                                 notifyState(true)
                                 startProgressUpdates()
                             }
@@ -277,6 +283,49 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
         val track = queueManager.currentTrack
         if (track != null) {
             playTrack(track)
+        }
+    }
+
+    fun restoreSavedQueue(allTracks: List<Track>) {
+        if (queueManager.queueSize > 0 || allTracks.isEmpty()) return
+
+        val savedIds = preferencesManager.getSavedQueueIds()
+        if (savedIds.isEmpty()) return
+
+        val tracksMap = allTracks.associateBy { it.id }
+        val restoredTracks = savedIds.mapNotNull { tracksMap[it] }
+        if (restoredTracks.isEmpty()) return
+
+        val savedIndex = preferencesManager.getSavedCurrentIndex().coerceIn(0, restoredTracks.size - 1)
+        val savedPositionMs = preferencesManager.getSavedPositionMs()
+
+        queueManager.setQueue(restoredTracks, savedIndex)
+        val track = queueManager.currentTrack ?: return
+
+        playbackExecutor.execute {
+            try {
+                val effectiveTrack = if (track.replayGainTrackGain == 0.0f && track.path.isNotEmpty()) {
+                    libraryRepo.ensureReplayGainLoaded(track)
+                } else {
+                    track
+                }
+                contentResolver.openFileDescriptor(effectiveTrack.uri, "r")?.use { pfd ->
+                    if (audioEngine.open(pfd)) {
+                        applyEffectivePreamp(effectiveTrack)
+                        if (savedPositionMs > 0) {
+                            audioEngine.seekToMs(savedPositionMs)
+                        }
+                        handler.post {
+                            updateMediaSessionMetadata(effectiveTrack)
+                            updateMediaSessionState(PlaybackState.STATE_PAUSED, savedPositionMs)
+                            notifyTrack(effectiveTrack)
+                            notifyState(false)
+                            notifyProgress(savedPositionMs, effectiveTrack.durationMs)
+                            notifyQueue()
+                        }
+                    }
+                }
+            } catch (_: Exception) {}
         }
     }
 
@@ -366,6 +415,14 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
 
     fun skipToQueueIndex(index: Int) {
         val track = queueManager.skipTo(index)
+        if (track != null) {
+            notifyQueue()
+            playTrack(track)
+        }
+    }
+
+    fun skipToPriorityIndex(index: Int) {
+        val track = queueManager.skipToPriority(index)
         if (track != null) {
             notifyQueue()
             playTrack(track)
@@ -470,11 +527,14 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
 
     // --- Fades ---
 
+    private val fadeHandler = Handler(Looper.getMainLooper())
+    private var activeFadeRunnable: Runnable? = null
+
     private fun fadeOut(durationMs: Long, onComplete: () -> Unit) {
+        activeFadeRunnable?.let { fadeHandler.removeCallbacks(it) }
         val steps = 12
         val stepDelay = (durationMs / steps).coerceAtLeast(5L)
         var currentStep = 0
-        val fadeHandler = Handler(Looper.getMainLooper())
         val runnable = object : Runnable {
             override fun run() {
                 currentStep++
@@ -483,20 +543,22 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
                 if (currentStep < steps) {
                     fadeHandler.postDelayed(this, stepDelay)
                 } else {
+                    activeFadeRunnable = null
                     onComplete()
                     audioEngine.setVolume(1.0f)
                 }
             }
         }
+        activeFadeRunnable = runnable
         fadeHandler.post(runnable)
     }
 
     private fun fadeIn(durationMs: Long) {
+        activeFadeRunnable?.let { fadeHandler.removeCallbacks(it) }
         audioEngine.setVolume(0.0f)
         val steps = 12
         val stepDelay = (durationMs / steps).coerceAtLeast(5L)
         var currentStep = 0
-        val fadeHandler = Handler(Looper.getMainLooper())
         val runnable = object : Runnable {
             override fun run() {
                 currentStep++
@@ -505,10 +567,12 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
                 if (currentStep < steps) {
                     fadeHandler.postDelayed(this, stepDelay)
                 } else {
+                    activeFadeRunnable = null
                     audioEngine.setVolume(1.0f)
                 }
             }
         }
+        activeFadeRunnable = runnable
         fadeHandler.post(runnable)
     }
 

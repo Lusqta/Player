@@ -23,6 +23,8 @@ object LyricsManager {
     )
 
     private val TIMESTAMP_PATTERN = Pattern.compile("\\[(\\d{1,2}):(\\d{2})(?:\\.(\\d{1,3}))?\\]")
+    private val OFFSET_PATTERN = Pattern.compile("\\[offset:\\s*([+-]?\\d+)\\]", Pattern.CASE_INSENSITIVE)
+    private val METADATA_PATTERN = Pattern.compile("^\\[\\s*(ti|ar|al|by|offset|length|re|ve)\\s*:[^\\]]*\\]", Pattern.CASE_INSENSITIVE)
 
     /**
      * Finds and loads lyrics for the given track.
@@ -65,14 +67,27 @@ object LyricsManager {
     fun parseLrc(rawText: String, source: String): Lyrics? {
         val lines = rawText.lines()
         val parsedLines = mutableListOf<LyricLine>()
-        var hasTimestamps = false
+        var offsetMs = 0L
+
+        // Check if there is a global offset tag: [offset:+/-ms]
+        for (line in lines) {
+            val trimmed = line.trim()
+            val offsetMatcher = OFFSET_PATTERN.matcher(trimmed)
+            if (offsetMatcher.find()) {
+                offsetMs = offsetMatcher.group(1)?.toLongOrNull() ?: 0L
+                break
+            }
+        }
+
+        val hasAnyTimestamp = lines.any { TIMESTAMP_PATTERN.matcher(it).find() }
 
         for (line in lines) {
             val trimmed = line.trim()
             if (trimmed.isEmpty()) continue
 
-            // Check metadata tags e.g. [ti:Title], [ar:Artist], [al:Album]
-            if (trimmed.startsWith("[ti:") || trimmed.startsWith("[ar:") ||
+            // Check metadata tags e.g. [ti:Title], [ar:Artist], [al:Album], [offset:...]
+            if (METADATA_PATTERN.matcher(trimmed).find() ||
+                trimmed.startsWith("[ti:") || trimmed.startsWith("[ar:") ||
                 trimmed.startsWith("[al:") || trimmed.startsWith("[by:") ||
                 trimmed.startsWith("[offset:")) {
                 continue
@@ -83,7 +98,6 @@ object LyricsManager {
             var lastMatchEnd = 0
 
             while (matcher.find()) {
-                hasTimestamps = true
                 val min = matcher.group(1)?.toLongOrNull() ?: 0L
                 val sec = matcher.group(2)?.toLongOrNull() ?: 0L
                 val fracStr = matcher.group(3)
@@ -93,7 +107,8 @@ object LyricsManager {
                     fracStr.length == 2 -> fracStr.toLong() * 10L
                     else -> fracStr.substring(0, 3).toLong()
                 }
-                timestamps.add(min * 60_000L + sec * 1_000L + ms)
+                val rawTs = min * 60_000L + sec * 1_000L + ms
+                timestamps.add((rawTs + offsetMs).coerceAtLeast(0L))
                 lastMatchEnd = matcher.end()
             }
 
@@ -103,7 +118,7 @@ object LyricsManager {
                 for (ts in timestamps) {
                     parsedLines.add(LyricLine(timeMs = ts, text = text))
                 }
-            } else if (!hasTimestamps && trimmed.isNotEmpty()) {
+            } else if (!hasAnyTimestamp && trimmed.isNotEmpty()) {
                 // Plain unsynced line
                 parsedLines.add(LyricLine(timeMs = -1L, text = trimmed))
             }
@@ -111,7 +126,7 @@ object LyricsManager {
 
         if (parsedLines.isEmpty()) return null
 
-        val sorted = if (hasTimestamps) {
+        val sorted = if (hasAnyTimestamp) {
             parsedLines.sortedBy { it.timeMs }
         } else {
             parsedLines
@@ -119,7 +134,7 @@ object LyricsManager {
 
         return Lyrics(
             lines = sorted,
-            isSynced = hasTimestamps,
+            isSynced = hasAnyTimestamp,
             source = source
         )
     }

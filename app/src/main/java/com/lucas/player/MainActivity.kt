@@ -109,6 +109,11 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 currentTrackState.value = it
                 durationMsState.longValue = it.durationMs
             }
+
+            val all = libraryRepo.getAllTracks()
+            if (all.isNotEmpty()) {
+                s.restoreSavedQueue(all)
+            }
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -133,6 +138,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        LibraryRepository.init(this)
 
         setContent {
             val currentScreen = navController.currentScreen
@@ -248,7 +254,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         onBackClick = { navController.navigateUp() },
                                         onTrackClick = { _, index, isPriority ->
                                             if (isPriority) {
-                                                playbackService?.queueManager?.skipTo(index)
+                                                playbackService?.skipToPriorityIndex(index)
                                             } else {
                                                 playbackService?.skipToQueueIndex(index)
                                             }
@@ -519,7 +525,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onBackClick = { navController.navigateUp() },
                                     onTrackClick = { _, index, isPriority ->
                                         if (isPriority) {
-                                            playbackService?.queueManager?.skipTo(index)
+                                            playbackService?.skipToPriorityIndex(index)
                                         } else {
                                             playbackService?.skipToQueueIndex(index)
                                         }
@@ -1050,6 +1056,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             runOnUiThread {
                 totalTracksCountState.intValue = list.size
                 selectCategory(LibraryCategory.ALL_SONGS)
+                playbackService?.restoreSavedQueue(list)
             }
         }
     }

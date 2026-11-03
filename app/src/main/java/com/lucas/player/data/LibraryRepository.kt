@@ -8,40 +8,74 @@ import com.lucas.player.model.*
 import java.io.File
 import java.util.concurrent.Executors
 
-class LibraryRepository {
+class LibraryRepository() {
 
-    private val executor = Executors.newSingleThreadExecutor()
-    private val tracks = mutableListOf<Track>()
-    private var musicDb: MusicDatabase? = null
+    companion object {
+        @Volatile
+        private var instance: LibraryRepository? = null
+
+        private val sharedTracks = mutableListOf<Track>()
+        @Volatile
+        private var sharedMusicDb: MusicDatabase? = null
+        @Volatile
+        private var appContext: Context? = null
+        private val sharedExecutor = Executors.newSingleThreadExecutor()
+
+        fun getInstance(context: Context? = null): LibraryRepository {
+            if (context != null && appContext == null) {
+                init(context)
+            }
+            return instance ?: synchronized(this) {
+                instance ?: LibraryRepository().also { instance = it }
+            }
+        }
+
+        fun init(context: Context) {
+            if (appContext == null) {
+                appContext = context.applicationContext
+            }
+            if (sharedMusicDb == null) {
+                sharedMusicDb = MusicDatabase(context.applicationContext)
+            }
+        }
+
+        private fun getOrCreateDb(context: Context? = null): MusicDatabase? {
+            if (sharedMusicDb == null) {
+                val ctx = context ?: appContext
+                if (ctx != null) {
+                    sharedMusicDb = MusicDatabase(ctx.applicationContext)
+                }
+            }
+            return sharedMusicDb
+        }
+    }
 
     fun loadTracks(context: Context, onComplete: (List<Track>) -> Unit) {
-        executor.execute {
-            if (musicDb == null) {
-                musicDb = MusicDatabase(context.applicationContext)
-            }
-            val db = musicDb!!
-            val statsMap = db.getAllStats()
+        init(context)
+        sharedExecutor.execute {
+            val db = getOrCreateDb(context)
+            val statsMap = db?.getAllStats() ?: emptyMap()
 
             val list = queryMediaStore(context, statsMap)
-            synchronized(tracks) {
-                tracks.clear()
-                tracks.addAll(list)
+            synchronized(sharedTracks) {
+                sharedTracks.clear()
+                sharedTracks.addAll(list)
             }
             onComplete(list)
         }
     }
 
     fun getAllTracks(): List<Track> {
-        return synchronized(tracks) { tracks.toList() }
+        return synchronized(sharedTracks) { sharedTracks.toList() }
     }
 
     fun recordTrackPlayed(trackId: Long) {
-        executor.execute {
-            musicDb?.incrementPlayCount(trackId)
-            synchronized(tracks) {
-                val index = tracks.indexOfFirst { it.id == trackId }
+        sharedExecutor.execute {
+            getOrCreateDb()?.incrementPlayCount(trackId)
+            synchronized(sharedTracks) {
+                val index = sharedTracks.indexOfFirst { it.id == trackId }
                 if (index != -1) {
-                    val t = tracks[index]
+                    val t = sharedTracks[index]
                     t.playCount += 1
                     t.lastPlayedTimestamp = System.currentTimeMillis()
                 }
@@ -50,15 +84,36 @@ class LibraryRepository {
     }
 
     fun setTrackRating(trackId: Long, rating: Int) {
-        executor.execute {
-            musicDb?.setRating(trackId, rating)
-            synchronized(tracks) {
-                val index = tracks.indexOfFirst { it.id == trackId }
+        sharedExecutor.execute {
+            getOrCreateDb()?.setRating(trackId, rating)
+            synchronized(sharedTracks) {
+                val index = sharedTracks.indexOfFirst { it.id == trackId }
                 if (index != -1) {
-                    tracks[index].rating = rating
+                    sharedTracks[index].rating = rating
                 }
             }
         }
+    }
+
+    fun ensureReplayGainLoaded(track: Track): Track {
+        if (track.path.isEmpty() || track.replayGainTrackGain != 0.0f || track.replayGainTrackPeak != 1.0f) {
+            return track
+        }
+        val rgInfo = ReplayGainReader.readFromFile(track.path)
+        if (!rgInfo.hasData) return track
+        val updated = track.copy(
+            replayGainTrackGain = rgInfo.trackGainDb,
+            replayGainTrackPeak = rgInfo.trackPeak,
+            replayGainAlbumGain = rgInfo.albumGainDb,
+            replayGainAlbumPeak = rgInfo.albumPeak
+        )
+        synchronized(sharedTracks) {
+            val idx = sharedTracks.indexOfFirst { it.id == track.id }
+            if (idx != -1) {
+                sharedTracks[idx] = updated
+            }
+        }
+        return updated
     }
 
     // --- Categorias e Agrupamentos ---
@@ -102,19 +157,36 @@ class LibraryRepository {
             .sortedBy { it.name.lowercase() }
     }
 
-    fun getTracksForAlbumArtist(artistName: String, sortMode: SortMode = SortMode.ALBUM_ASC): List<Track> {
+    fun getTracksForAlbumArtist(albumArtist: String, sortMode: SortMode = SortMode.YEAR_DESC): List<Track> {
         val filtered = getAllTracks().filter {
-            it.albumArtist.equals(artistName, ignoreCase = true) ||
-            (it.albumArtist.isEmpty() && it.artist.equals(artistName, ignoreCase = true))
+            (if (it.albumArtist.isNotEmpty()) it.albumArtist else it.artist).equals(albumArtist, ignoreCase = true)
         }
+        return applySorting(filtered, sortMode)
+    }
+
+    fun getFolders(): List<Folder> {
+        val all = getAllTracks()
+        return all.groupBy { it.folder }
+            .map { (folderName, folderTracks) ->
+                val path = folderTracks.firstOrNull()?.path ?: ""
+                val parentPath = if (path.isNotEmpty()) File(path).parent ?: "" else ""
+                Folder(folderName, parentPath, folderTracks.size)
+            }
+            .sortedBy { it.name.lowercase() }
+    }
+
+    fun getTracksForFolder(folderName: String, sortMode: SortMode = SortMode.TITLE_ASC): List<Track> {
+        val filtered = getAllTracks().filter { it.folder.equals(folderName, ignoreCase = true) }
         return applySorting(filtered, sortMode)
     }
 
     fun getGenres(): List<Genre> {
         val all = getAllTracks()
-        return all.filter { it.genre.isNotEmpty() && it.genre != "<unknown>" }
+        return all.filter { it.genre.isNotEmpty() }
             .groupBy { it.genre }
-            .map { (genreName, list) -> Genre(genreName, list.size) }
+            .map { (genreName, tracks) ->
+                Genre(genreName, tracks.size)
+            }
             .sortedBy { it.name.lowercase() }
     }
 
@@ -127,7 +199,9 @@ class LibraryRepository {
         val all = getAllTracks()
         return all.filter { it.year > 0 }
             .groupBy { it.year }
-            .map { (year, list) -> YearGroup(year, list.size) }
+            .map { (year, tracks) ->
+                YearGroup(year, tracks.size)
+            }
             .sortedByDescending { it.year }
     }
 
@@ -140,7 +214,9 @@ class LibraryRepository {
         val all = getAllTracks()
         return all.filter { it.composer.isNotEmpty() }
             .groupBy { it.composer }
-            .map { (compName, list) -> Composer(compName, list.size) }
+            .map { (name, tracks) ->
+                Composer(name, tracks.size)
+            }
             .sortedBy { it.name.lowercase() }
     }
 
@@ -149,39 +225,20 @@ class LibraryRepository {
         return applySorting(filtered, sortMode)
     }
 
-    fun getFolders(): List<Folder> {
-        val all = getAllTracks()
-        return all.groupBy { it.folder }
-            .map { (folderName, folderTracks) ->
-                val samplePath = folderTracks.firstOrNull()?.path?.let { File(it).parent ?: "" } ?: ""
-                Folder(folderName, samplePath, folderTracks.size)
-            }
-            .sortedBy { it.name.lowercase() }
+    fun getRecentlyAdded(): List<Track> {
+        return getAllTracks().sortedByDescending { it.dateAddedSec }
     }
 
-    fun getTracksForFolder(folderName: String, sortMode: SortMode = SortMode.TITLE_ASC): List<Track> {
-        val filtered = getAllTracks().filter { it.folder.equals(folderName, ignoreCase = true) }
-        return applySorting(filtered, sortMode)
-    }
-
-    fun getRecentlyAdded(limit: Int = 100): List<Track> {
-        return getAllTracks()
-            .sortedByDescending { it.dateAddedSec }
-            .take(limit)
-    }
-
-    fun getRecentlyPlayed(limit: Int = 100): List<Track> {
+    fun getRecentlyPlayed(): List<Track> {
         return getAllTracks()
             .filter { it.lastPlayedTimestamp > 0 }
             .sortedByDescending { it.lastPlayedTimestamp }
-            .take(limit)
     }
 
-    fun getMostPlayed(limit: Int = 100): List<Track> {
+    fun getMostPlayed(): List<Track> {
         return getAllTracks()
             .filter { it.playCount > 0 }
             .sortedByDescending { it.playCount }
-            .take(limit)
     }
 
     fun getTopRated(): List<Track> {
@@ -193,33 +250,33 @@ class LibraryRepository {
     // --- Playlists ---
 
     fun getUserPlaylists(): List<UserPlaylist> {
-        val db = musicDb ?: return emptyList()
+        val db = getOrCreateDb() ?: return emptyList()
         return db.getPlaylists().map {
             UserPlaylist(it.id, it.name, it.trackCount, it.createdMs)
         }
     }
 
     fun createPlaylist(name: String): Long {
-        return musicDb?.createPlaylist(name) ?: -1L
+        return getOrCreateDb()?.createPlaylist(name) ?: -1L
     }
 
     fun getTracksForUserPlaylist(playlistId: Long): List<Track> {
-        val db = musicDb ?: return emptyList()
+        val db = getOrCreateDb() ?: return emptyList()
         val trackIds = db.getTracksForPlaylist(playlistId)
         val all = getAllTracks().associateBy { it.id }
         return trackIds.mapNotNull { all[it] }
     }
 
     fun addTrackToUserPlaylist(playlistId: Long, trackId: Long) {
-        musicDb?.addTrackToPlaylist(playlistId, trackId)
+        getOrCreateDb()?.addTrackToPlaylist(playlistId, trackId)
     }
 
     fun removeTrackFromUserPlaylist(playlistId: Long, trackId: Long) {
-        musicDb?.removeTrackFromPlaylist(playlistId, trackId)
+        getOrCreateDb()?.removeTrackFromPlaylist(playlistId, trackId)
     }
 
     fun deletePlaylist(playlistId: Long) {
-        musicDb?.deletePlaylist(playlistId)
+        getOrCreateDb()?.deletePlaylist(playlistId)
     }
 
     // --- Ordenação Dinâmica ---
@@ -323,9 +380,6 @@ class LibraryRepository {
                     val ext = if (path.contains('.')) path.substringAfterLast('.').uppercase() else "AUDIO"
                     val formatTag = ext
 
-                    // ReplayGain tags
-                    val rgInfo = if (path.isNotEmpty()) ReplayGainReader.readFromFile(path) else ReplayGainReader.ReplayGainInfo()
-
                     // Merge stats
                     val stat = statsMap[id]
                     val playCount = stat?.playCount ?: 0
@@ -357,10 +411,10 @@ class LibraryRepository {
                             lastPlayedTimestamp = lastPlayed,
                             rating = rating,
                             formatTag = formatTag,
-                            replayGainTrackGain = rgInfo.trackGainDb,
-                            replayGainTrackPeak = rgInfo.trackPeak,
-                            replayGainAlbumGain = rgInfo.albumGainDb,
-                            replayGainAlbumPeak = rgInfo.albumPeak
+                            replayGainTrackGain = 0.0f,
+                            replayGainTrackPeak = 1.0f,
+                            replayGainAlbumGain = 0.0f,
+                            replayGainAlbumPeak = 1.0f
                         )
                     )
                 }

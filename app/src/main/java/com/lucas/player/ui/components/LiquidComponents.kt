@@ -18,6 +18,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,8 +29,11 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -157,6 +161,7 @@ fun WalkAuraProgressBar(
     overlayContent: (@Composable RowScope.() -> Unit)? = null
 ) {
     val shader = remember { RuntimeShader(LiquidAgslShaders.AURA_CAPSULE_SLIDER_SHADER) }
+    val haptics = LocalHapticFeedback.current
 
     Box(
         modifier = modifier
@@ -164,11 +169,16 @@ fun WalkAuraProgressBar(
             .height(height)
             .pointerInput(Unit) {
                 detectTapGestures { pos ->
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                     onProgressChange((pos.x / size.width).coerceIn(0f, 1f))
                 }
             }
             .pointerInput(Unit) {
-                detectHorizontalDragGestures { change, _ ->
+                detectHorizontalDragGestures(
+                    onDragStart = {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    }
+                ) { change, _ ->
                     change.consume()
                     onProgressChange((change.position.x / size.width).coerceIn(0f, 1f))
                 }
@@ -356,30 +366,50 @@ fun VerticalAuraSlider(
     glowColor: Color = AuraPreset.WALK_AMBER.glowHighlight
 ) {
     val shader = remember { RuntimeShader(LiquidAgslShaders.AURA_CAPSULE_VERTICAL_SLIDER_SHADER) }
+    val haptics = LocalHapticFeedback.current
+    var lastProg by remember { mutableFloatStateOf(progress) }
 
-    Canvas(
+    Box(
         modifier = modifier
-            .width(28.dp)
+            .width(48.dp)
             .height(155.dp)
             .pointerInput(Unit) {
-                detectTapGestures { pos ->
-                    val newProg = 1f - (pos.y / size.height).coerceIn(0f, 1f)
-                    onProgressChange(newProg)
-                }
+                detectTapGestures(
+                    onDoubleTap = {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onProgressChange(0.5f)
+                    },
+                    onTap = { pos ->
+                        val newProg = 1f - (pos.y / size.height).coerceIn(0f, 1f)
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onProgressChange(newProg)
+                    }
+                )
             }
             .pointerInput(Unit) {
                 detectVerticalDragGestures { change, _ ->
                     change.consume()
                     val newProg = 1f - (change.position.y / size.height).coerceIn(0f, 1f)
+                    if ((lastProg < 0.5f && newProg >= 0.5f) || (lastProg > 0.5f && newProg <= 0.5f)) {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    }
+                    lastProg = newProg
                     onProgressChange(newProg)
                 }
-            }
+            },
+        contentAlignment = Alignment.Center
     ) {
-        shader.setFloatUniform("uResolution", size.width, size.height)
-        shader.setFloatUniform("uProgress", progress.coerceIn(0f, 1f))
-        shader.setFloatUniform("uBarColor", barColor.red, barColor.green, barColor.blue, 1f)
-        shader.setFloatUniform("uGlowColor", glowColor.red, glowColor.green, glowColor.blue, 1f)
-        drawRect(ShaderBrush(shader))
+        Canvas(
+            modifier = Modifier
+                .width(28.dp)
+                .height(155.dp)
+        ) {
+            shader.setFloatUniform("uResolution", size.width, size.height)
+            shader.setFloatUniform("uProgress", progress.coerceIn(0f, 1f))
+            shader.setFloatUniform("uBarColor", barColor.red, barColor.green, barColor.blue, 1f)
+            shader.setFloatUniform("uGlowColor", glowColor.red, glowColor.green, glowColor.blue, 1f)
+            drawRect(ShaderBrush(shader))
+        }
     }
 }
 
@@ -493,6 +523,7 @@ fun Slider52Horizontal(
     rightText: String? = null,
     leadingIcon: (@Composable () -> Unit)? = null
 ) {
+    val tabularStyle = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
     WalkAuraProgressBar(
         progress = progress,
         onProgressChange = onProgressChange,
@@ -512,7 +543,8 @@ fun Slider52Horizontal(
                         text = leftText,
                         color = Color.White,
                         fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        style = tabularStyle
                     )
                 }
             }
@@ -521,7 +553,8 @@ fun Slider52Horizontal(
                     text = rightText,
                     color = Color.White.copy(alpha = 0.85f),
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Medium,
+                    style = tabularStyle
                 )
             }
         }
