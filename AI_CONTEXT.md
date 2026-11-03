@@ -104,11 +104,19 @@ flowchart TD
 
 ## 4. Estrutura dos Arquivos de UI
 
+A suíte legada (`Dry*`, `Liquid*`, `Player*`, XML layouts e RecyclerView Adapters) foi totalmente removida na **Fase 0**. O código de UI adota estritamente o ecossistema Aurō:
+
 | Arquivo | Propósito |
 |---|---|
-| [`AuroScreens.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroScreens.kt) | Contém as telas oficiais em Compose: `AuroNowPlayingScreen`, `AuroLibraryRootScreen`, `AuroCategoryListScreen`, `AuroDrilldownScreen`, `AuroEqualizerScreen`, `AuroSearchScreen`, `AuroQueueScreen`. |
-| [`AuroComponents.kt`](app/src/main/java/com/lucas/player/ui/components/AuroComponents.kt) | Componentes atômicos: `AuroProgressBar`, `AuroMiniPlayer`, `AuroNavbar`, `AuroTrackRow`, `AuroBreadcrumbHeader`, `AuroAlphabetFastScroller`, `AuroRatingBar`. |
-| [`AuroOverlays.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroOverlays.kt) | Modais e diálogos: Menu de contexto da faixa, informações de áudio, temporizador de sono, editor de playlists, salvar presets. |
+| [`AuroLibraryRootScreen.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroLibraryRootScreen.kt) | Visão principal da biblioteca com listagem de categorias. |
+| [`AuroCategoryListScreen.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroCategoryListScreen.kt) | Lista de itens da categoria (faixas individuais ou grupos como Álbuns/Artistas). |
+| [`AuroDrilldownScreen.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroDrilldownScreen.kt) | Subnível de um grupo (ex: faixas de um álbum ou pasta específica). |
+| [`AuroNowPlayingScreen.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroNowPlayingScreen.kt) | Player expandido oficial com vidro preto, reflexo físico e controles de reprodução. |
+| [`AuroEqualizerScreen.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroEqualizerScreen.kt) | Tela de equalizador de 10 bandas, Tom, Pré-amp, Balanço e Presets. |
+| [`AuroSearchScreen.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroSearchScreen.kt) | Busca instantânea de faixas e artistas. |
+| [`AuroQueueScreen.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroQueueScreen.kt) | Fila dedicada com separação entre Fila Prioritária e Fila Normal. |
+| [`AuroComponents.kt`](app/src/main/java/com/lucas/player/ui/components/AuroComponents.kt) | Componentes atômicos: `AuroProgressBar`, `AuroMiniPlayer`, `AuroNavbar`, `AuroTrackRow`, `AuroBreadcrumbHeader`, `AuroAlphabetFastScroller`, `rememberTrackCover`. |
+| [`AuroOverlays.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroOverlays.kt) | Modais e diálogos: Menu contextual da faixa, info de áudio, temporizador de sono, editor de playlists, salvar presets. |
 | [`MainActivity.kt`](app/src/main/java/com/lucas/player/MainActivity.kt) | Orquestração central de estados (`isPlaying`, `progressMs`, `currentTrack`), conexão com o serviço e injeção do `AuroTheme`. |
 
 ---
@@ -118,7 +126,7 @@ flowchart TD
 ### Adicionar um Novo Efeito de Áudio
 1. Modifique a engine em C++ / `AudioEngine.kt`.
 2. Adicione os métodos de controle em `PlaybackService.kt`.
-3. Adicione o estado e sliders correspondentes em `AuroEqualizerScreen` em [`AuroScreens.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroScreens.kt).
+3. Adicione o estado e sliders correspondentes em [`AuroEqualizerScreen.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroEqualizerScreen.kt).
 
 ### Adicionar uma Nova Categoria à Biblioteca
 1. Adicione a entrada em `LibraryCategory` (`com.lucas.player.model.LibraryCategory`).
