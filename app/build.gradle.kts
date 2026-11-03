@@ -91,3 +91,14 @@ dependencies {
     // Oboe (C++ audio library via prefab)
     implementation("com.google.oboe:oboe:1.9.3")
 }
+
+afterEvaluate {
+    tasks.findByName("assembleDebug")?.doLast {
+        val src = layout.buildDirectory.file("outputs/apk/debug/app-debug.apk").get().asFile
+        val dest = File(rootDir, "AuroPlayer-Debug.apk")
+        if (src.exists()) {
+            src.copyTo(dest, overwrite = true)
+            println(">>> AuroPlayer-Debug.apk atualizado com sucesso na raiz do projeto <<<")
+        }
+    }
+}
