@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -35,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lucas.player.data.CoverArtLoader
 import com.lucas.player.model.Track
 import com.lucas.player.ui.navigation.NavScreen
 import com.lucas.player.ui.theme.*
@@ -55,6 +57,22 @@ fun formatTimeMs(ms: Long): String {
     } else {
         String.format(Locale.getDefault(), "%02d:%02d", min, sec)
     }
+}
+
+@Composable
+fun rememberTrackCover(track: Track?, size: Int = 300): Bitmap? {
+    val context = LocalContext.current
+    var bitmap by remember(track?.id) { mutableStateOf<Bitmap?>(null) }
+    LaunchedEffect(track?.id) {
+        if (track != null) {
+            CoverArtLoader.loadCover(context, track, size) { bmp ->
+                bitmap = bmp
+            }
+        } else {
+            bitmap = null
+        }
+    }
+    return bitmap
 }
 
 /**
@@ -738,97 +756,4 @@ fun AuroRatingBar(
     }
 }
 
-/**
- * 8. WAVESEEK ADAPTADO AO AURŌ DESIGN SYSTEM
- */
-@Composable
-fun AuroWaveformSeekbar(
-    progressFraction: Float,
-    durationMs: Long,
-    onSeek: (Float) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val haptics = LocalHapticFeedback.current
-    val accent = LocalAuroAccent.current.a.value
-    val barCount = 70
-    val wavePeaks = remember {
-        FloatArray(barCount) { i ->
-            val base = 0.22f + 0.52f * kotlin.math.abs(kotlin.math.sin(i * 0.18)).toFloat()
-            val variation = 0.18f * kotlin.math.abs(kotlin.math.cos(i * 0.42)).toFloat()
-            (base + variation).coerceIn(0.12f, 0.95f)
-        }
-    }
 
-    var isDragging by remember { mutableStateOf(false) }
-    var dragFraction by remember { mutableFloatStateOf(0f) }
-
-    val activeFraction = if (isDragging) dragFraction else progressFraction
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        isDragging = true
-                        dragFraction = (offset.x / size.width).coerceIn(0f, 1f)
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    },
-                    onDragEnd = {
-                        onSeek(dragFraction)
-                        isDragging = false
-                    },
-                    onDragCancel = {
-                        isDragging = false
-                    }
-                ) { change, _ ->
-                    change.consume()
-                    dragFraction = (change.position.x / size.width).coerceIn(0f, 1f)
-                }
-            }
-            .pointerInput(Unit) {
-                detectTapGestures { offset ->
-                    val frac = (offset.x / size.width).coerceIn(0f, 1f)
-                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                    onSeek(frac)
-                }
-            }
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val totalWidth = size.width
-            val totalHeight = size.height
-            val centerY = totalHeight / 2f
-            val maxHalfHeight = totalHeight * 0.44f
-
-            val slotWidth = totalWidth / barCount
-            val barWidth = (slotWidth * 0.65f).coerceAtLeast(2.5f)
-
-            for (i in 0 until barCount) {
-                val x = i * slotWidth + slotWidth / 2f
-                val frac = x / totalWidth
-                val isPlayed = frac <= activeFraction
-
-                val peak = wavePeaks.getOrElse(i) { 0.3f }
-                val halfH = (peak * maxHalfHeight).coerceAtLeast(3f)
-
-                drawLine(
-                    color = if (isPlayed) accent else AuroColor.Track,
-                    start = androidx.compose.ui.geometry.Offset(x, centerY - halfH),
-                    end = androidx.compose.ui.geometry.Offset(x, centerY + halfH),
-                    strokeWidth = barWidth,
-                    cap = androidx.compose.ui.graphics.StrokeCap.Round
-                )
-            }
-
-            // Agulha de reprodução branca (specular spark)
-            val needleX = (activeFraction * totalWidth).coerceIn(0f, totalWidth)
-            drawLine(
-                color = Color.White,
-                start = androidx.compose.ui.geometry.Offset(needleX, 2f),
-                end = androidx.compose.ui.geometry.Offset(needleX, totalHeight - 2f),
-                strokeWidth = 2.5f
-            )
-        }
-    }
-}
