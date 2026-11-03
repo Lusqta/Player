@@ -1,10 +1,12 @@
 package com.lucas.player.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Close
@@ -17,6 +19,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -25,10 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
 import com.lucas.player.model.Track
-import com.lucas.player.ui.components.AuroBreadcrumbHeader
-import com.lucas.player.ui.components.AuroBreadcrumbItem
-import com.lucas.player.ui.components.AuroEmptyState
-import com.lucas.player.ui.components.formatTimeMs
+import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.LocalAuroAccent
 
@@ -228,6 +230,33 @@ private fun AuroQueueTrackRow(
                 )
             }
         }
+
+        val coverBitmap = rememberTrackCover(track, 100)
+
+        // Miniatura da Capa na Fila (AuroCoverPlaceholder se não houver capa)
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(RoundedCornerShape(6.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (coverBitmap != null) {
+                Image(
+                    bitmap = coverBitmap.asImageBitmap(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                AuroCoverPlaceholder(
+                    modifier = Modifier.fillMaxSize(),
+                    glass = false,
+                    shape = RoundedCornerShape(6.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(

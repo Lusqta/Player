@@ -2,7 +2,7 @@ name: Build and Release APK
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "fase-*" ]
     tags:
       - "v*"
   workflow_dispatch:
@@ -59,7 +59,7 @@ jobs:
 
       - name: Create or Update Version Release
         uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/') || startsWith(github.ref, 'refs/heads/fase-')
         with:
           tag_name: v${{ env.APP_VERSION }}
           name: "Aurō Player v${{ env.APP_VERSION }}"
@@ -85,7 +85,7 @@ jobs:
 
       - name: Update Latest Release Pointer
         uses: softprops/action-gh-release@v2
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/fase-')
         with:
           tag_name: latest
           name: "Aurō Player - Latest Build (v${{ env.APP_VERSION }})"

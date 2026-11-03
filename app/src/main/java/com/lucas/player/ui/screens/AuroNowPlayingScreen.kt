@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -37,6 +38,7 @@ import com.lucas.player.ui.components.AuroCoverPlaceholder
 import com.lucas.player.ui.components.AuroEmptyState
 import com.lucas.player.ui.components.AuroHaptics
 import com.lucas.player.ui.components.AuroProgressBar
+import com.lucas.player.ui.components.rememberTrackCover
 import com.lucas.player.ui.theme.*
 
 /**
@@ -90,6 +92,7 @@ fun AuroNowPlayingScreen(
         return
     }
 
+    val view = LocalView.current
     val currentProgressFraction = if (durationMs > 0) {
         (progressMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
     } else 0f
@@ -298,7 +301,10 @@ fun AuroNowPlayingScreen(
                                 tryAwaitRelease()
                                 onEndRewind()
                             },
-                            onTap = { onPrevious() }
+                            onTap = {
+                                AuroHaptics.click(view)
+                                onPrevious()
+                            }
                         )
                     }
             ) {
@@ -341,7 +347,10 @@ fun AuroNowPlayingScreen(
                                 tryAwaitRelease()
                                 onEndFastForward()
                             },
-                            onTap = { onNext() }
+                            onTap = {
+                                AuroHaptics.click(view)
+                                onNext()
+                            }
                         )
                     }
             ) {
@@ -436,55 +445,111 @@ fun AuroNowPlayingScreen(
             val afterNextTrack = upcomingTracks.getOrNull(1)
 
             if (nextTrack != null) {
-                Column(
+                val nextCover = rememberTrackCover(nextTrack, 80)
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(onClick = onOpenQueue)
-                        .padding(vertical = 8.dp)
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = nextTrack.title,
-                        color = AuroColor.TextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = nextTrack.artist.ifEmpty { "Desconhecido" },
-                        color = AuroColor.TextSecondary,
-                        fontSize = 11.5.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(6.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (nextCover != null) {
+                            Image(
+                                bitmap = nextCover.asImageBitmap(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            AuroCoverPlaceholder(
+                                modifier = Modifier.fillMaxSize(),
+                                glass = false,
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = nextTrack.title,
+                            color = AuroColor.TextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = nextTrack.artist.ifEmpty { "Desconhecido" },
+                            color = AuroColor.TextSecondary,
+                            fontSize = 11.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
                 HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
             }
 
             if (afterNextTrack != null) {
-                Column(
+                val afterCover = rememberTrackCover(afterNextTrack, 80)
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable(onClick = onOpenQueue)
-                        .padding(vertical = 8.dp)
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = afterNextTrack.title,
-                        color = AuroColor.TextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = afterNextTrack.artist.ifEmpty { "Desconhecido" },
-                        color = AuroColor.TextSecondary,
-                        fontSize = 11.5.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(6.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (afterCover != null) {
+                            Image(
+                                bitmap = afterCover.asImageBitmap(),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            AuroCoverPlaceholder(
+                                modifier = Modifier.fillMaxSize(),
+                                glass = false,
+                                shape = RoundedCornerShape(6.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = afterNextTrack.title,
+                            color = AuroColor.TextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = afterNextTrack.artist.ifEmpty { "Desconhecido" },
+                            color = AuroColor.TextSecondary,
+                            fontSize = 11.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
                 HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
             }

@@ -479,6 +479,33 @@ fun AuroTrackRow(
             }
         }
 
+        val coverBitmap = rememberTrackCover(track, 100)
+
+        // Miniatura da Capa da Faixa (AuroCoverPlaceholder se não houver capa)
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(RoundedCornerShape(6.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (coverBitmap != null) {
+                Image(
+                    bitmap = coverBitmap.asImageBitmap(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                AuroCoverPlaceholder(
+                    modifier = Modifier.fillMaxSize(),
+                    glass = false,
+                    shape = RoundedCornerShape(6.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
         // Título e Artista
         Column(modifier = Modifier.weight(1f)) {
             Text(
