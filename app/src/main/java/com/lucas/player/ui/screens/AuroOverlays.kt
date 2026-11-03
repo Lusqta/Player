@@ -1157,7 +1157,7 @@ fun AuroAboutDialog(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE}) • Aurō DS v3 (Fase 1)",
+                    text = "v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE}) • Aurō DS v3",
                     color = AuroColor.TextSecondary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium

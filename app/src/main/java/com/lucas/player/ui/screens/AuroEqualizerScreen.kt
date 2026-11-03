@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import com.lucas.player.data.MusicDatabase
 import com.lucas.player.ui.components.AuroBreadcrumbHeader
 import com.lucas.player.ui.components.AuroBreadcrumbItem
+import com.lucas.player.ui.components.AuroHaptics
 import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
@@ -62,6 +64,7 @@ fun AuroEqualizerScreen(
     modifier: Modifier = Modifier
 ) {
     val accent = LocalAuroAccent.current.a.value
+    val view = LocalView.current
     val bandFreqs = remember {
         listOf("31Hz", "62Hz", "125Hz", "250Hz", "500Hz", "1kHz", "2kHz", "4kHz", "8kHz", "16kHz")
     }
@@ -253,7 +256,12 @@ fun AuroEqualizerScreen(
 
                                 Slider(
                                     value = gain,
-                                    onValueChange = { onBandGainChange(bandIndex, it) },
+                                    onValueChange = {
+                                        if (it.roundToInt() != gain.roundToInt()) {
+                                            AuroHaptics.sliderTick(view)
+                                        }
+                                        onBandGainChange(bandIndex, it)
+                                    },
                                     valueRange = -12f..12f,
                                     enabled = eqEnabled,
                                     colors = SliderDefaults.colors(
@@ -297,6 +305,7 @@ private fun AuroToneRow(
 ) {
     val accent = LocalAuroAccent.current.a.value
 
+    val view = LocalView.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -311,7 +320,12 @@ private fun AuroToneRow(
         )
         Slider(
             value = value,
-            onValueChange = onValueChange,
+            onValueChange = {
+                if (it.roundToInt() != value.roundToInt()) {
+                    AuroHaptics.sliderTick(view)
+                }
+                onValueChange(it)
+            },
             valueRange = range,
             enabled = enabled,
             colors = SliderDefaults.colors(

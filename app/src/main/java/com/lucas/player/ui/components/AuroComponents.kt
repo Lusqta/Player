@@ -90,7 +90,7 @@ fun AuroProgressBar(
     modifier: Modifier = Modifier
 ) {
     val accent = LocalAuroAccent.current.a.value
-    val haptics = LocalHapticFeedback.current
+    val view = LocalView.current
     var isDragging by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableFloatStateOf(0f) }
     var showRemainingTime by remember { mutableStateOf(true) }
@@ -110,24 +110,29 @@ fun AuroProgressBar(
                         onDragStart = { offset ->
                             isDragging = true
                             dragFraction = (offset.x / size.width).coerceIn(0f, 1f)
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            AuroHaptics.click(view)
                         },
                         onDragEnd = {
                             onSeek(dragFraction)
                             isDragging = false
+                            AuroHaptics.confirm(view)
                         },
                         onDragCancel = {
                             isDragging = false
                         }
                     ) { change, _ ->
                         change.consume()
-                        dragFraction = (change.position.x / size.width).coerceIn(0f, 1f)
+                        val newFrac = (change.position.x / size.width).coerceIn(0f, 1f)
+                        if ((newFrac * 20).toInt() != (dragFraction * 20).toInt()) {
+                            AuroHaptics.sliderTick(view)
+                        }
+                        dragFraction = newFrac
                     }
                 }
                 .pointerInput(Unit) {
                     detectTapGestures { offset ->
                         val frac = (offset.x / size.width).coerceIn(0f, 1f)
-                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        AuroHaptics.click(view)
                         onSeek(frac)
                     }
                 },
@@ -456,55 +461,63 @@ fun AuroTrackRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Indicador de número / tocando
-        Box(
-            modifier = Modifier.width(28.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            if (isPlayingThis) {
-                Icon(
-                    imageVector = Icons.Rounded.Equalizer,
-                    contentDescription = "Tocando",
-                    tint = accent,
-                    modifier = Modifier.size(16.dp)
-                )
-            } else {
-                Text(
-                    text = "${trackIndex + 1}",
-                    color = AuroColor.TextTertiary,
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
-                )
-            }
-        }
-
         val coverBitmap = rememberTrackCover(track, 100)
 
-        // Miniatura da Capa da Faixa (AuroCoverPlaceholder se não houver capa)
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(RoundedCornerShape(6.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            if (coverBitmap != null) {
+        if (coverBitmap != null) {
+            // Com capa: miniatura de 42dp
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(6.dp)),
+                contentAlignment = Alignment.Center
+            ) {
                 Image(
                     bitmap = coverBitmap.asImageBitmap(),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
-            } else {
-                AuroCoverPlaceholder(
-                    modifier = Modifier.fillMaxSize(),
-                    glass = false,
-                    shape = RoundedCornerShape(6.dp)
-                )
+                if (isPlayingThis) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.45f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Equalizer,
+                            contentDescription = "Tocando",
+                            tint = accent,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+        } else {
+            // Sem capa: mantém o número da faixa exatamente como antes
+            Box(
+                modifier = Modifier.width(28.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                if (isPlayingThis) {
+                    Icon(
+                        imageVector = Icons.Rounded.Equalizer,
+                        contentDescription = "Tocando",
+                        tint = accent,
+                        modifier = Modifier.size(16.dp)
+                    )
+                } else {
+                    Text(
+                        text = "${trackIndex + 1}",
+                        color = AuroColor.TextTertiary,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
+                    )
+                }
             }
         }
-
-        Spacer(modifier = Modifier.width(12.dp))
 
         // Título e Artista
         Column(modifier = Modifier.weight(1f)) {

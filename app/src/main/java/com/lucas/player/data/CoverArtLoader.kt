@@ -24,8 +24,8 @@ object CoverArtLoader {
     private val maxMemory = (Runtime.getRuntime().maxMemory() / 1024).toInt()
     private val cacheSize = maxMemory / 8 // 12.5% of available heap
 
-    private val memoryCache = object : LruCache<Long, Bitmap>(cacheSize) {
-        override fun sizeOf(key: Long, bitmap: Bitmap): Int {
+    private val memoryCache = object : LruCache<String, Bitmap>(cacheSize) {
+        override fun sizeOf(key: String, bitmap: Bitmap): Int {
             return bitmap.byteCount / 1024
         }
     }
@@ -41,9 +41,10 @@ object CoverArtLoader {
         onLoaded: ((Bitmap?) -> Unit)? = null
     ) {
         val trackId = track.id
+        val cacheKey = "${trackId}_$targetSizeDp"
 
         // 1. Check Memory Cache
-        val cached = memoryCache.get(trackId)
+        val cached = memoryCache.get(cacheKey)
         if (cached != null) {
             targetView?.setImageBitmap(cached)
             onLoaded?.invoke(cached)
@@ -51,18 +52,18 @@ object CoverArtLoader {
         }
 
         // Tag view to avoid mismatched bitmaps during fast RecyclerView scrolling
-        targetView?.tag = trackId
+        targetView?.tag = cacheKey
 
         // 2. Load asynchronously in thread pool
         val appContext = context.applicationContext
         executor.execute {
             val bitmap = extractCoverBitmap(appContext, track.uri, targetSizeDp)
             if (bitmap != null) {
-                memoryCache.put(trackId, bitmap)
+                memoryCache.put(cacheKey, bitmap)
             }
 
             mainHandler.post {
-                if (targetView == null || targetView.tag == trackId) {
+                if (targetView == null || targetView.tag == cacheKey) {
                     targetView?.setImageBitmap(bitmap)
                     onLoaded?.invoke(bitmap)
                 }

@@ -138,6 +138,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AuroHaptics.init(this)
         LibraryRepository.init(this)
 
         setContent {
