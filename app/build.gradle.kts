@@ -59,6 +59,10 @@ android {
         kotlinCompilerExtensionVersion = "1.5.14"
     }
 
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -92,6 +96,10 @@ dependencies {
 
     // Oboe (C++ audio library via prefab)
     implementation("com.google.oboe:oboe:1.9.3")
+
+    // Testes Unitários
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.mockito:mockito-core:5.11.0")
 }
 
 afterEvaluate {

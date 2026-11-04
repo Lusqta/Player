@@ -115,7 +115,8 @@ A suíte legada (`Dry*`, `Liquid*`, `Player*`, XML layouts e RecyclerView Adapte
 | [`AuroEqualizerScreen.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroEqualizerScreen.kt) | Tela de equalizador de 10 bandas, Tom, Pré-amp, Balanço e Presets. |
 | [`AuroSearchScreen.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroSearchScreen.kt) | Busca instantânea de faixas e artistas. |
 | [`AuroQueueScreen.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroQueueScreen.kt) | Fila dedicada com separação entre Fila Prioritária e Fila Normal. |
-| [`AuroComponents.kt`](app/src/main/java/com/lucas/player/ui/components/AuroComponents.kt) | Componentes atômicos: `AuroProgressBar`, `AuroMiniPlayer`, `AuroNavbar`, `AuroTrackRow`, `AuroBreadcrumbHeader`, `AuroAlphabetFastScroller`, `rememberTrackCover`. |
+| [`AuroComponents.kt`](app/src/main/java/com/lucas/player/ui/components/AuroComponents.kt) | Componentes atômicos: `AuroProgressBar`, `AuroMiniPlayer`, `AuroNavbar`, `AuroTrackRow`, `AuroBreadcrumbHeader`, `AuroAlphabetFastScroller`, `AuroSwitch`, `AuroSlider`, `rememberTrackCover`. |
+| [`AuroSettingsScreen.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroSettingsScreen.kt) | Tela de configurações completas com seções Biblioteca, Reprodução, Aparência e Sobre. |
 | [`AuroFeedback.kt`](app/src/main/java/com/lucas/player/ui/components/AuroFeedback.kt) | Peças base de feedback do Aurō DS v3: `AuroHaptics` (vibração tátil calibrada), `AuroSnackbarHost` (snackbars fluidos em vidro preto), `AuroEmptyState`, `AuroLoadingBar` e `AuroCoverPlaceholder`. |
 | [`AuroOverlay.kt`](app/src/main/java/com/lucas/player/ui/components/AuroOverlay.kt) | Sistema unificado de sobreposições: Scrim 72%, molas líquidas, arraste para baixo em sheets e `PredictiveBackHandler`. |
 | [`AuroOverlays.kt`](app/src/main/java/com/lucas/player/ui/screens/AuroOverlays.kt) | Modais e diálogos: Menu contextual da faixa, info de áudio, temporizador de sono, editor de playlists, salvar presets. Todos migrados para `AuroOverlay`. |
@@ -134,3 +135,33 @@ A suíte legada (`Dry*`, `Liquid*`, `Player*`, XML layouts e RecyclerView Adapte
 1. Adicione a entrada em `LibraryCategory` (`com.lucas.player.model.LibraryCategory`).
 2. Implemente a consulta no `LibraryRepository.kt` no método `loadGroupsForCategory()`.
 3. Adicione o ícone correspondente na lista de categorias de `AuroLibraryRootScreen`.
+
+---
+
+## 6. Configurações e Recursos da Fase 4
+
+### Recursos Exibidos e Suportados pelo Motor
+1. **Reordenação da Fila (`QueueManager.moveItem`)**:
+   - Reordenação dentro da seção prioritária (`priorityQueue`) e regular (`queue`).
+   - Com shuffle desligado: reordena em `originalTracks`.
+   - Com shuffle ligado: reordena em `shuffleIndices`, preservando a ordem original do disco intacta.
+   - A faixa atual em reprodução continua idêntica e seu índice acompanha o deslocamento sem interromper o áudio.
+2. **Configurações Implementadas (`AuroSettingsScreen`)**:
+   - **Biblioteca**: "Ignorar faixas menores que N s" (filtro MediaStore de 0 a 60s), "Atualizar biblioteca", "Pastas de áudio".
+   - **Reprodução**: "Pausar ao desconectar fones" (lido no receiver `ACTION_AUDIO_BECOMING_NOISY`), "Reprodução contínua (Gapless)", "Transição suave (Crossfade)" (0 a 12s via `getCrossfadeDurationMs`), "ReplayGain" (Desligado, Por Faixa, Por Álbum), pré-amplificação com e sem RG, "Retomar de onde parou".
+   - **Aparência**: "Luz reage ao movimento" (parâmetro `tilt` do `AuroTheme`), "Suavidade do reflexo" (0 a 1 via `LocalAuroSoft` com botão de vidro interativo ao vivo), "Reduzir animações" (seguir sistema / sempre reduzir / manter animações), "Mostrar formato do arquivo" (badges FLAC/MP3/WAV).
+   - **Sobre**: Versão, licenças de código aberto e link do repositório.
+3. **Seleção Múltipla**:
+   - Ação "Selecionar" no menu contextual da faixa.
+   - Indicador circular de 24dp (Accent A preenchido com check preto quando selecionado).
+   - Barra superior com contagem e ações: "Tocar em seguida", "Adicionar à fila", "Adicionar à playlist", "Selecionar tudo" e "✕".
+   - Botão voltar / Predictive Back desativa o modo de seleção antes de navegar.
+4. **Notificação Personalizada**:
+   - Ícone pequeno monocromático `ic_stat_player.xml`.
+   - Vetores Material Rounded para Anterior, Play, Pause e Próximo.
+   - `setColor` com acento extraído da capa via `Palette`.
+   - Ações compactas 0, 1 e 2, visibilidade pública na tela de bloqueio.
+
+### Itens Ocultados / Não Suportados pelo Motor
+- **Seletor manual de árvore de pastas (Blacklist SAF / DocumentFile)**: Ocultado porque o armazenamento do Android 13+ (Scoped Storage / MediaStore) gerencia a indexação de áudio de forma segura e global; em vez de um seletor SAF frágil, exibe-se a informação "Todas as pastas de áudio indexadas do aparelho" com o filtro dinâmico de duração mínima.
+- **Seletor de saída de áudio de baixo nível (AAudio vs OpenSL ES vs AudioTrack direct)**: Ocultado porque a biblioteca Google Oboe já negocia dinamicamente e de forma ótima o melhor endpoint de baixa latência (MMAP / AAudio) suportado pelo hardware. Expor chaves manuais poderia causar falhas de inicialização do stream em dispositivos sem suporte a saída direta.

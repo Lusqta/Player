@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -26,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.BuildConfig
+import com.lucas.player.R
 import com.lucas.player.data.LyricsManager
 import com.lucas.player.model.SortMode
 import com.lucas.player.model.Track
@@ -53,6 +55,7 @@ fun AuroTrackContextMenuDialog(
     onAddToPlaylist: () -> Unit,
     onSetRating: (Int) -> Unit,
     onShowInfo: () -> Unit,
+    onStartSelection: () -> Unit = {},
     onDismiss: () -> Unit
 ) {
     AuroOverlay(
@@ -121,6 +124,15 @@ fun AuroTrackContextMenuDialog(
                 }
 
                 HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp, modifier = Modifier.padding(vertical = 12.dp))
+
+                AuroDialogOption(
+                    icon = Icons.Rounded.Checklist,
+                    title = stringResource(R.string.selection_select),
+                    onClick = {
+                        onDismiss()
+                        onStartSelection()
+                    }
+                )
 
                 AuroDialogOption(
                     icon = Icons.AutoMirrored.Rounded.QueueMusic,
@@ -570,6 +582,7 @@ fun AuroSleepTimerDialog(
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun AuroPowerampMenuSheet(
+    onOpenSettings: () -> Unit = {},
     onOpenEqualizer: () -> Unit,
     onOpenSleepTimer: () -> Unit,
     onOpenAudioInfo: () -> Unit,
@@ -620,6 +633,15 @@ fun AuroPowerampMenuSheet(
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
+
+                AuroDialogOption(
+                    icon = Icons.Rounded.Settings,
+                    title = stringResource(R.string.settings_title),
+                    onClick = {
+                        onDismiss()
+                        onOpenSettings()
+                    }
+                )
 
                 AuroDialogOption(
                     icon = Icons.Rounded.GraphicEq,
@@ -1068,7 +1090,7 @@ fun AuroAboutDialog(
 }
 
 @Composable
-private fun AuroDialogOption(
+fun AuroDialogOption(
     icon: ImageVector,
     title: String,
     onClick: () -> Unit

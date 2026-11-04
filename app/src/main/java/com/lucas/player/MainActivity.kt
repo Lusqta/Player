@@ -19,16 +19,23 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.*
-import androidx.compose.material3.Surface
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -75,7 +82,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         is NavScreen.CategoryList,
         is NavScreen.Search,
         is NavScreen.Equalizer,
-        is NavScreen.Queue -> 1
+        is NavScreen.Queue,
+        is NavScreen.Settings -> 1
         is NavScreen.Drilldown -> 2
         is NavScreen.NowPlaying -> 3
     }
@@ -110,6 +118,11 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     private val trackInfoDialogState = mutableStateOf<Track?>(null)
     private val showSortOrderState = mutableStateOf(false)
     private val showSleepTimerState = mutableStateOf(false)
+
+    // Seleção Múltipla (Fase 4.3)
+    private val isSelectionModeState = mutableStateOf(false)
+    private val selectedTrackIdsState = mutableStateListOf<Long>()
+    private val tracksToAddToPlaylistState = mutableStateOf<List<Track>>(emptyList())
 
     // Equalizador & Áudio
     private val eqEnabledState = mutableStateOf(true)
@@ -313,14 +326,20 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
             // Tratamento do Botão Físico/Gestual Voltar do Android
             BackHandler(
-                enabled = trackContextMenu != null || trackInfoDialog != null ||
+                enabled = isSelectionModeState.value || trackContextMenu != null || trackInfoDialog != null ||
                         showSortOrder || showSleepTimer || showMenuSheetState.value ||
                         showAudioInfoState.value || showAboutState.value ||
                         showLyricsSheetState.value || showSavePresetDialogState.value ||
                         deletePlaylistTargetState.value != null || deletePresetTargetState.value != null ||
-                        addToPlaylistDialogTrack.value != null || navController.canNavigateUp
+                        addToPlaylistDialogTrack.value != null || tracksToAddToPlaylistState.value.isNotEmpty() ||
+                        navController.canNavigateUp
             ) {
                 when {
+                    isSelectionModeState.value -> {
+                        isSelectionModeState.value = false
+                        selectedTrackIdsState.clear()
+                    }
+                    tracksToAddToPlaylistState.value.isNotEmpty() -> tracksToAddToPlaylistState.value = emptyList()
                     showLyricsSheetState.value -> showLyricsSheetState.value = false
                     showSavePresetDialogState.value -> showSavePresetDialogState.value = false
                     deletePlaylistTargetState.value != null -> deletePlaylistTargetState.value = null
@@ -373,13 +392,145 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             } else {
                 AuroTheme(
                     accent = currentAccent,
-                    playing = isPlaying
+                    playing = isPlaying,
+                    tilt = preferencesManager.isLightReactionTiltEnabled(),
+                    soft = preferencesManager.getReflectionSoftness(),
+                    reduceMotionOverride = when (preferencesManager.getReduceMotionMode()) {
+                        1 -> true
+                        2 -> false
+                        else -> null
+                    }
                 ) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(AuroColor.Black)
                     ) {
+                        // Barra Superior de Seleção Múltipla (Fase 4.3)
+                        if (isSelectionModeState.value) {
+                            val selectedCount = selectedTrackIdsState.size
+                            Surface(
+                                color = AuroColor.Black,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .statusBarsPadding()
+                                    .zIndex(15f)
+                                    .border(1.dp, AuroColor.Hairline)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(56.dp)
+                                        .padding(horizontal = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(onClick = {
+                                            isSelectionModeState.value = false
+                                            selectedTrackIdsState.clear()
+                                        }) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Close,
+                                                contentDescription = stringResource(R.string.selection_exit),
+                                                tint = AuroColor.TextPrimary
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = if (selectedCount == 1) {
+                                                stringResource(R.string.selection_count_single)
+                                            } else {
+                                                stringResource(R.string.selection_count, selectedCount)
+                                            },
+                                            color = AuroColor.TextPrimary,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        // Tocar a seguir
+                                        IconButton(
+                                            onClick = {
+                                                val all = libraryRepo.getAllTracks()
+                                                val tracksToEnqueue = all.filter { selectedTrackIdsState.contains(it.id) }
+                                                tracksToEnqueue.reversed().forEach { playbackService?.enqueueNext(it) }
+                                                val count = tracksToEnqueue.size
+                                                isSelectionModeState.value = false
+                                                selectedTrackIdsState.clear()
+                                                snackbarState.show(getString(R.string.selection_added_next, count))
+                                            },
+                                            enabled = selectedCount > 0
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                                                contentDescription = stringResource(R.string.selection_play_next),
+                                                tint = if (selectedCount > 0) currentAccent.a else AuroColor.TextTertiary
+                                            )
+                                        }
+
+                                        // Adicionar à fila
+                                        IconButton(
+                                            onClick = {
+                                                val all = libraryRepo.getAllTracks()
+                                                val tracksToEnqueue = all.filter { selectedTrackIdsState.contains(it.id) }
+                                                tracksToEnqueue.forEach { playbackService?.enqueueEnd(it) }
+                                                val count = tracksToEnqueue.size
+                                                isSelectionModeState.value = false
+                                                selectedTrackIdsState.clear()
+                                                snackbarState.show(getString(R.string.selection_added_queue, count))
+                                            },
+                                            enabled = selectedCount > 0
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Rounded.PlaylistPlay,
+                                                contentDescription = stringResource(R.string.selection_add_queue),
+                                                tint = if (selectedCount > 0) AuroColor.TextPrimary else AuroColor.TextTertiary
+                                            )
+                                        }
+
+                                        // Adicionar à playlist
+                                        IconButton(
+                                            onClick = {
+                                                val all = libraryRepo.getAllTracks()
+                                                val tracksToPlaylist = all.filter { selectedTrackIdsState.contains(it.id) }
+                                                if (tracksToPlaylist.isNotEmpty()) {
+                                                    tracksToAddToPlaylistState.value = tracksToPlaylist
+                                                }
+                                            },
+                                            enabled = selectedCount > 0
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                                contentDescription = stringResource(R.string.selection_add_playlist),
+                                                tint = if (selectedCount > 0) AuroColor.TextPrimary else AuroColor.TextTertiary
+                                            )
+                                        }
+
+                                        // Selecionar tudo
+                                        IconButton(
+                                            onClick = {
+                                                val activeTracks = if (currentScreen is NavScreen.Drilldown) drilldownTracks else displayedTracks
+                                                if (selectedTrackIdsState.size == activeTracks.size && activeTracks.isNotEmpty()) {
+                                                    selectedTrackIdsState.clear()
+                                                } else {
+                                                    selectedTrackIdsState.clear()
+                                                    selectedTrackIdsState.addAll(activeTracks.map { it.id })
+                                                }
+                                            }
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.SelectAll,
+                                                contentDescription = stringResource(R.string.selection_select_all),
+                                                tint = AuroColor.TextSecondary
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                     // Conteúdo Principal de Acordo com a Tela Ativa
                     Box(
                         modifier = Modifier
@@ -464,6 +615,13 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                             renderCurrentCategory()
                                             snackbarState.show("Fila aleatória")
                                         },
+                                        onMoveItem = { section, from, to ->
+                                            playbackService?.moveQueueItem(section, from, to)
+                                            renderCurrentCategory()
+                                        },
+                                        showSnackbar = { msg, action, onAction ->
+                                            snackbarState.show(msg, action, onAction)
+                                        },
                                         modifier = Modifier.fillMaxSize()
                                     )
                                 } else {
@@ -474,6 +632,16 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         displayedGroups = displayedGroups,
                                         currentPlayingId = currentTrack?.id ?: -1L,
                                         errorTrackIds = errorTrackIds.toSet(),
+                                        isSelectionMode = isSelectionModeState.value,
+                                        selectedTrackIds = selectedTrackIdsState.toSet(),
+                                        onToggleSelectTrack = { track ->
+                                            if (selectedTrackIdsState.contains(track.id)) {
+                                                selectedTrackIdsState.remove(track.id)
+                                            } else {
+                                                selectedTrackIdsState.add(track.id)
+                                            }
+                                        },
+                                        showFileFormat = preferencesManager.isShowFileFormatEnabled(),
                                         onBackClick = { navController.navigateUp() },
                                         onTrackClick = { _, position ->
                                             playbackService?.playQueue(displayedTracks, position)
@@ -534,6 +702,16 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     tracks = drilldownTracks,
                                     currentPlayingId = currentTrack?.id ?: -1L,
                                     errorTrackIds = errorTrackIds.toSet(),
+                                    isSelectionMode = isSelectionModeState.value,
+                                    selectedTrackIds = selectedTrackIdsState.toSet(),
+                                    onToggleSelectTrack = { track ->
+                                        if (selectedTrackIdsState.contains(track.id)) {
+                                            selectedTrackIdsState.remove(track.id)
+                                        } else {
+                                            selectedTrackIdsState.add(track.id)
+                                        }
+                                    },
+                                    showFileFormat = preferencesManager.isShowFileFormatEnabled(),
                                     onBackToCategoryList = { navController.navigateUp() },
                                     onBackToLibraryRoot = { navController.resetToLibraryRoot() },
                                     onPlayAll = {
@@ -767,6 +945,28 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         renderCurrentCategory()
                                         snackbarState.show("Fila aleatória")
                                     },
+                                    onMoveItem = { section, from, to ->
+                                        playbackService?.moveQueueItem(section, from, to)
+                                        renderCurrentCategory()
+                                    },
+                                    showSnackbar = { msg, action, onAction ->
+                                        snackbarState.show(msg, action, onAction)
+                                    },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+
+                            is NavScreen.Settings -> {
+                                AuroSettingsScreen(
+                                    preferencesManager = preferencesManager,
+                                    onBackClick = { navController.navigateUp() },
+                                    onRescanLibrary = {
+                                        loadLibrary()
+                                        snackbarState.show("Biblioteca atualizada")
+                                    },
+                                    onSettingsChanged = {
+                                        renderCurrentCategory()
+                                    },
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -852,7 +1052,39 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 trackContextMenuState.value = null
                                 trackInfoDialogState.value = track
                             },
+                            onStartSelection = {
+                                trackContextMenuState.value = null
+                                isSelectionModeState.value = true
+                                selectedTrackIdsState.clear()
+                                selectedTrackIdsState.add(track.id)
+                            },
                             onDismiss = { trackContextMenuState.value = null }
+                        )
+                    }
+
+                    if (tracksToAddToPlaylistState.value.isNotEmpty()) {
+                        val tracks = tracksToAddToPlaylistState.value
+                        AuroAddToPlaylistDialog(
+                            track = tracks.first(),
+                            playlists = libraryRepo.getUserPlaylists(),
+                            onCreatePlaylist = { name ->
+                                val plId = libraryRepo.createPlaylist(name)
+                                if (plId > 0) {
+                                    tracks.forEach { libraryRepo.addTrackToUserPlaylist(plId, it.id) }
+                                    snackbarState.show(getString(R.string.selection_added_queue, tracks.size))
+                                }
+                                tracksToAddToPlaylistState.value = emptyList()
+                                isSelectionModeState.value = false
+                                selectedTrackIdsState.clear()
+                            },
+                            onSelectPlaylist = { pl ->
+                                tracks.forEach { libraryRepo.addTrackToUserPlaylist(pl.id, it.id) }
+                                snackbarState.show(getString(R.string.selection_added_queue, tracks.size))
+                                tracksToAddToPlaylistState.value = emptyList()
+                                isSelectionModeState.value = false
+                                selectedTrackIdsState.clear()
+                            },
+                            onDismiss = { tracksToAddToPlaylistState.value = emptyList() }
                         )
                     }
 
@@ -910,6 +1142,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                     if (showMenuSheetState.value) {
                         AuroPowerampMenuSheet(
+                            onOpenSettings = { navController.navigateTo(NavScreen.Settings) },
                             onOpenEqualizer = { navController.navigateTo(NavScreen.Equalizer) },
                             onOpenSleepTimer = { showSleepTimerState.value = true },
                             onOpenAudioInfo = { showAudioInfoState.value = true },

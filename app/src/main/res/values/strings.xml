@@ -48,4 +48,71 @@
     <string name="playback_error_skipping">Não foi possível tocar “%1$s”. Pulando…</string>
     <string name="playback_error_multiple">Falha contínua de reprodução.</string>
     <string name="playback_retry">Tentar de novo</string>
+
+    <!-- Fila & Reordenação (Fase 4.1) -->
+    <string name="queue_reorder_handle">Reordenar faixa</string>
+    <string name="queue_move_up">Mover para cima</string>
+    <string name="queue_move_down">Mover para baixo</string>
+    <string name="queue_track_moved">Faixa movida</string>
+    <string name="undo">Desfazer</string>
+
+    <!-- Configurações (Fase 4.2) -->
+    <string name="settings_title">Configurações</string>
+    <string name="settings_section_library">BIBLIOTECA</string>
+    <string name="settings_section_playback">REPRODUÇÃO</string>
+    <string name="settings_section_appearance">APARÊNCIA</string>
+    <string name="settings_section_about">SOBRE</string>
+    <string name="settings_ignore_shorter_than">Ignorar faixas menores que</string>
+    <string name="settings_ignore_shorter_than_sec">%1$d s</string>
+    <string name="settings_rescan_library">Atualizar biblioteca</string>
+    <string name="settings_rescan_library_desc">Recarrega arquivos de áudio do dispositivo</string>
+    <string name="settings_music_folders">Pastas de áudio</string>
+    <string name="settings_music_folders_desc">Todas as pastas indexadas do aparelho</string>
+    <string name="settings_pause_headset">Pausar ao desconectar fones</string>
+    <string name="settings_pause_headset_desc">Interrompe quando fones Bluetooth ou cabo forem desconectados</string>
+    <string name="settings_gapless">Reprodução contínua (Gapless)</string>
+    <string name="settings_gapless_desc">Sem silêncio entre faixas consecutivas</string>
+    <string name="settings_crossfade">Transição suave (Crossfade)</string>
+    <string name="settings_crossfade_desc">%1$d segundos de fusão entre faixas</string>
+    <string name="settings_crossfade_off">Desligado</string>
+    <string name="settings_replaygain">Ganho de reprodução (ReplayGain)</string>
+    <string name="settings_replaygain_off">Desligado</string>
+    <string name="settings_replaygain_track">Por faixa</string>
+    <string name="settings_replaygain_album">Por álbum</string>
+    <string name="settings_rg_preamp_with">Pré-amplificação com RG</string>
+    <string name="settings_rg_preamp_without">Pré-amplificação sem RG</string>
+    <string name="settings_resume_playback">Retomar de onde parou</string>
+    <string name="settings_resume_playback_desc">Lembrar fila e posição ao abrir o app</string>
+    <string name="settings_tilt_light">Luz reage ao movimento</string>
+    <string name="settings_tilt_light_desc">Reflexos de vidro acompanham inclinação do aparelho</string>
+    <string name="settings_reflection_softness">Suavidade do reflexo</string>
+    <string name="settings_reflection_softness_desc">Nitidez das bordas iluminadas (0 = agudo, 1 = suave)</string>
+    <string name="settings_reflection_preview">Exemplo de Vidro Aurō</string>
+    <string name="settings_reduce_motion">Reduzir animações</string>
+    <string name="settings_reduce_motion_system">Seguir sistema</string>
+    <string name="settings_reduce_motion_always">Sempre reduzir</string>
+    <string name="settings_reduce_motion_never">Manter animações</string>
+    <string name="settings_show_file_format">Mostrar formato do arquivo</string>
+    <string name="settings_show_file_format_desc">Exibe tags FLAC, MP3, WAV nas listas</string>
+    <string name="settings_version">Versão</string>
+    <string name="settings_licenses">Licenças de código aberto</string>
+    <string name="settings_repository">Repositório do projeto</string>
+
+    <!-- Seleção Múltipla (Fase 4.3) -->
+    <string name="selection_select">Selecionar</string>
+    <string name="selection_count">%1$d selecionadas</string>
+    <string name="selection_count_single">1 selecionada</string>
+    <string name="selection_play_next">Tocar a seguir</string>
+    <string name="selection_add_queue">Adicionar à fila</string>
+    <string name="selection_add_playlist">Adicionar à playlist</string>
+    <string name="selection_select_all">Selecionar tudo</string>
+    <string name="selection_exit">Sair da seleção</string>
+    <string name="selection_added_next">%1$d faixas adicionadas a seguir</string>
+    <string name="selection_added_queue">%1$d faixas adicionadas à fila</string>
+
+    <!-- Notificações (Fase 4.4) -->
+    <string name="notification_prev">Anterior</string>
+    <string name="notification_play">Tocar</string>
+    <string name="notification_pause">Pausar</string>
+    <string name="notification_next">Próxima</string>
 </resources>

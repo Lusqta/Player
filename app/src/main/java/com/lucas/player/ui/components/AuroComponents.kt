@@ -1,14 +1,18 @@
 package com.lucas.player.ui.components
 
 import android.graphics.Bitmap
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,6 +34,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -441,7 +446,10 @@ fun AuroTrackRow(
     onLongClick: () -> Unit,
     onMenuClick: () -> Unit,
     modifier: Modifier = Modifier,
-    hasError: Boolean = false
+    hasError: Boolean = false,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    showFormatTag: Boolean = true
 ) {
     val accent = LocalAuroAccent.current.a.value
     val view = LocalView.current
@@ -455,13 +463,41 @@ fun AuroTrackRow(
                     onClick()
                 },
                 onLongClick = {
-                    AuroHaptics.longPress(view)
-                    onLongClick()
+                    if (!isSelectionMode) {
+                        AuroHaptics.longPress(view)
+                        onLongClick()
+                    }
                 }
             )
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Indicador de Seleção Múltipla (Fase 4.3): 24dp à esquerda
+        if (isSelectionMode) {
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(CircleShape)
+                    .background(if (isSelected) accent else Color.Transparent)
+                    .border(
+                        width = if (isSelected) 0.dp else 1.5.dp,
+                        color = if (isSelected) Color.Transparent else Color.White.copy(alpha = 0.30f),
+                        shape = CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Rounded.Check,
+                        contentDescription = null,
+                        tint = Color.Black,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+        }
+
         val coverBitmap = rememberTrackCover(track, 100)
 
         if (coverBitmap != null) {
@@ -568,6 +604,26 @@ fun AuroTrackRow(
 
         Spacer(modifier = Modifier.width(8.dp))
 
+        // Tag de formato de áudio (FLAC, MP3, etc.)
+        if (showFormatTag && track.formatTag.isNotEmpty()) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(Color.White.copy(alpha = 0.08f))
+                    .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(3.dp))
+                    .padding(horizontal = 4.dp, vertical = 1.dp)
+            ) {
+                Text(
+                    text = track.formatTag,
+                    color = AuroColor.TextSecondary,
+                    fontSize = 9.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(modifier = Modifier.width(6.dp))
+        }
+
         // Duração da faixa
         Text(
             text = formatTimeMs(track.durationMs),
@@ -577,19 +633,21 @@ fun AuroTrackRow(
             style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
         )
 
-        Spacer(modifier = Modifier.width(4.dp))
+        if (!isSelectionMode) {
+            Spacer(modifier = Modifier.width(4.dp))
 
-        // Menu da faixa
-        IconButton(
-            onClick = onMenuClick,
-            modifier = Modifier.size(44.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.MoreVert,
-                contentDescription = "Mais opções",
-                tint = AuroColor.TextTertiary,
-                modifier = Modifier.size(16.dp)
-            )
+            // Menu da faixa
+            IconButton(
+                onClick = onMenuClick,
+                modifier = Modifier.size(44.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.MoreVert,
+                    contentDescription = "Mais opções",
+                    tint = AuroColor.TextTertiary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
 }
@@ -812,6 +870,185 @@ fun AuroRatingBar(
                 modifier = Modifier.padding(start = 4.dp)
             )
         }
+    }
+}
+
+/**
+ * AURŌ SWITCH (Fase 4.2)
+ * Pílula 48×28dp preta com contorno de 1dp em branco 15% e bolinha branca de 20dp.
+ * Ligado: bolinha à direita e contorno em Accent A a 60%.
+ */
+@Composable
+fun AuroSwitch(
+    checked: Boolean,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true
+) {
+    val accent = LocalAuroAccent.current.a.value
+    val view = LocalView.current
+    val reduceMotion = com.lucas.player.ui.theme.rememberReduceMotion()
+
+    val thumbOffset by animateDpAsState(
+        targetValue = if (checked) 24.dp else 4.dp,
+        animationSpec = if (reduceMotion) tween(0) else com.lucas.player.ui.theme.AuroMotion.liquid(),
+        label = "switchThumb"
+    )
+
+    val borderColor by animateColorAsState(
+        targetValue = if (checked) accent.copy(alpha = 0.60f) else Color.White.copy(alpha = 0.15f),
+        animationSpec = if (reduceMotion) tween(0) else com.lucas.player.ui.theme.AuroMotion.liquid(),
+        label = "switchBorder"
+    )
+
+    val toggleModifier = if (onCheckedChange != null) {
+        Modifier.toggleable(
+            value = checked,
+            enabled = enabled,
+            role = Role.Switch,
+            onValueChange = {
+                AuroHaptics.click(view)
+                onCheckedChange(it)
+            }
+        )
+    } else Modifier
+
+    Box(
+        modifier = modifier
+            .size(width = 48.dp, height = 28.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(AuroColor.Black)
+            .border(1.dp, borderColor, RoundedCornerShape(14.dp))
+            .then(toggleModifier),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Box(
+            modifier = Modifier
+                .offset(x = thumbOffset)
+                .size(20.dp)
+                .clip(CircleShape)
+                .background(Color.White)
+        )
+    }
+}
+
+/**
+ * AURŌ SLIDER (Fase 4.2)
+ * Slider minimalista alinhado à barra de progresso, com suporte completo a acessibilidade (semantics)
+ * e resposta tátil com tick a cada passagem de degrau.
+ */
+@Composable
+fun AuroSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
+    steps: Int = 0,
+    onValueChangeFinished: (() -> Unit)? = null,
+    enabled: Boolean = true
+) {
+    val accent = LocalAuroAccent.current.a.value
+    val view = LocalView.current
+    var lastTickValue by remember { mutableFloatStateOf(value) }
+
+    BoxWithConstraints(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(44.dp)
+            .semantics(mergeDescendants = true) {
+                progressBarRangeInfo = ProgressBarRangeInfo(
+                    current = value,
+                    range = valueRange,
+                    steps = steps
+                )
+                setProgress { target ->
+                    val clamped = target.coerceIn(valueRange.start, valueRange.endInclusive)
+                    onValueChange(clamped)
+                    true
+                }
+            }
+            .pointerInput(enabled, valueRange) {
+                if (!enabled) return@pointerInput
+                detectTapGestures { offset ->
+                    val rangeSpan = valueRange.endInclusive - valueRange.start
+                    if (rangeSpan > 0f && size.width > 0) {
+                        val fraction = (offset.x / size.width).coerceIn(0f, 1f)
+                        val newValue = valueRange.start + fraction * rangeSpan
+                        AuroHaptics.sliderTick(view)
+                        onValueChange(newValue)
+                        onValueChangeFinished?.invoke()
+                    }
+                }
+            }
+            .pointerInput(enabled, valueRange) {
+                if (!enabled) return@pointerInput
+                detectDragGestures(
+                    onDragStart = { offset ->
+                        val rangeSpan = valueRange.endInclusive - valueRange.start
+                        if (rangeSpan > 0f && size.width > 0) {
+                            val fraction = (offset.x / size.width).coerceIn(0f, 1f)
+                            val newValue = valueRange.start + fraction * rangeSpan
+                            AuroHaptics.sliderTick(view)
+                            onValueChange(newValue)
+                        }
+                    },
+                    onDragEnd = {
+                        onValueChangeFinished?.invoke()
+                    },
+                    onDragCancel = {
+                        onValueChangeFinished?.invoke()
+                    },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        val rangeSpan = valueRange.endInclusive - valueRange.start
+                        if (rangeSpan > 0f && size.width > 0) {
+                            val fraction = (change.position.x / size.width).coerceIn(0f, 1f)
+                            val newValue = valueRange.start + fraction * rangeSpan
+                            val tickThreshold = if (steps > 0) rangeSpan / (steps + 1) else (rangeSpan / 20f).coerceAtLeast(0.05f)
+                            if (kotlin.math.abs(newValue - lastTickValue) >= tickThreshold) {
+                                AuroHaptics.sliderTick(view)
+                                lastTickValue = newValue
+                            }
+                            onValueChange(newValue)
+                        }
+                    }
+                )
+            },
+        contentAlignment = Alignment.CenterStart
+    ) {
+        val totalWidth = maxWidth
+        val rangeSpan = (valueRange.endInclusive - valueRange.start).coerceAtLeast(0.0001f)
+        val fraction = ((value - valueRange.start) / rangeSpan).coerceIn(0f, 1f)
+
+        // Linha de fundo (trilho inativo)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(Color.White.copy(alpha = 0.15f))
+        )
+
+        // Trilho ativo com preenchimento Accent A
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(fraction)
+                .height(4.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(accent)
+        )
+
+        // Bolinha / Indicador (Thumb)
+        val thumbRadius = 8.dp
+        val thumbOffset = ((totalWidth - thumbRadius * 2) * fraction).coerceAtLeast(0.dp)
+        Box(
+            modifier = Modifier
+                .offset(x = thumbOffset)
+                .size(thumbRadius * 2)
+                .clip(CircleShape)
+                .background(Color.White)
+                .border(1.dp, accent.copy(alpha = 0.8f), CircleShape)
+        )
     }
 }
 

@@ -29,6 +29,11 @@ enum class ShuffleMode(val value: Int, val displayName: String) {
     }
 }
 
+enum class QueueSection {
+    PRIORITY, // "A Seguir"
+    QUEUE     // "Fila"
+}
+
 class QueueManager {
 
     data class PreQueueSnapshot(
@@ -91,7 +96,24 @@ class QueueManager {
     val queueSize: Int
         get() = synchronized(this) { originalTracks.size }
 
-    fun getTracks(): List<Track> = synchronized(this) { originalTracks.toList() }
+    fun getTracks(): List<Track> = synchronized(this) {
+        if (isShuffle && shuffleIndices.size == originalTracks.size) {
+            shuffleIndices.mapNotNull { originalTracks.getOrNull(it) }
+        } else {
+            originalTracks.toList()
+        }
+    }
+
+    fun getOriginalTracks(): List<Track> = synchronized(this) { originalTracks.toList() }
+
+    fun getShuffleIndices(): List<Int> = synchronized(this) { shuffleIndices.toList() }
+
+    internal fun setShuffleIndicesForTest(indices: List<Int>) {
+        synchronized(this) {
+            shuffleIndices.clear()
+            shuffleIndices.addAll(indices)
+        }
+    }
 
     // --- Priority Queue (Poweramp Queue Engine) ---
 
@@ -319,6 +341,11 @@ class QueueManager {
 
     fun skipTo(index: Int): Track? {
         synchronized(this) {
+            if (isShuffle && index in shuffleIndices.indices) {
+                currentIndex = shuffleIndices[index]
+                isPlayingFromPriorityQueue = false
+                return originalTracks[currentIndex]
+            }
             if (index in originalTracks.indices) {
                 currentIndex = index
                 isPlayingFromPriorityQueue = false
@@ -326,6 +353,58 @@ class QueueManager {
             }
             return null
         }
+    }
+
+    // --- Reordenação da Fila (Fase 4.1) ---
+
+    fun moveItem(section: QueueSection, from: Int, to: Int): Boolean {
+        synchronized(this) {
+            when (section) {
+                QueueSection.PRIORITY -> {
+                    if (from !in priorityQueue.indices || to !in priorityQueue.indices) return false
+                    if (from == to) return true
+                    val item = priorityQueue.removeAt(from)
+                    priorityQueue.add(to, item)
+                    return true
+                }
+                QueueSection.QUEUE -> {
+                    if (isShuffle) {
+                        if (from !in shuffleIndices.indices || to !in shuffleIndices.indices) return false
+                        if (from == to) return true
+                        val idx = shuffleIndices.removeAt(from)
+                        shuffleIndices.add(to, idx)
+                        return true
+                    } else {
+                        if (from !in originalTracks.indices || to !in originalTracks.indices) return false
+                        if (from == to) return true
+                        val item = originalTracks.removeAt(from)
+                        originalTracks.add(to, item)
+
+                        if (from == currentIndex) {
+                            currentIndex = to
+                        } else if (from < currentIndex && to >= currentIndex) {
+                            currentIndex--
+                        } else if (from > currentIndex && to <= currentIndex) {
+                            currentIndex++
+                        }
+
+                        if (shuffleIndices.isNotEmpty()) {
+                            rebuildShuffleIndices(preserveCurrentIndex = currentIndex)
+                        }
+                        return true
+                    }
+                }
+            }
+        }
+    }
+
+    fun moveItem(section: String, from: Int, to: Int): Boolean {
+        val sec = when (section.trim().lowercase()) {
+            "a seguir", "priority", "prioritária", "prioritaria" -> QueueSection.PRIORITY
+            "fila", "queue", "normal", "regular" -> QueueSection.QUEUE
+            else -> return false
+        }
+        return moveItem(sec, from, to)
     }
 
     // --- Shuffle Modes ---

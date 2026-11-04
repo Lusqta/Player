@@ -24,13 +24,16 @@ import android.os.Looper
 import android.view.KeyEvent
 import com.lucas.player.AudioEngine
 import com.lucas.player.MainActivity
+import com.lucas.player.R
 import com.lucas.player.data.CoverArtLoader
 import com.lucas.player.data.LibraryRepository
 import com.lucas.player.data.PreferencesManager
 import com.lucas.player.model.Track
 import com.lucas.player.queue.QueueManager
+import com.lucas.player.queue.QueueSection
 import com.lucas.player.queue.RepeatMode
 import com.lucas.player.queue.ShuffleMode
+import androidx.palette.graphics.Palette
 
 class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
 
@@ -62,6 +65,7 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
     private var hasRecordedPlayForCurrentTrack = false
     private var hasTriggeredAutoCrossfade = false
     private var currentCoverBitmap: Bitmap? = null
+    private var currentAccentColor: Int = 0xFFF5881F.toInt()
 
     // Sleep Timer
     private var sleepTimerEndTimestamp: Long = 0L
@@ -145,7 +149,9 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
     private val noisyReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
-                pause()
+                if (preferencesManager.isPauseOnHeadsetDisconnectEnabled()) {
+                    pause()
+                }
             }
         }
     }
@@ -627,6 +633,28 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
         notifyQueue()
     }
 
+    fun moveQueueItem(section: QueueSection, from: Int, to: Int): Boolean {
+        val moved = queueManager.moveItem(section, from, to)
+        if (moved) {
+            if (section == QueueSection.QUEUE) {
+                saveCurrentState()
+            }
+            notifyQueue()
+        }
+        return moved
+    }
+
+    fun moveQueueItem(sectionName: String, from: Int, to: Int): Boolean {
+        val moved = queueManager.moveItem(sectionName, from, to)
+        if (moved) {
+            if (sectionName.equals("Fila", ignoreCase = true) || sectionName.equals("QUEUE", ignoreCase = true)) {
+                saveCurrentState()
+            }
+            notifyQueue()
+        }
+        return moved
+    }
+
     fun removeTrackFromQueue(trackId: Long) {
         queueManager.removeTrackById(trackId)
         notifyQueue()
@@ -884,6 +912,10 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
         CoverArtLoader.loadCover(this, track, 512) { bitmap ->
             if (bitmap != null && queueManager.currentTrack?.id == track.id) {
                 currentCoverBitmap = bitmap
+                try {
+                    val palette = Palette.from(bitmap).generate()
+                    currentAccentColor = palette.getVibrantColor(palette.getDominantColor(0xFFF5881F.toInt()))
+                } catch (_: Exception) {}
                 val fullMeta = MediaMetadata.Builder()
                     .putString(MediaMetadata.METADATA_KEY_TITLE, track.title)
                     .putString(MediaMetadata.METADATA_KEY_ARTIST, track.artist)
@@ -1028,7 +1060,7 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
             this, 3, nextIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val playPauseIcon = if (isPlaying) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play
+        val playPauseIcon = if (isPlaying) R.drawable.ic_notification_pause else R.drawable.ic_notification_play
 
         val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Notification.Builder(this, CHANNEL_ID)
@@ -1037,16 +1069,17 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
             Notification.Builder(this)
         }
 
-        builder.setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle(track?.title ?: "Música")
-            .setContentText(track?.artist ?: "Player")
+        builder.setSmallIcon(R.drawable.ic_stat_player)
+            .setContentTitle(track?.title ?: getString(R.string.app_name))
+            .setContentText(track?.artist ?: "")
             .setSubText(track?.album)
+            .setColor(currentAccentColor)
             .setContentIntent(contentPendingIntent)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setOngoing(isPlaying)
-            .addAction(Notification.Action.Builder(android.R.drawable.ic_media_previous, "Anterior", prevPending).build())
-            .addAction(Notification.Action.Builder(playPauseIcon, if (isPlaying) "Pausar" else "Tocar", togglePending).build())
-            .addAction(Notification.Action.Builder(android.R.drawable.ic_media_next, "Próxima", nextPending).build())
+            .addAction(Notification.Action.Builder(R.drawable.ic_notification_prev, getString(R.string.notification_prev), prevPending).build())
+            .addAction(Notification.Action.Builder(playPauseIcon, if (isPlaying) getString(R.string.notification_pause) else getString(R.string.notification_play), togglePending).build())
+            .addAction(Notification.Action.Builder(R.drawable.ic_notification_next, getString(R.string.notification_next), nextPending).build())
             .setStyle(
                 Notification.MediaStyle()
                     .setMediaSession(mediaSession.sessionToken)

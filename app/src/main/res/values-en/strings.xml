@@ -48,4 +48,71 @@
     <string name="playback_error_skipping">Could not play “%1$s”. Skipping…</string>
     <string name="playback_error_multiple">Playback failed repeatedly.</string>
     <string name="playback_retry">Try again</string>
+
+    <!-- Queue & Reordering (Phase 4.1) -->
+    <string name="queue_reorder_handle">Reorder track</string>
+    <string name="queue_move_up">Move up</string>
+    <string name="queue_move_down">Move down</string>
+    <string name="queue_track_moved">Track moved</string>
+    <string name="undo">Undo</string>
+
+    <!-- Settings (Phase 4.2) -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_section_library">LIBRARY</string>
+    <string name="settings_section_playback">PLAYBACK</string>
+    <string name="settings_section_appearance">APPEARANCE</string>
+    <string name="settings_section_about">ABOUT</string>
+    <string name="settings_ignore_shorter_than">Ignore tracks shorter than</string>
+    <string name="settings_ignore_shorter_than_sec">%1$d s</string>
+    <string name="settings_rescan_library">Refresh library</string>
+    <string name="settings_rescan_library_desc">Reload audio files from device</string>
+    <string name="settings_music_folders">Audio folders</string>
+    <string name="settings_music_folders_desc">All indexed device folders</string>
+    <string name="settings_pause_headset">Pause on headset disconnect</string>
+    <string name="settings_pause_headset_desc">Stops playback when Bluetooth or wired headphones are disconnected</string>
+    <string name="settings_gapless">Gapless playback</string>
+    <string name="settings_gapless_desc">No silence between consecutive tracks</string>
+    <string name="settings_crossfade">Smooth transition (Crossfade)</string>
+    <string name="settings_crossfade_desc">%1$d seconds crossfade between tracks</string>
+    <string name="settings_crossfade_off">Off</string>
+    <string name="settings_replaygain">ReplayGain</string>
+    <string name="settings_replaygain_off">Off</string>
+    <string name="settings_replaygain_track">Per track</string>
+    <string name="settings_replaygain_album">Per album</string>
+    <string name="settings_rg_preamp_with">Preamp with RG</string>
+    <string name="settings_rg_preamp_without">Preamp without RG</string>
+    <string name="settings_resume_playback">Resume playback</string>
+    <string name="settings_resume_playback_desc">Remember queue and position on launch</string>
+    <string name="settings_tilt_light">Light reacts to motion</string>
+    <string name="settings_tilt_light_desc">Glass reflections follow device tilt</string>
+    <string name="settings_reflection_softness">Reflection softness</string>
+    <string name="settings_reflection_softness_desc">Edge reflection blur (0 = sharp, 1 = soft)</string>
+    <string name="settings_reflection_preview">Aurō Glass Preview</string>
+    <string name="settings_reduce_motion">Reduce animations</string>
+    <string name="settings_reduce_motion_system">Follow system</string>
+    <string name="settings_reduce_motion_always">Always reduce</string>
+    <string name="settings_reduce_motion_never">Keep animations</string>
+    <string name="settings_show_file_format">Show file format</string>
+    <string name="settings_show_file_format_desc">Display FLAC, MP3, WAV tags in lists</string>
+    <string name="settings_version">Version</string>
+    <string name="settings_licenses">Open source licenses</string>
+    <string name="settings_repository">Project repository</string>
+
+    <!-- Multi-selection (Phase 4.3) -->
+    <string name="selection_select">Select</string>
+    <string name="selection_count">%1$d selected</string>
+    <string name="selection_count_single">1 selected</string>
+    <string name="selection_play_next">Play next</string>
+    <string name="selection_add_queue">Add to queue</string>
+    <string name="selection_add_playlist">Add to playlist</string>
+    <string name="selection_select_all">Select all</string>
+    <string name="selection_exit">Exit selection</string>
+    <string name="selection_added_next">%1$d tracks added to play next</string>
+    <string name="selection_added_queue">%1$d tracks added to queue</string>
+
+    <!-- Notifications (Phase 4.4) -->
+    <string name="notification_prev">Previous</string>
+    <string name="notification_play">Play</string>
+    <string name="notification_pause">Pause</string>
+    <string name="notification_next">Next</string>
 </resources>

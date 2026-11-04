@@ -23,6 +23,7 @@ sealed class NavScreen {
     object Equalizer : NavScreen()
     object Search : NavScreen()
     object Queue : NavScreen()
+    object Settings : NavScreen()
 }
 
 /**

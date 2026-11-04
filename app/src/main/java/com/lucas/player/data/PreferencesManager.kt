@@ -151,6 +151,73 @@ class PreferencesManager(context: Context) {
         return prefs.getFloat(KEY_RG_PREAMP_WITHOUT, 0.0f)
     }
 
+    // --- Configurações Gerais (Fase 4.2) ---
+
+    fun isPauseOnHeadsetDisconnectEnabled(): Boolean {
+        return prefs.getBoolean(KEY_PAUSE_ON_HEADSET_DISCONNECT, true)
+    }
+
+    fun setPauseOnHeadsetDisconnectEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_PAUSE_ON_HEADSET_DISCONNECT, enabled).apply()
+    }
+
+    fun isLightReactionTiltEnabled(): Boolean {
+        return prefs.getBoolean(KEY_TILT_ENABLED, true)
+    }
+
+    fun setLightReactionTiltEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_TILT_ENABLED, enabled).apply()
+    }
+
+    fun getReflectionSoftness(): Float {
+        return prefs.getFloat(KEY_REFLECTION_SOFTNESS, 0.6f)
+    }
+
+    fun setReflectionSoftness(softness: Float) {
+        prefs.edit().putFloat(KEY_REFLECTION_SOFTNESS, softness.coerceIn(0f, 1f)).apply()
+    }
+
+    fun getReduceMotionMode(): Int {
+        // 0 = Seguir sistema, 1 = Sempre reduzir, 2 = Manter animações
+        return prefs.getInt(KEY_REDUCE_MOTION_MODE, 0)
+    }
+
+    fun setReduceMotionMode(mode: Int) {
+        prefs.edit().putInt(KEY_REDUCE_MOTION_MODE, mode).apply()
+    }
+
+    fun isShowFileFormatEnabled(): Boolean {
+        return prefs.getBoolean(KEY_SHOW_FILE_FORMAT, true)
+    }
+
+    fun setShowFileFormatEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SHOW_FILE_FORMAT, enabled).apply()
+    }
+
+    fun getIgnoreShorterThanSeconds(): Int {
+        return prefs.getInt(KEY_IGNORE_SHORTER_THAN_SEC, 0)
+    }
+
+    fun setIgnoreShorterThanSeconds(seconds: Int) {
+        prefs.edit().putInt(KEY_IGNORE_SHORTER_THAN_SEC, seconds.coerceAtLeast(0)).apply()
+    }
+
+    fun isGaplessEnabled(): Boolean {
+        return prefs.getBoolean(KEY_GAPLESS_ENABLED, true)
+    }
+
+    fun setGaplessEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_GAPLESS_ENABLED, enabled).apply()
+    }
+
+    fun isResumePlaybackEnabled(): Boolean {
+        return prefs.getBoolean(KEY_RESUME_PLAYBACK, true)
+    }
+
+    fun setResumePlaybackEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_RESUME_PLAYBACK, enabled).apply()
+    }
+
     // --- Buscas Recentes (Fase 3.3) ---
 
     fun getRecentSearches(): List<String> {
@@ -221,5 +288,13 @@ class PreferencesManager(context: Context) {
         private const val KEY_RG_MODE = "replaygain_mode"
         private const val KEY_RG_PREAMP_WITH = "replaygain_preamp_with"
         private const val KEY_RG_PREAMP_WITHOUT = "replaygain_preamp_without"
+        private const val KEY_PAUSE_ON_HEADSET_DISCONNECT = "pause_on_headset_disconnect"
+        private const val KEY_TILT_ENABLED = "tilt_enabled"
+        private const val KEY_REFLECTION_SOFTNESS = "reflection_softness"
+        private const val KEY_REDUCE_MOTION_MODE = "reduce_motion_mode"
+        private const val KEY_SHOW_FILE_FORMAT = "show_file_format"
+        private const val KEY_IGNORE_SHORTER_THAN_SEC = "ignore_shorter_than_sec"
+        private const val KEY_GAPLESS_ENABLED = "gapless_enabled"
+        private const val KEY_RESUME_PLAYBACK = "resume_playback"
     }
 }

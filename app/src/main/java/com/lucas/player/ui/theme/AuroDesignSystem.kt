@@ -265,9 +265,14 @@ val LocalAuroAccent = staticCompositionLocalOf<AuroAccentState> {
     )
 }
 
-/** true se o usuário desligou as animações do sistema (Opções do desenvolvedor / Acessibilidade). */
+val LocalAuroSoft = staticCompositionLocalOf { 0.6f }
+val LocalReduceMotionOverride = staticCompositionLocalOf<Boolean?> { null }
+
+/** true se o usuário desligou as animações do sistema ou configurou no app. */
 @Composable
 fun rememberReduceMotion(): Boolean {
+    val override = LocalReduceMotionOverride.current
+    if (override != null) return override
     val context = LocalContext.current
     return remember { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
 }
@@ -334,14 +339,27 @@ fun rememberAuroClock(running: Boolean): () -> Float {
 }
 
 @Composable
-fun AuroTheme(accent: AuroAccent, playing: Boolean = true, tilt: Boolean = true, content: @Composable () -> Unit) {
-    val reduce = rememberReduceMotion()
+fun AuroTheme(
+    accent: AuroAccent,
+    playing: Boolean = true,
+    tilt: Boolean = true,
+    soft: Float = 0.6f,
+    reduceMotionOverride: Boolean? = null,
+    content: @Composable () -> Unit
+) {
+    val reduce = if (reduceMotionOverride != null) reduceMotionOverride else rememberReduceMotion()
     val a = animateColorAsState(accent.a, if (reduce) tween(0) else AuroMotion.accent(), label = "accentA")
     val b = animateColorAsState(accent.b, if (reduce) tween(0) else AuroMotion.accent(), label = "accentB")
     val state = remember(a, b) { AuroAccentState(a, b) }
     val light = rememberListenerLight(playing && !reduce, tilt && !reduce)
     val clock = rememberAuroClock(playing && !reduce)
-    CompositionLocalProvider(LocalAuroAccent provides state, LocalAuroLight provides light, LocalAuroTime provides clock) {
+    CompositionLocalProvider(
+        LocalAuroAccent provides state,
+        LocalAuroLight provides light,
+        LocalAuroTime provides clock,
+        LocalAuroSoft provides soft,
+        LocalReduceMotionOverride provides reduceMotionOverride
+    ) {
         Box(Modifier.fillMaxSize().background(AuroColor.Black)) { content() }
     }
 }
@@ -357,7 +375,7 @@ fun AuroGlass(
     kind: AuroGlassKind = AuroGlassKind.Card,
     onClick: (() -> Unit)? = null,
     haptic: ((View) -> Unit)? = { AuroHaptics.click(it) },
-    soft: Float = 0.6f, // 0 = reflexo agudo, 1 = bem borrado
+    soft: Float = LocalAuroSoft.current, // 0 = reflexo agudo, 1 = bem borrado
     content: @Composable BoxScope.() -> Unit,
 ) {
     val density = LocalDensity.current.density
