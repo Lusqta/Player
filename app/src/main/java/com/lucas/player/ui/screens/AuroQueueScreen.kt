@@ -11,9 +11,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DeleteOutline
-import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,7 +49,8 @@ fun AuroQueueScreen(
     onClearQueue: () -> Unit,
     onShuffleQueue: () -> Unit,
     listState: LazyListState = rememberLazyListState(),
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    errorTrackIds: Set<Long> = emptySet()
 ) {
     val totalCount = priorityTracks.size + regularTracks.size
     val totalDuration = priorityTracks.sumOf { it.durationMs } + regularTracks.sumOf { it.durationMs }
@@ -161,6 +160,7 @@ fun AuroQueueScreen(
                             index = index,
                             isPlaying = track.id == currentTrackId,
                             isPriority = true,
+                            hasError = errorTrackIds.contains(track.id),
                             onClick = { onTrackClick(track, index, true) },
                             onRemove = { onRemoveTrack(track) }
                         )
@@ -186,6 +186,7 @@ fun AuroQueueScreen(
                             index = index,
                             isPlaying = track.id == currentTrackId,
                             isPriority = false,
+                            hasError = errorTrackIds.contains(track.id),
                             onClick = { onTrackClick(track, index, false) },
                             onRemove = { onRemoveTrack(track) }
                         )
@@ -203,6 +204,7 @@ private fun AuroQueueTrackRow(
     index: Int,
     isPlaying: Boolean,
     isPriority: Boolean,
+    hasError: Boolean = false,
     onClick: () -> Unit,
     onRemove: () -> Unit
 ) {
@@ -261,8 +263,8 @@ private fun AuroQueueTrackRow(
                     )
                 } else {
                     Text(
-                        text = "${index + 1}",
-                        color = AuroColor.TextTertiary,
+                        text = if (isPriority) "★${index + 1}" else "${index + 1}",
+                        color = if (isPriority) accent else AuroColor.TextTertiary,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace
                     )
@@ -271,14 +273,25 @@ private fun AuroQueueTrackRow(
         }
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = track.title,
-                color = if (isPlaying) accent else AuroColor.TextPrimary,
-                fontSize = 14.sp,
-                fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (hasError) {
+                    Icon(
+                        imageVector = Icons.Rounded.WarningAmber,
+                        contentDescription = "Erro de reprodução",
+                        tint = Color(0xFFFF5252),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+                Text(
+                    text = track.title,
+                    color = if (hasError) Color(0xFFFF5252) else if (isPlaying) accent else AuroColor.TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = track.artist.ifEmpty { "Desconhecido" },

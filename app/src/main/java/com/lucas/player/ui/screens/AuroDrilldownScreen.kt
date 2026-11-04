@@ -48,6 +48,7 @@ fun AuroDrilldownScreen(
     onTrackLongClick: (Track) -> Unit,
     onTrackMenuClick: (Track) -> Unit,
     listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
+    errorTrackIds: Set<Long> = emptySet(),
     modifier: Modifier = Modifier
 ) {
     val totalDurationMs = remember(tracks) { tracks.sumOf { it.durationMs } }
@@ -183,6 +184,7 @@ fun AuroDrilldownScreen(
                             track = track,
                             trackIndex = index,
                             isPlayingThis = track.id == currentPlayingId,
+                            hasError = errorTrackIds.contains(track.id),
                             onClick = { onTrackClick(track, index) },
                             onLongClick = { onTrackLongClick(track) },
                             onMenuClick = { onTrackMenuClick(track) }

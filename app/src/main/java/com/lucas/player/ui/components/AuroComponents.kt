@@ -440,7 +440,8 @@ fun AuroTrackRow(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onMenuClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    hasError: Boolean = false
 ) {
     val accent = LocalAuroAccent.current.a.value
     val view = LocalView.current
@@ -521,14 +522,25 @@ fun AuroTrackRow(
 
         // Título e Artista
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = track.title,
-                color = if (isPlayingThis) accent else AuroColor.TextPrimary,
-                fontSize = 14.sp,
-                fontWeight = if (isPlayingThis) FontWeight.Bold else FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (hasError) {
+                    Icon(
+                        imageVector = Icons.Rounded.WarningAmber,
+                        contentDescription = "Erro de reprodução",
+                        tint = Color(0xFFFF5252),
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                }
+                Text(
+                    text = track.title,
+                    color = if (hasError) Color(0xFFFF5252) else if (isPlayingThis) accent else AuroColor.TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = if (isPlayingThis) FontWeight.Bold else FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
 
             Spacer(modifier = Modifier.height(2.dp))
 

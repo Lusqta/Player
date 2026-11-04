@@ -19,4 +19,33 @@
     <string name="create_playlist">Nova playlist</string>
     <string name="empty_search_title">Nada encontrado para “%1$s”</string>
     <string name="empty_search_message">Confira a ortografia ou tente outra palavra.</string>
+
+    <!-- Permissões & Estados -->
+    <string name="permission_library_title">Precisamos de acesso às suas músicas</string>
+    <string name="permission_library_message">O Aurō lê os arquivos de áudio do aparelho. Nada sai daqui.</string>
+    <string name="permission_action_grant">Permitir</string>
+    <string name="permission_action_settings">Abrir configurações</string>
+    <string name="permission_notification_denied">Ative as notificações para controlar a reprodução.</string>
+    <string name="permission_notification_action">Ativar</string>
+
+    <!-- Carregando Biblioteca -->
+    <string name="library_loading_count">Carregando biblioteca… %1$d faixas</string>
+
+    <!-- Busca -->
+    <string name="search_placeholder">Buscar faixas, artistas, álbuns…</string>
+    <string name="search_recent_title">BUSCAS RECENTES</string>
+    <string name="search_recent_clear">Limpar</string>
+    <string name="search_filter_all">Todos</string>
+    <string name="search_filter_tracks">Faixas</string>
+    <string name="search_filter_albums">Álbuns</string>
+    <string name="search_filter_artists">Artistas</string>
+    <string name="search_section_tracks">FAIXAS</string>
+    <string name="search_section_albums">ÁLBUNS</string>
+    <string name="search_section_artists">ARTISTAS</string>
+    <string name="search_view_all">Ver todos</string>
+
+    <!-- Erro de Reprodução -->
+    <string name="playback_error_skipping">Não foi possível tocar “%1$s”. Pulando…</string>
+    <string name="playback_error_multiple">Falha contínua de reprodução.</string>
+    <string name="playback_retry">Tentar de novo</string>
 </resources>

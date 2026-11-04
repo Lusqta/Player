@@ -58,6 +58,7 @@ fun AuroCategoryListScreen(
     onCreatePlaylist: () -> Unit = {},
     listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
     onSortClick: () -> Unit,
+    errorTrackIds: Set<Long> = emptySet(),
     modifier: Modifier = Modifier
 ) {
     val isAllSongs = category == LibraryCategory.ALL_SONGS
@@ -208,6 +209,7 @@ fun AuroCategoryListScreen(
                                 track = track,
                                 trackIndex = index,
                                 isPlayingThis = track.id == currentPlayingId,
+                                hasError = errorTrackIds.contains(track.id),
                                 onClick = { onTrackClick(track, index) },
                                 onLongClick = { onTrackLongClick(track) },
                                 onMenuClick = { onTrackMenuClick(track) }

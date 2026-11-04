@@ -39,6 +39,7 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
         fun onPlaybackStateChanged(isPlaying: Boolean)
         fun onProgressUpdate(currentMs: Long, durationMs: Long)
         fun onQueueUpdated(tracks: List<Track>, currentIndex: Int)
+        fun onPlaybackError(trackId: Long, trackTitle: String)
     }
 
     private val binder = LocalBinder()
@@ -237,43 +238,53 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
         currentCoverBitmap = null
 
         playbackExecutor.execute {
+            var success = false
             try {
                 val effectiveTrack = if (track.replayGainTrackGain == 0.0f && track.path.isNotEmpty()) {
                     libraryRepo.ensureReplayGainLoaded(track)
                 } else {
                     track
                 }
-                contentResolver.openFileDescriptor(effectiveTrack.uri, "r")?.use { pfd ->
-                    if (audioEngine.open(pfd)) {
-                        applyEffectivePreamp(effectiveTrack)
-                        if (requestAudioFocus()) {
-                            audioEngine.play()
-                            wasPlaying = true
-                            val crossfadeMs = preferencesManager.getCrossfadeDurationMs()
-                            val fadeInTime = if (crossfadeMs > 0) (crossfadeMs / 2).coerceIn(150, 1500).toLong() else 120L
-                            fadeIn(fadeInTime)
-                            handler.post {
-                                try {
-                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                        startForeground(
-                                            NOTIFICATION_ID,
-                                            buildNotification(),
-                                            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-                                        )
-                                    } else {
-                                        startForeground(NOTIFICATION_ID, buildNotification())
-                                    }
-                                } catch (_: Exception) {}
-                                updateMediaSessionMetadata(effectiveTrack)
-                                updateMediaSessionState(PlaybackState.STATE_PLAYING, 0)
-                                notifyTrack(effectiveTrack)
-                                notifyState(true)
-                                startProgressUpdates()
+                val pfd = contentResolver.openFileDescriptor(effectiveTrack.uri, "r")
+                if (pfd != null) {
+                    pfd.use { fd ->
+                        if (audioEngine.open(fd)) {
+                            success = true
+                            applyEffectivePreamp(effectiveTrack)
+                            if (requestAudioFocus()) {
+                                wasPlaying = true
+                                val crossfadeMs = preferencesManager.getCrossfadeDurationMs()
+                                val fadeInTime = if (crossfadeMs > 0) (crossfadeMs / 2).coerceIn(150, 1500).toLong() else 120L
+                                fadeIn(fadeInTime)
+                                handler.post {
+                                    try {
+                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                            startForeground(
+                                                NOTIFICATION_ID,
+                                                buildNotification(),
+                                                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                                            )
+                                        } else {
+                                            startForeground(NOTIFICATION_ID, buildNotification())
+                                        }
+                                    } catch (_: Exception) {}
+                                    updateMediaSessionMetadata(effectiveTrack)
+                                    updateMediaSessionState(PlaybackState.STATE_PLAYING, 0)
+                                    notifyTrack(effectiveTrack)
+                                    notifyState(true)
+                                    startProgressUpdates()
+                                }
                             }
                         }
                     }
                 }
-            } catch (_: Exception) {}
+            } catch (_: Exception) {
+                success = false
+            }
+
+            if (!success) {
+                notifyError(track.id, track.title)
+            }
         }
     }
 
@@ -770,6 +781,12 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
         val tracks = queueManager.getTracks()
         val index = queueManager.currentQueueIndex
         listeners.forEach { it.onQueueUpdated(tracks, index) }
+    }
+
+    private fun notifyError(trackId: Long, trackTitle: String) {
+        handler.post {
+            listeners.forEach { it.onPlaybackError(trackId, trackTitle) }
+        }
     }
 
     private fun saveCurrentState() {

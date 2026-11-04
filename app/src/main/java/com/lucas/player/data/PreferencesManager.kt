@@ -151,7 +151,58 @@ class PreferencesManager(context: Context) {
         return prefs.getFloat(KEY_RG_PREAMP_WITHOUT, 0.0f)
     }
 
+    // --- Buscas Recentes (Fase 3.3) ---
+
+    fun getRecentSearches(): List<String> {
+        val raw = prefs.getString(KEY_RECENT_SEARCHES, null) ?: return emptyList()
+        if (raw.isBlank()) return emptyList()
+        return raw.split(SEARCH_DELIMITER).map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
+    fun addRecentSearch(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return
+        val current = getRecentSearches().toMutableList()
+        current.removeAll { it.equals(trimmed, ignoreCase = true) }
+        current.add(0, trimmed)
+        val trimmedList = current.take(8)
+        prefs.edit().putString(KEY_RECENT_SEARCHES, trimmedList.joinToString(SEARCH_DELIMITER)).apply()
+    }
+
+    fun removeRecentSearch(query: String) {
+        val trimmed = query.trim()
+        val current = getRecentSearches().toMutableList()
+        current.removeAll { it.equals(trimmed, ignoreCase = true) }
+        prefs.edit().putString(KEY_RECENT_SEARCHES, current.joinToString(SEARCH_DELIMITER)).apply()
+    }
+
+    fun clearRecentSearches() {
+        prefs.edit().remove(KEY_RECENT_SEARCHES).apply()
+    }
+
+    // --- Permissões (Fase 3.1) ---
+
+    fun hasPromptedNotificationPermission(): Boolean {
+        return prefs.getBoolean(KEY_PROMPTED_NOTIFICATION, false)
+    }
+
+    fun setPromptedNotificationPermission(prompted: Boolean) {
+        prefs.edit().putBoolean(KEY_PROMPTED_NOTIFICATION, prompted).apply()
+    }
+
+    fun hasRequestedAudioPermission(): Boolean {
+        return prefs.getBoolean(KEY_REQUESTED_AUDIO_PERM, false)
+    }
+
+    fun setHasRequestedAudioPermission(requested: Boolean) {
+        prefs.edit().putBoolean(KEY_REQUESTED_AUDIO_PERM, requested).apply()
+    }
+
     companion object {
+        private const val SEARCH_DELIMITER = "\u001F"
+        private const val KEY_RECENT_SEARCHES = "recent_searches"
+        private const val KEY_PROMPTED_NOTIFICATION = "prompted_notification"
+        private const val KEY_REQUESTED_AUDIO_PERM = "requested_audio_perm"
         private const val KEY_QUEUE_IDS = "queue_ids"
         private const val KEY_CURRENT_INDEX = "current_index"
         private const val KEY_POSITION_MS = "position_ms"

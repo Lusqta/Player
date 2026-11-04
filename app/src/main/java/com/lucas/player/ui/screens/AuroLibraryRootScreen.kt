@@ -16,17 +16,22 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lucas.player.R
 import com.lucas.player.model.LibraryCategory
 import com.lucas.player.ui.components.AuroBreadcrumbHeader
 import com.lucas.player.ui.components.AuroBreadcrumbItem
+import com.lucas.player.ui.components.AuroEmptyState
+import com.lucas.player.ui.components.AuroLoadingBar
 import com.lucas.player.ui.theme.AuroColor
+import com.lucas.player.ui.theme.LocalAuroAccent
+import kotlinx.coroutines.delay
 
 /**
  * AURŌ DESIGN SYSTEM v2 - TELA RAIZ DA BIBLIOTECA (AURŌ LIBRARY ROOT)
@@ -34,12 +39,23 @@ import com.lucas.player.ui.theme.AuroColor
 @Composable
 fun AuroLibraryRootScreen(
     totalTracksCount: Int,
+    isLoading: Boolean = false,
+    loadingCount: Int = 0,
     onSelectCategory: (LibraryCategory) -> Unit,
     onSortClick: () -> Unit,
     onRescanClick: () -> Unit,
     listState: LazyListState = rememberLazyListState(),
     modifier: Modifier = Modifier
 ) {
+    var showLoadingBar by remember { mutableStateOf(false) }
+    LaunchedEffect(isLoading) {
+        if (isLoading) {
+            delay(150)
+            showLoadingBar = true
+        } else {
+            showLoadingBar = false
+        }
+    }
     val categories = remember {
         listOf(
             LibraryCategory.ALL_SONGS to ("Todas as Músicas" to Icons.AutoMirrored.Rounded.PlaylistPlay),
@@ -87,52 +103,77 @@ fun AuroLibraryRootScreen(
             }
         )
 
-        // Resumo
-        Text(
-            text = "$totalTracksCount faixas indexadas",
-            color = AuroColor.TextSecondary,
-            fontSize = 12.sp,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-        )
+        // Indicador de Carregamento com debounce de 150ms
+        if (showLoadingBar) {
+            AuroLoadingBar()
+            Text(
+                text = stringResource(R.string.library_loading_count, if (loadingCount > 0) loadingCount else totalTracksCount),
+                color = LocalAuroAccent.current.a.value,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+            )
+        } else {
+            // Resumo
+            Text(
+                text = "$totalTracksCount faixas indexadas",
+                color = AuroColor.TextSecondary,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
 
-        // Linhas de categoria (sem vidro, texto e fio Hairline direto no preto)
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 120.dp)
-        ) {
-            items(categories, key = { it.first.name }) { (cat, info) ->
-                val (title, icon) = info
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onSelectCategory(cat) }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = AuroColor.TextSecondary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(14.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = title,
-                            color = AuroColor.TextPrimary,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium
+        if (totalTracksCount == 0 && !isLoading) {
+            AuroEmptyState(
+                icon = Icons.Rounded.MusicOff,
+                title = stringResource(R.string.empty_library_title),
+                message = stringResource(R.string.empty_library_message),
+                actionLabel = stringResource(R.string.empty_library_action),
+                onAction = onRescanClick,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 120.dp)
+            )
+        } else {
+            // Linhas de categoria (sem vidro, texto e fio Hairline direto no preto)
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 120.dp)
+            ) {
+                items(categories, key = { it.first.name }) { (cat, info) ->
+                    val (title, icon) = info
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelectCategory(cat) }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = AuroColor.TextSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = title,
+                                color = AuroColor.TextPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Rounded.ChevronRight,
+                            contentDescription = null,
+                            tint = AuroColor.TextTertiary,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                    Icon(
-                        imageVector = Icons.Rounded.ChevronRight,
-                        contentDescription = null,
-                        tint = AuroColor.TextTertiary,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
                 }
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
             }
         }
     }

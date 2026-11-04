@@ -19,4 +19,33 @@
     <string name="create_playlist">New playlist</string>
     <string name="empty_search_title">Nothing found for “%1$s”</string>
     <string name="empty_search_message">Check the spelling or try another word.</string>
+
+    <!-- Permissions & States -->
+    <string name="permission_library_title">We need access to your music</string>
+    <string name="permission_library_message">Aurō reads audio files on your device. Nothing leaves your phone.</string>
+    <string name="permission_action_grant">Grant</string>
+    <string name="permission_action_settings">Open settings</string>
+    <string name="permission_notification_denied">Enable notifications to control playback.</string>
+    <string name="permission_notification_action">Enable</string>
+
+    <!-- Loading Library -->
+    <string name="library_loading_count">Loading library… %1$d tracks</string>
+
+    <!-- Search -->
+    <string name="search_placeholder">Search tracks, artists, albums…</string>
+    <string name="search_recent_title">RECENT SEARCHES</string>
+    <string name="search_recent_clear">Clear</string>
+    <string name="search_filter_all">All</string>
+    <string name="search_filter_tracks">Tracks</string>
+    <string name="search_filter_albums">Albums</string>
+    <string name="search_filter_artists">Artists</string>
+    <string name="search_section_tracks">TRACKS</string>
+    <string name="search_section_albums">ALBUMS</string>
+    <string name="search_section_artists">ARTISTS</string>
+    <string name="search_view_all">View all</string>
+
+    <!-- Playback Error -->
+    <string name="playback_error_skipping">Could not play “%1$s”. Skipping…</string>
+    <string name="playback_error_multiple">Playback failed repeatedly.</string>
+    <string name="playback_retry">Try again</string>
 </resources>

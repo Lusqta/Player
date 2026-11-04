@@ -6,9 +6,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -25,8 +27,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.lucas.player.data.CoverArtLoader
 import com.lucas.player.data.LibraryRepository
 import com.lucas.player.data.LyricsManager
@@ -42,6 +47,16 @@ import com.lucas.player.ui.navigation.NavScreen
 import com.lucas.player.ui.navigation.PlayerNavController
 import com.lucas.player.ui.screens.*
 import com.lucas.player.ui.theme.*
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+sealed class LibraryAccess {
+    object Granted : LibraryAccess()
+    object NeedsRequest : LibraryAccess()
+    object Denied : LibraryAccess()
+    object PermanentlyDenied : LibraryAccess()
+}
 
 class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
@@ -75,6 +90,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
     // Estados da Biblioteca
     private val totalTracksCountState = mutableIntStateOf(0)
+    private val libraryAccessState = mutableStateOf<LibraryAccess>(LibraryAccess.NeedsRequest)
+    private val isLoadingLibraryState = mutableStateOf(false)
+    private val loadingTracksCountState = mutableIntStateOf(0)
+    private val errorTrackIdsState = mutableStateListOf<Long>()
+    private var consecutivePlaybackErrors = 0
+    private var skipJob: Job? = null
     private val currentCategoryState = mutableStateOf(LibraryCategory.ALL_SONGS)
     private val currentSortModeState = mutableStateOf(SortMode.TITLE_ASC)
     private val displayedTracksState = mutableStateOf<List<Track>>(emptyList())
@@ -83,7 +104,6 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
     // Busca Instantânea
     private val searchQueryState = mutableStateOf("")
-    private val searchResultsState = mutableStateOf<List<Track>>(emptyList())
 
     // Diálogos & Modais
     private val trackContextMenuState = mutableStateOf<Track?>(null)
@@ -134,16 +154,87 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         }
     }
 
-    private val requestPermissionsLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val audioGranted = permissions[Manifest.permission.READ_MEDIA_AUDIO] == true ||
-                permissions[Manifest.permission.READ_EXTERNAL_STORAGE] == true
-
-        if (audioGranted) {
-            loadLibrary()
+    private fun getAudioPermission(): String {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_AUDIO
         } else {
-            snackbarState.show("Permissão necessária para ler músicas locais.")
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
+    }
+
+    private fun evaluateLibraryAccess(): LibraryAccess {
+        val permission = getAudioPermission()
+        val isGranted = ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
+        if (isGranted) return LibraryAccess.Granted
+
+        val hasRequestedBefore = preferencesManager.hasRequestedAudioPermission()
+        val shouldShowRationale = ActivityCompat.shouldShowRequestPermissionRationale(this, permission)
+
+        return when {
+            !hasRequestedBefore -> LibraryAccess.NeedsRequest
+            shouldShowRationale -> LibraryAccess.Denied
+            else -> LibraryAccess.PermanentlyDenied
+        }
+    }
+
+    private val requestAudioPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        preferencesManager.setHasRequestedAudioPermission(true)
+        if (isGranted) {
+            libraryAccessState.value = LibraryAccess.Granted
+            loadLibrary()
+            checkNotificationPermissionNonBlocking()
+        } else {
+            libraryAccessState.value = evaluateLibraryAccess()
+        }
+    }
+
+    private fun requestLibraryPermission() {
+        requestAudioPermissionLauncher.launch(getAudioPermission())
+    }
+
+    private fun checkNotificationPermissionNonBlocking() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            if (!granted && !preferencesManager.hasPromptedNotificationPermission()) {
+                preferencesManager.setPromptedNotificationPermission(true)
+                snackbarState.show(
+                    text = getString(R.string.permission_notification_denied),
+                    action = getString(R.string.permission_notification_action),
+                    onAction = {
+                        val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                            putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                        }
+                        try {
+                            startActivity(intent)
+                        } catch (_: Exception) {}
+                    }
+                )
+            }
+        }
+    }
+
+    private fun openAppSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", packageName, null)
+        }
+        try {
+            startActivity(intent)
+        } catch (_: Exception) {}
+    }
+
+    override fun onResume() {
+        super.onResume()
+        val access = evaluateLibraryAccess()
+        if (access != libraryAccessState.value) {
+            libraryAccessState.value = access
+            if (access is LibraryAccess.Granted) {
+                if (totalTracksCountState.intValue == 0) {
+                    loadLibrary()
+                }
+                checkNotificationPermissionNonBlocking()
+            }
         }
     }
 
@@ -152,7 +243,19 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         AuroHaptics.init(this)
         LibraryRepository.init(this)
 
+        libraryAccessState.value = evaluateLibraryAccess()
+        if (libraryAccessState.value is LibraryAccess.Granted) {
+            loadLibrary()
+            checkNotificationPermissionNonBlocking()
+        }
+
+        startAndBindService()
+
         setContent {
+            val libraryAccess by libraryAccessState
+            val isLoadingLibrary by isLoadingLibraryState
+            val loadingTracksCount by loadingTracksCountState
+            val errorTrackIds = remember { errorTrackIdsState }
             val currentScreen = navController.currentScreen
             val reduceMotion = rememberReduceMotion()
             val scrollStates = remember { mutableMapOf<String, LazyListState>() }
@@ -170,7 +273,6 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             val drilldownTracks by drilldownTracksState
 
             val searchQuery by searchQueryState
-            val searchResults by searchResultsState
 
             val trackContextMenu by trackContextMenuState
             val trackInfoDialog by trackInfoDialogState
@@ -235,15 +337,49 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 }
             }
 
-            AuroTheme(
-                accent = currentAccent,
-                playing = isPlaying
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(AuroColor.Black)
+            if (libraryAccess !is LibraryAccess.Granted) {
+                val isPermanent = libraryAccess is LibraryAccess.PermanentlyDenied
+                AuroTheme(
+                    accent = currentAccent,
+                    playing = false
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(AuroColor.Black)
+                            .statusBarsPadding()
+                    ) {
+                        AuroEmptyState(
+                            icon = Icons.Rounded.MusicOff,
+                            title = stringResource(R.string.permission_library_title),
+                            message = stringResource(R.string.permission_library_message),
+                            actionLabel = stringResource(
+                                if (isPermanent) R.string.permission_action_settings else R.string.permission_action_grant
+                            ),
+                            onAction = {
+                                if (isPermanent) openAppSettings() else requestLibraryPermission()
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+
+                        AuroSnackbarHost(
+                            state = snackbarState,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(horizontal = 16.dp, vertical = 24.dp)
+                        )
+                    }
+                }
+            } else {
+                AuroTheme(
+                    accent = currentAccent,
+                    playing = isPlaying
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(AuroColor.Black)
+                    ) {
                     // Conteúdo Principal de Acordo com a Tela Ativa
                     Box(
                         modifier = Modifier
@@ -282,6 +418,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             is NavScreen.LibraryRoot -> {
                                 AuroLibraryRootScreen(
                                     totalTracksCount = totalTracksCount,
+                                    isLoading = isLoadingLibrary,
+                                    loadingCount = loadingTracksCount,
                                     listState = getScrollState("library_root"),
                                     onSelectCategory = { cat ->
                                         selectCategory(cat)
@@ -301,6 +439,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         priorityTracks = priorityTracks,
                                         regularTracks = regularTracks,
                                         currentTrackId = currentTrack?.id ?: -1L,
+                                        errorTrackIds = errorTrackIds.toSet(),
                                         listState = getScrollState("queue"),
                                         onBackClick = { navController.navigateUp() },
                                         onTrackClick = { _, index, isPriority ->
@@ -334,6 +473,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         displayedTracks = displayedTracks,
                                         displayedGroups = displayedGroups,
                                         currentPlayingId = currentTrack?.id ?: -1L,
+                                        errorTrackIds = errorTrackIds.toSet(),
                                         onBackClick = { navController.navigateUp() },
                                         onTrackClick = { _, position ->
                                             playbackService?.playQueue(displayedTracks, position)
@@ -393,6 +533,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     listState = getScrollState("drilldown_${activeScreen.category.name}_${activeScreen.title}"),
                                     tracks = drilldownTracks,
                                     currentPlayingId = currentTrack?.id ?: -1L,
+                                    errorTrackIds = errorTrackIds.toSet(),
                                     onBackToCategoryList = { navController.navigateUp() },
                                     onBackToLibraryRoot = { navController.resetToLibraryRoot() },
                                     onPlayAll = {
@@ -556,14 +697,38 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     listState = getScrollState("search"),
                                     searchQuery = searchQuery,
                                     onQueryChange = { q -> onSearchQueryChange(q) },
-                                    results = searchResults,
+                                    allTracks = libraryRepo.getAllTracks(),
                                     currentPlayingId = currentTrack?.id ?: -1L,
-                                    onTrackClick = { _, position ->
-                                        playbackService?.playQueue(searchResults, position)
+                                    preferencesManager = preferencesManager,
+                                    errorTrackIds = errorTrackIds.toSet(),
+                                    onTrackClick = { track, position ->
+                                        val all = libraryRepo.getAllTracks()
+                                        val idx = all.indexOfFirst { it.id == track.id }.takeIf { it != -1 } ?: position
+                                        playbackService?.playQueue(all, idx)
                                         navController.openNowPlaying()
                                     },
                                     onTrackMenuClick = { track ->
                                         trackContextMenuState.value = track
+                                    },
+                                    onAlbumClick = { albumName ->
+                                        drillDownGroup(LibraryCategory.ALBUMS, albumName)
+                                        navController.navigateTo(
+                                            NavScreen.Drilldown(
+                                                category = LibraryCategory.ALBUMS,
+                                                title = albumName,
+                                                subtitle = "Álbum"
+                                            )
+                                        )
+                                    },
+                                    onArtistClick = { artistName ->
+                                        drillDownGroup(LibraryCategory.ARTISTS, artistName)
+                                        navController.navigateTo(
+                                            NavScreen.Drilldown(
+                                                category = LibraryCategory.ARTISTS,
+                                                title = artistName,
+                                                subtitle = "Artista"
+                                            )
+                                        )
                                     },
                                     onClose = { navController.navigateUp() },
                                     modifier = Modifier.fillMaxSize()
@@ -577,7 +742,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     priorityTracks = priorityTracks,
                                     regularTracks = regularTracks,
                                     currentTrackId = currentTrack?.id ?: -1L,
-                                        listState = getScrollState("queue"),
+                                    errorTrackIds = errorTrackIds.toSet(),
+                                    listState = getScrollState("queue"),
                                     onBackClick = { navController.navigateUp() },
                                     onTrackClick = { _, index, isPriority ->
                                         if (isPriority) {
@@ -820,10 +986,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                     }
                 }
             }
+            }
         }
-
-        startAndBindService()
-        checkAndRequestPermissions()
     }
 
     private fun resetEqualizerToFlat() {
@@ -998,18 +1162,6 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
     private fun onSearchQueryChange(query: String) {
         searchQueryState.value = query
-        if (query.isBlank()) {
-            searchResultsState.value = emptyList()
-            return
-        }
-        val all = libraryRepo.getAllTracks()
-        searchResultsState.value = all.filter { track ->
-            track.title.contains(query, ignoreCase = true) ||
-            track.artist.contains(query, ignoreCase = true) ||
-            track.album.contains(query, ignoreCase = true) ||
-            track.genre.contains(query, ignoreCase = true) ||
-            track.composer.contains(query, ignoreCase = true)
-        }
     }
 
     private fun onSelectSortMode(mode: SortMode) {
@@ -1087,6 +1239,41 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     override fun onPlaybackStateChanged(isPlaying: Boolean) {
         runOnUiThread {
             isPlayingState.value = isPlaying
+            if (isPlaying) {
+                consecutivePlaybackErrors = 0
+            }
+        }
+    }
+
+    override fun onPlaybackError(trackId: Long, trackTitle: String) {
+        runOnUiThread {
+            if (!errorTrackIdsState.contains(trackId)) {
+                errorTrackIdsState.add(trackId)
+            }
+            consecutivePlaybackErrors++
+            AuroHaptics.reject(window.decorView)
+
+            if (consecutivePlaybackErrors < 3) {
+                snackbarState.show(
+                    getString(R.string.playback_error_skipping, trackTitle)
+                )
+                skipJob?.cancel()
+                skipJob = lifecycleScope.launch {
+                    delay(1200)
+                    playbackService?.playNext()
+                }
+            } else {
+                skipJob?.cancel()
+                playbackService?.stop()
+                snackbarState.show(
+                    text = getString(R.string.playback_error_multiple),
+                    action = getString(R.string.playback_retry),
+                    onAction = {
+                        consecutivePlaybackErrors = 0
+                        playbackService?.playNext()
+                    }
+                )
+            }
         }
     }
 
@@ -1105,32 +1292,15 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         }
     }
 
-    private fun checkAndRequestPermissions() {
-        val permissions = mutableListOf<String>()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                permissions.add(Manifest.permission.READ_MEDIA_AUDIO)
-            }
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        } else {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                permissions.add(Manifest.permission.READ_EXTERNAL_STORAGE)
-            }
-        }
-
-        if (permissions.isNotEmpty()) {
-            requestPermissionsLauncher.launch(permissions.toTypedArray())
-        } else {
-            loadLibrary()
-        }
-    }
-
     private fun loadLibrary() {
+        isLoadingLibraryState.value = true
+        errorTrackIdsState.clear()
+        consecutivePlaybackErrors = 0
         libraryRepo.loadTracks(this) { list ->
             runOnUiThread {
                 totalTracksCountState.intValue = list.size
+                loadingTracksCountState.intValue = list.size
+                isLoadingLibraryState.value = false
                 selectCategory(LibraryCategory.ALL_SONGS)
                 playbackService?.restoreSavedQueue(list)
             }
