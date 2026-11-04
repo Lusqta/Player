@@ -255,30 +255,32 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
                 if (pfd != null) {
                     pfd.use { fd ->
                         if (audioEngine.open(fd)) {
-                            success = true
                             applyEffectivePreamp(effectiveTrack)
                             if (requestAudioFocus()) {
-                                wasPlaying = true
-                                val crossfadeMs = preferencesManager.getCrossfadeDurationMs()
-                                val fadeInTime = if (crossfadeMs > 0) (crossfadeMs / 2).coerceIn(150, 1500).toLong() else 120L
-                                fadeIn(fadeInTime)
-                                handler.post {
-                                    try {
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                                            startForeground(
-                                                NOTIFICATION_ID,
-                                                buildNotification(),
-                                                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
-                                            )
-                                        } else {
-                                            startForeground(NOTIFICATION_ID, buildNotification())
-                                        }
-                                    } catch (_: Exception) {}
-                                    updateMediaSessionMetadata(effectiveTrack)
-                                    updateMediaSessionState(PlaybackState.STATE_PLAYING, 0)
-                                    notifyTrack(effectiveTrack)
-                                    notifyState(true)
-                                    startProgressUpdates()
+                                if (audioEngine.play()) {
+                                    success = true
+                                    wasPlaying = true
+                                    val crossfadeMs = preferencesManager.getCrossfadeDurationMs()
+                                    val fadeInTime = if (crossfadeMs > 0) (crossfadeMs / 2).coerceIn(150, 1500).toLong() else 120L
+                                    fadeIn(fadeInTime)
+                                    handler.post {
+                                        try {
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                                startForeground(
+                                                    NOTIFICATION_ID,
+                                                    buildNotification(),
+                                                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                                                )
+                                            } else {
+                                                startForeground(NOTIFICATION_ID, buildNotification())
+                                            }
+                                        } catch (_: Exception) {}
+                                        updateMediaSessionMetadata(effectiveTrack)
+                                        updateMediaSessionState(PlaybackState.STATE_PLAYING, 0)
+                                        notifyTrack(effectiveTrack)
+                                        notifyState(true)
+                                        startProgressUpdates()
+                                    }
                                 }
                             }
                         }

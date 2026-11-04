@@ -91,7 +91,14 @@ class QueueManager {
         }
 
     val currentQueueIndex: Int
-        get() = synchronized(this) { currentIndex }
+        get() = synchronized(this) {
+            if (isShuffle && shuffleIndices.size == originalTracks.size) {
+                val pos = shuffleIndices.indexOf(currentIndex)
+                if (pos != -1) pos else currentIndex
+            } else {
+                currentIndex
+            }
+        }
 
     val queueSize: Int
         get() = synchronized(this) { originalTracks.size }

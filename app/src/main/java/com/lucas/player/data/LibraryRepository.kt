@@ -326,8 +326,11 @@ class LibraryRepository() {
 
         val projection = projectionList.toTypedArray()
         val minSec = PreferencesManager(context).getIgnoreShorterThanSeconds()
-        val minDurationMs = if (minSec > 0) (minSec * 1000L) else 5000L
-        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= $minDurationMs"
+        val selection = if (minSec > 0) {
+            "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= ${minSec * 1000L}"
+        } else {
+            "${MediaStore.Audio.Media.IS_MUSIC} != 0"
+        }
         val sortOrder = "${MediaStore.Audio.Media.TITLE} COLLATE NOCASE ASC"
 
         try {
