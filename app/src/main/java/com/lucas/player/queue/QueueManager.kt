@@ -167,7 +167,8 @@ class QueueManager {
             }
         }
         if (originalTracks.isNotEmpty()) {
-            val startIdx = currentIndex + 1
+            val basePos = if (isShuffle) shuffleIndices.indexOf(currentIndex) else currentIndex
+            val startIdx = basePos + 1
             for (i in startIdx until originalTracks.size) {
                 val actualIndex = if (isShuffle && i in shuffleIndices.indices) shuffleIndices[i] else i
                 if (actualIndex in originalTracks.indices) {
@@ -483,8 +484,13 @@ class QueueManager {
             val origIdx = originalTracks.indexOfFirst { it.id == trackId }
             if (origIdx != -1) {
                 originalTracks.removeAt(origIdx)
-                if (currentIndex >= originalTracks.size) {
+                if (origIdx < currentIndex) {
+                    currentIndex--
+                } else if (origIdx == currentIndex && currentIndex >= originalTracks.size) {
                     currentIndex = (originalTracks.size - 1).coerceAtLeast(0)
+                }
+                if (originalTracks.isEmpty()) {
+                    currentIndex = -1
                 }
                 rebuildShuffleIndices(preserveCurrentIndex = currentIndex)
                 return true

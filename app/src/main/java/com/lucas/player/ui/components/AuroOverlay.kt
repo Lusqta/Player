@@ -60,7 +60,8 @@ fun AuroOverlay(
         } else {
             isVisible = false
             coroutineScope.launch {
-                delay(140)
+                val dismissDelay = if (type == AuroOverlayType.BottomSheet) 220L else 140L
+                delay(dismissDelay)
                 onDismiss()
             }
         }

@@ -70,95 +70,103 @@ object AuroHaptics {
     private const val HAPTIC_FLAGS = HapticFeedbackConstants.FLAG_IGNORE_VIEW_SETTING or HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
 
     fun click(view: View? = null) {
-        // 1. Dispara via View com flags de bypass
+        val vib = getVibrator(view)
+        if (vib != null && vib.hasVibrator()) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    vib.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vib.vibrate(VibrationEffect.createOneShot(20L, VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vib.vibrate(20L)
+                }
+                return
+            } catch (_: Exception) {}
+        }
         view?.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY, HAPTIC_FLAGS)
-
-        // 2. Dispara diretamente o atuador linear (LRA) via Vibrator / VibratorManager
-        try {
-            val vib = getVibrator(view)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                vib?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vib?.vibrate(VibrationEffect.createOneShot(20L, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                vib?.vibrate(20L)
-            }
-        } catch (_: Exception) {}
     }
 
     fun confirm(view: View? = null) {
+        val vib = getVibrator(view)
+        if (vib != null && vib.hasVibrator()) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    vib.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK))
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vib.vibrate(VibrationEffect.createOneShot(35L, VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vib.vibrate(35L)
+                }
+                return
+            } catch (_: Exception) {}
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             view?.performHapticFeedback(HapticFeedbackConstants.CONFIRM, HAPTIC_FLAGS)
         } else {
             view?.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY, HAPTIC_FLAGS)
         }
-
-        try {
-            val vib = getVibrator(view)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                vib?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_HEAVY_CLICK))
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vib?.vibrate(VibrationEffect.createOneShot(35L, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                vib?.vibrate(35L)
-            }
-        } catch (_: Exception) {}
     }
 
     fun reject(view: View? = null) {
+        val vib = getVibrator(view)
+        if (vib != null && vib.hasVibrator()) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    vib.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_DOUBLE_CLICK))
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vib.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 25, 40, 30), intArrayOf(0, 255, 0, 255), -1))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vib.vibrate(longArrayOf(0, 25, 40, 30), -1)
+                }
+                return
+            } catch (_: Exception) {}
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             view?.performHapticFeedback(HapticFeedbackConstants.REJECT, HAPTIC_FLAGS)
         } else {
             view?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HAPTIC_FLAGS)
         }
-
-        try {
-            val vib = getVibrator(view)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                vib?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_DOUBLE_CLICK))
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vib?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 25, 40, 30), intArrayOf(0, 255, 0, 255), -1))
-            } else {
-                @Suppress("DEPRECATION")
-                vib?.vibrate(longArrayOf(0, 25, 40, 30), -1)
-            }
-        } catch (_: Exception) {}
     }
 
     fun longPress(view: View? = null) {
+        val vib = getVibrator(view)
+        if (vib != null && vib.hasVibrator()) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vib.vibrate(VibrationEffect.createOneShot(45L, VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vib.vibrate(45L)
+                }
+                return
+            } catch (_: Exception) {}
+        }
         view?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HAPTIC_FLAGS)
-
-        try {
-            val vib = getVibrator(view)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vib?.vibrate(VibrationEffect.createOneShot(45L, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                vib?.vibrate(45L)
-            }
-        } catch (_: Exception) {}
     }
 
     fun sliderTick(view: View? = null) {
+        val vib = getVibrator(view)
+        if (vib != null && vib.hasVibrator()) {
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    vib.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vib.vibrate(VibrationEffect.createOneShot(10L, 100))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vib.vibrate(10L)
+                }
+                return
+            } catch (_: Exception) {}
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             view?.performHapticFeedback(HapticFeedbackConstants.SEGMENT_FREQUENT_TICK, HAPTIC_FLAGS)
         } else {
             view?.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK, HAPTIC_FLAGS)
         }
-
-        try {
-            val vib = getVibrator(view)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                vib?.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vib?.vibrate(VibrationEffect.createOneShot(10L, 100))
-            } else {
-                @Suppress("DEPRECATION")
-                vib?.vibrate(10L)
-            }
-        } catch (_: Exception) {}
     }
 }
 

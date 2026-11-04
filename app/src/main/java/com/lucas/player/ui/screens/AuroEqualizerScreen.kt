@@ -18,15 +18,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.data.MusicDatabase
-import com.lucas.player.ui.components.AuroBreadcrumbHeader
-import com.lucas.player.ui.components.AuroBreadcrumbItem
-import com.lucas.player.ui.components.AuroHaptics
+import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
@@ -86,13 +85,9 @@ fun AuroEqualizerScreen(
             canGoBack = true,
             onBackClick = onClose,
             rightActions = {
-                Switch(
+                AuroSwitch(
                     checked = eqEnabled,
-                    onCheckedChange = onToggleEq,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = accent
-                    )
+                    onCheckedChange = onToggleEq
                 )
             }
         )
@@ -102,7 +97,7 @@ fun AuroEqualizerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 12.dp, bottom = 120.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Presets
@@ -161,15 +156,20 @@ fun AuroEqualizerScreen(
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                 )
                                 if (!p.isBuiltin) {
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Icon(
-                                        imageVector = Icons.Rounded.Close,
-                                        contentDescription = "Excluir preset",
-                                        tint = AuroColor.TextTertiary,
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Box(
                                         modifier = Modifier
-                                            .size(14.dp)
-                                            .clickable { onDeletePreset(p) }
-                                    )
+                                            .size(36.dp)
+                                            .clickable { onDeletePreset(p) },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Close,
+                                            contentDescription = "Excluir preset",
+                                            tint = AuroColor.TextTertiary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -197,14 +197,10 @@ fun AuroEqualizerScreen(
                                     fontFamily = FontFamily.Monospace
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
-                                Switch(
+                                AuroSwitch(
                                     checked = toneEnabled,
                                     onCheckedChange = onToggleTone,
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = Color.White,
-                                        checkedTrackColor = accent
-                                    ),
-                                    modifier = Modifier.height(20.dp)
+                                    enabled = eqEnabled
                                 )
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -258,27 +254,14 @@ fun AuroEqualizerScreen(
                                     modifier = Modifier.width(50.dp)
                                 )
 
-                                Slider(
+                                AuroSlider(
                                     value = gain,
-                                    onValueChange = {
-                                        if (it.roundToInt() != gain.roundToInt()) {
-                                            AuroHaptics.sliderTick(view)
-                                        }
-                                        onBandGainChange(bandIndex, it)
-                                    },
+                                    onValueChange = { onBandGainChange(bandIndex, it) },
                                     valueRange = -12f..12f,
                                     enabled = eqEnabled,
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = Color.White,
-                                        activeTrackColor = accent,
-                                        inactiveTrackColor = AuroColor.Track,
-                                        disabledThumbColor = AuroColor.TextTertiary,
-                                        disabledActiveTrackColor = AuroColor.Track,
-                                        disabledInactiveTrackColor = AuroColor.Track
-                                    ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(20.dp)
+                                        .height(36.dp)
                                 )
 
                                 Text(
@@ -286,8 +269,9 @@ fun AuroEqualizerScreen(
                                     color = AuroColor.TextSecondary,
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace,
+                                    style = TextStyle(fontFeatureSettings = "tnum"),
                                     textAlign = TextAlign.End,
-                                    modifier = Modifier.width(50.dp)
+                                    modifier = Modifier.width(54.dp)
                                 )
                             }
                         }
@@ -307,9 +291,6 @@ private fun AuroToneRow(
     enabled: Boolean = true,
     onValueChange: (Float) -> Unit
 ) {
-    val accent = LocalAuroAccent.current.a.value
-
-    val view = LocalView.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -322,27 +303,14 @@ private fun AuroToneRow(
             fontSize = 12.sp,
             modifier = Modifier.width(86.dp)
         )
-        Slider(
+        AuroSlider(
             value = value,
-            onValueChange = {
-                if (it.roundToInt() != value.roundToInt()) {
-                    AuroHaptics.sliderTick(view)
-                }
-                onValueChange(it)
-            },
+            onValueChange = onValueChange,
             valueRange = range,
             enabled = enabled,
-            colors = SliderDefaults.colors(
-                thumbColor = Color.White,
-                activeTrackColor = accent,
-                inactiveTrackColor = AuroColor.Track,
-                disabledThumbColor = AuroColor.TextTertiary,
-                disabledActiveTrackColor = AuroColor.Track,
-                disabledInactiveTrackColor = AuroColor.Track
-            ),
             modifier = Modifier
                 .weight(1f)
-                .height(20.dp)
+                .height(36.dp)
         )
         val textVal = if (isBalance) {
             when {
@@ -358,8 +326,9 @@ private fun AuroToneRow(
             color = if (enabled) AuroColor.TextPrimary else AuroColor.TextTertiary,
             fontSize = 11.sp,
             fontFamily = FontFamily.Monospace,
+            style = TextStyle(fontFeatureSettings = "tnum"),
             textAlign = TextAlign.End,
-            modifier = Modifier.width(50.dp)
+            modifier = Modifier.width(54.dp)
         )
     }
 }

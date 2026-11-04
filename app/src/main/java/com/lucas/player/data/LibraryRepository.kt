@@ -76,8 +76,10 @@ class LibraryRepository() {
                 val index = sharedTracks.indexOfFirst { it.id == trackId }
                 if (index != -1) {
                     val t = sharedTracks[index]
-                    t.playCount += 1
-                    t.lastPlayedTimestamp = System.currentTimeMillis()
+                    sharedTracks[index] = t.copy(
+                        playCount = t.playCount + 1,
+                        lastPlayedTimestamp = System.currentTimeMillis()
+                    )
                 }
             }
         }
@@ -89,7 +91,8 @@ class LibraryRepository() {
             synchronized(sharedTracks) {
                 val index = sharedTracks.indexOfFirst { it.id == trackId }
                 if (index != -1) {
-                    sharedTracks[index].rating = rating
+                    val t = sharedTracks[index]
+                    sharedTracks[index] = t.copy(rating = rating)
                 }
             }
         }

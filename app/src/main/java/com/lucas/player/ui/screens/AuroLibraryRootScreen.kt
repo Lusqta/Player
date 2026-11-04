@@ -69,7 +69,8 @@ fun AuroLibraryRootScreen(
             LibraryCategory.YEARS to ("Anos" to Icons.Rounded.DateRange),
             LibraryCategory.COMPOSERS to ("Compositores" to Icons.Rounded.Piano),
             LibraryCategory.MOST_PLAYED to ("Mais Tocadas" to Icons.Rounded.TrendingUp),
-            LibraryCategory.RECENTLY_ADDED to ("Adicionadas Recentemente" to Icons.Rounded.History),
+            LibraryCategory.RECENTLY_ADDED to ("Adicionadas Recentemente" to Icons.Rounded.Schedule),
+            LibraryCategory.RECENTLY_PLAYED to ("Tocadas Recentemente" to Icons.Rounded.History),
             LibraryCategory.TOP_RATED to ("Melhor Classificadas" to Icons.Rounded.Star)
         )
     }
@@ -84,7 +85,7 @@ fun AuroLibraryRootScreen(
             onItemClick = {},
             canGoBack = false,
             rightActions = {
-                IconButton(onClick = onSortClick, modifier = Modifier.size(34.dp)) {
+                IconButton(onClick = onSortClick, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.Sort,
                         contentDescription = "Ordenar",
@@ -92,7 +93,7 @@ fun AuroLibraryRootScreen(
                         modifier = Modifier.size(18.dp)
                     )
                 }
-                IconButton(onClick = onRescanClick, modifier = Modifier.size(34.dp)) {
+                IconButton(onClick = onRescanClick, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = Icons.Rounded.Refresh,
                         contentDescription = "Atualizar",
@@ -132,14 +133,14 @@ fun AuroLibraryRootScreen(
                 onAction = onRescanClick,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = 120.dp)
+                    .padding(bottom = 0.dp)
             )
         } else {
             // Linhas de categoria (sem vidro, texto e fio Hairline direto no preto)
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 120.dp)
+                contentPadding = PaddingValues(bottom = 24.dp)
             ) {
                 items(categories, key = { it.first.name }) { (cat, info) ->
                     val (title, icon) = info

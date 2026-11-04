@@ -51,7 +51,7 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
 
     val audioEngine = AudioEngine()
     val queueManager = QueueManager()
-    private val libraryRepo = LibraryRepository()
+    private val libraryRepo by lazy { LibraryRepository.getInstance(this) }
     lateinit var preferencesManager: PreferencesManager
         private set
 
@@ -75,11 +75,16 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
         override fun run() {
             val remaining = sleepTimerEndTimestamp - System.currentTimeMillis()
             if (remaining <= 0) {
-                pause()
-                sleepTimerEndTimestamp = 0L
-                audioEngine.setVolume(1.0f)
+                if (sleepTimerStopAtTrackEnd) {
+                    sleepTimerEndTimestamp = 0L
+                    audioEngine.setVolume(1.0f)
+                } else {
+                    pause()
+                    sleepTimerEndTimestamp = 0L
+                    audioEngine.setVolume(1.0f)
+                }
             } else {
-                if (remaining <= 15000L) {
+                if (!sleepTimerStopAtTrackEnd && remaining <= 15000L) {
                     val fraction = remaining.toFloat() / 15000f
                     audioEngine.setVolume(fraction.coerceIn(0.0f, 1.0f))
                 }
@@ -383,6 +388,7 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
         if (audioEngine.isPlaying()) {
             fadeOut(150L) {
                 audioEngine.pause()
+                audioEngine.setVolume(1.0f)
                 wasPlaying = false
                 updateMediaSessionState(PlaybackState.STATE_PAUSED, audioEngine.getPositionMs())
                 notifyState(false)
@@ -403,6 +409,7 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
     fun stop() {
         fadeOut(100L) {
             audioEngine.stop()
+            audioEngine.setVolume(1.0f)
             wasPlaying = false
             abandonAudioFocus()
             updateMediaSessionState(PlaybackState.STATE_STOPPED, 0)
@@ -564,7 +571,6 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
                 } else {
                     activeFadeRunnable = null
                     onComplete()
-                    audioEngine.setVolume(1.0f)
                 }
             }
         }
@@ -1000,7 +1006,10 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
                 if (audioEngine.isPlaying()) {
                     pausedByTransientLoss = true
                     audioEngine.pause()
+                    wasPlaying = false
+                    handler.removeCallbacks(progressRunnable)
                     notifyState(false)
+                    showNotification()
                 }
             }
             AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
@@ -1011,8 +1020,13 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
                 audioEngine.setVolume(1.0f)
                 if (pausedByTransientLoss) {
                     pausedByTransientLoss = false
-                    audioEngine.play()
-                    notifyState(true)
+                    if (audioEngine.play()) {
+                        wasPlaying = true
+                        startProgressUpdates()
+                        updateMediaSessionState(PlaybackState.STATE_PLAYING, audioEngine.getPositionMs())
+                        notifyState(true)
+                        showNotification()
+                    }
                 }
             }
         }

@@ -67,7 +67,7 @@ sealed class LibraryAccess {
 
 class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
-    private val libraryRepo = LibraryRepository()
+    private val libraryRepo by lazy { LibraryRepository.getInstance(this) }
     private val musicDb by lazy { MusicDatabase(this) }
     private val preferencesManager by lazy { PreferencesManager(this) }
     private var playbackService: PlaybackService? = null
@@ -95,6 +95,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     private val durationMsState = mutableLongStateOf(0L)
     private val shuffleModeState = mutableStateOf(ShuffleMode.OFF)
     private val repeatModeState = mutableStateOf(RepeatMode.OFF)
+    private val priorityQueueState = mutableStateOf<List<Track>>(emptyList())
+    private val regularQueueState = mutableStateOf<List<Track>>(emptyList())
 
     // Estados da Biblioteca
     private val totalTracksCountState = mutableIntStateOf(0)
@@ -118,6 +120,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     private val trackInfoDialogState = mutableStateOf<Track?>(null)
     private val showSortOrderState = mutableStateOf(false)
     private val showSleepTimerState = mutableStateOf(false)
+    private val showCreatePlaylistDialogState = mutableStateOf(false)
 
     // Seleção Múltipla (Fase 4.3)
     private val isSelectionModeState = mutableStateOf(false)
@@ -158,6 +161,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             if (all.isNotEmpty()) {
                 s.restoreSavedQueue(all)
             }
+            priorityQueueState.value = s.queueManager.getPriorityQueue()
+            regularQueueState.value = s.queueManager.getTracks()
         }
 
         override fun onServiceDisconnected(name: ComponentName?) {
@@ -324,6 +329,13 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 currentAccent = CoverGlow.from(currentCover)
             }
 
+            LaunchedEffect(currentScreen) {
+                if (isSelectionModeState.value) {
+                    isSelectionModeState.value = false
+                    selectedTrackIdsState.clear()
+                }
+            }
+
             // Tratamento do Botão Físico/Gestual Voltar do Android
             BackHandler(
                 enabled = isSelectionModeState.value || trackContextMenu != null || trackInfoDialog != null ||
@@ -331,6 +343,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         showAudioInfoState.value || showAboutState.value ||
                         showLyricsSheetState.value || showSavePresetDialogState.value ||
                         deletePlaylistTargetState.value != null || deletePresetTargetState.value != null ||
+                        showCreatePlaylistDialogState.value ||
                         addToPlaylistDialogTrack.value != null || tracksToAddToPlaylistState.value.isNotEmpty() ||
                         navController.canNavigateUp
             ) {
@@ -339,6 +352,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         isSelectionModeState.value = false
                         selectedTrackIdsState.clear()
                     }
+                    showCreatePlaylistDialogState.value -> showCreatePlaylistDialogState.value = false
                     tracksToAddToPlaylistState.value.isNotEmpty() -> tracksToAddToPlaylistState.value = emptyList()
                     showLyricsSheetState.value -> showLyricsSheetState.value = false
                     showSavePresetDialogState.value -> showSavePresetDialogState.value = false
@@ -584,11 +598,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                             is NavScreen.CategoryList -> {
                                 if (activeScreen.category == LibraryCategory.QUEUE) {
-                                    val priorityTracks = playbackService?.queueManager?.getPriorityQueue() ?: emptyList()
-                                    val regularTracks = playbackService?.queueManager?.getTracks() ?: emptyList()
                                     AuroQueueScreen(
-                                        priorityTracks = priorityTracks,
-                                        regularTracks = regularTracks,
+                                        priorityTracks = priorityQueueState.value,
+                                        regularTracks = regularQueueState.value,
                                         currentTrackId = currentTrack?.id ?: -1L,
                                         errorTrackIds = errorTrackIds.toSet(),
                                         listState = getScrollState("queue"),
@@ -603,20 +615,36 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         },
                                         onRemoveTrack = { track ->
                                             playbackService?.removeTrackFromQueue(track.id)
+                                            playbackService?.let { s ->
+                                                priorityQueueState.value = s.queueManager.getPriorityQueue()
+                                                regularQueueState.value = s.queueManager.getTracks()
+                                            }
                                             renderCurrentCategory()
                                         },
                                         onClearQueue = {
                                             playbackService?.clearPriorityQueue()
+                                            playbackService?.let { s ->
+                                                priorityQueueState.value = s.queueManager.getPriorityQueue()
+                                                regularQueueState.value = s.queueManager.getTracks()
+                                            }
                                             renderCurrentCategory()
                                             snackbarState.show("Fila limpa")
                                         },
                                         onShuffleQueue = {
                                             playbackService?.shuffleCurrentQueue()
+                                            playbackService?.let { s ->
+                                                priorityQueueState.value = s.queueManager.getPriorityQueue()
+                                                regularQueueState.value = s.queueManager.getTracks()
+                                            }
                                             renderCurrentCategory()
                                             snackbarState.show("Fila aleatória")
                                         },
                                         onMoveItem = { section, from, to ->
                                             playbackService?.moveQueueItem(section, from, to)
+                                            playbackService?.let { s ->
+                                                priorityQueueState.value = s.queueManager.getPriorityQueue()
+                                                regularQueueState.value = s.queueManager.getTracks()
+                                            }
                                             renderCurrentCategory()
                                         },
                                         showSnackbar = { msg, action, onAction ->
@@ -683,10 +711,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                             }
                                         },
                                         onCreatePlaylist = {
-                                            val dummy = currentTrack ?: displayedTracks.firstOrNull()
-                                            if (dummy != null) {
-                                                addToPlaylistDialogTrack.value = dummy
-                                            }
+                                            showCreatePlaylistDialogState.value = true
                                         },
                                         onSortClick = { showSortOrderState.value = true },
                                         modifier = Modifier.fillMaxSize()
@@ -888,6 +913,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onTrackMenuClick = { track ->
                                         trackContextMenuState.value = track
                                     },
+                                    onTrackLongClick = { track ->
+                                        trackContextMenuState.value = track
+                                    },
                                     onAlbumClick = { albumName ->
                                         drillDownGroup(LibraryCategory.ALBUMS, albumName)
                                         navController.navigateTo(
@@ -914,11 +942,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             }
 
                             is NavScreen.Queue -> {
-                                val priorityTracks = playbackService?.queueManager?.getPriorityQueue() ?: emptyList()
-                                val regularTracks = playbackService?.queueManager?.getTracks() ?: emptyList()
                                 AuroQueueScreen(
-                                    priorityTracks = priorityTracks,
-                                    regularTracks = regularTracks,
+                                    priorityTracks = priorityQueueState.value,
+                                    regularTracks = regularQueueState.value,
                                     currentTrackId = currentTrack?.id ?: -1L,
                                     errorTrackIds = errorTrackIds.toSet(),
                                     listState = getScrollState("queue"),
@@ -933,20 +959,36 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     },
                                     onRemoveTrack = { track ->
                                         playbackService?.removeTrackFromQueue(track.id)
+                                        playbackService?.let { s ->
+                                            priorityQueueState.value = s.queueManager.getPriorityQueue()
+                                            regularQueueState.value = s.queueManager.getTracks()
+                                        }
                                         renderCurrentCategory()
                                     },
                                     onClearQueue = {
                                         playbackService?.clearPriorityQueue()
+                                        playbackService?.let { s ->
+                                            priorityQueueState.value = s.queueManager.getPriorityQueue()
+                                            regularQueueState.value = s.queueManager.getTracks()
+                                        }
                                         renderCurrentCategory()
                                         snackbarState.show("Fila limpa")
                                     },
                                     onShuffleQueue = {
                                         playbackService?.shuffleCurrentQueue()
+                                        playbackService?.let { s ->
+                                            priorityQueueState.value = s.queueManager.getPriorityQueue()
+                                            regularQueueState.value = s.queueManager.getTracks()
+                                        }
                                         renderCurrentCategory()
                                         snackbarState.show("Fila aleatória")
                                     },
                                     onMoveItem = { section, from, to ->
                                         playbackService?.moveQueueItem(section, from, to)
+                                        playbackService?.let { s ->
+                                            priorityQueueState.value = s.queueManager.getPriorityQueue()
+                                            regularQueueState.value = s.queueManager.getTracks()
+                                        }
                                         renderCurrentCategory()
                                     },
                                     showSnackbar = { msg, action, onAction ->
@@ -965,6 +1007,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         snackbarState.show("Biblioteca atualizada")
                                     },
                                     onSettingsChanged = {
+                                        playbackService?.let { s -> s.queueManager.currentTrack?.let { s.applyEffectivePreamp(it) } }
                                         renderCurrentCategory()
                                     },
                                     modifier = Modifier.fillMaxSize()
@@ -1071,7 +1114,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 val plId = libraryRepo.createPlaylist(name)
                                 if (plId > 0) {
                                     tracks.forEach { libraryRepo.addTrackToUserPlaylist(plId, it.id) }
-                                    snackbarState.show(getString(R.string.selection_added_queue, tracks.size))
+                                    snackbarState.show("Adicionadas à playlist '$name'")
                                 }
                                 tracksToAddToPlaylistState.value = emptyList()
                                 isSelectionModeState.value = false
@@ -1079,12 +1122,26 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             },
                             onSelectPlaylist = { pl ->
                                 tracks.forEach { libraryRepo.addTrackToUserPlaylist(pl.id, it.id) }
-                                snackbarState.show(getString(R.string.selection_added_queue, tracks.size))
+                                snackbarState.show("Adicionadas à playlist '${pl.name}'")
                                 tracksToAddToPlaylistState.value = emptyList()
                                 isSelectionModeState.value = false
                                 selectedTrackIdsState.clear()
                             },
                             onDismiss = { tracksToAddToPlaylistState.value = emptyList() }
+                        )
+                    }
+
+                    if (showCreatePlaylistDialogState.value) {
+                        AuroCreatePlaylistDialog(
+                            onCreate = { name ->
+                                val plId = libraryRepo.createPlaylist(name)
+                                if (plId > 0) {
+                                    renderCurrentCategory()
+                                    snackbarState.show("Lista de reprodução criada!")
+                                }
+                                showCreatePlaylistDialogState.value = false
+                            },
+                            onDismiss = { showCreatePlaylistDialogState.value = false }
                         )
                     }
 
@@ -1156,8 +1213,10 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                     }
 
                     if (showAudioInfoState.value) {
+                        val realSampleRate = playbackService?.audioEngine?.getSampleRate()?.takeIf { it > 0 }
+                            ?: (currentTrack?.sampleRateHz ?: 48000)
                         AuroAudioEngineDialog(
-                            sampleRate = currentTrack?.sampleRateHz ?: 48000,
+                            sampleRate = realSampleRate,
                             onDismiss = { showAudioInfoState.value = false }
                         )
                     }
@@ -1284,7 +1343,6 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
     private fun setTrackRating(track: Track?, rating: Int) {
         if (track == null) return
-        track.rating = rating
         libraryRepo.setTrackRating(track.id, rating)
         if (currentTrackState.value?.id == track.id) {
             currentTrackState.value = track.copy(rating = rating)
@@ -1519,6 +1577,10 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
     override fun onQueueUpdated(tracks: List<Track>, currentIndex: Int) {
         runOnUiThread {
+            regularQueueState.value = tracks
+            playbackService?.let { s ->
+                priorityQueueState.value = s.queueManager.getPriorityQueue()
+            }
             if (currentCategoryState.value == LibraryCategory.QUEUE) {
                 displayedTracksState.value = tracks
             }

@@ -106,7 +106,7 @@ fun AuroProgressBar(
 
     Column(modifier = modifier.fillMaxWidth()) {
         // Trilho de 3dp com thumb de 10dp
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp) // Aumentado de 30.dp para 48.dp (trilho interno continua 3.dp)
@@ -143,6 +143,9 @@ fun AuroProgressBar(
                 },
             contentAlignment = Alignment.CenterStart
         ) {
+            val totalWidth = maxWidth
+            val thumbOffset = ((totalWidth - 10.dp) * activeFraction).coerceAtLeast(0.dp)
+
             // Trilho #2D2D2D
             Box(
                 modifier = Modifier
@@ -162,8 +165,7 @@ fun AuroProgressBar(
             // Bolinha branca de 10dp
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(activeFraction)
-                    .wrapContentWidth(Alignment.End)
+                    .offset(x = thumbOffset)
                     .size(10.dp)
                     .background(Color.White, CircleShape)
             )
@@ -362,7 +364,7 @@ fun AuroNavbar(
             AuroNavbarTab(
                 icon = Icons.Rounded.LibraryMusic,
                 label = "Biblioteca",
-                isActive = currentScreen !is NavScreen.Equalizer && currentScreen !is NavScreen.Search && currentScreen !is NavScreen.NowPlaying,
+                isActive = currentScreen is NavScreen.LibraryRoot || currentScreen is NavScreen.CategoryList || currentScreen is NavScreen.Drilldown,
                 onClick = onLibraryClick
             )
 
@@ -700,21 +702,28 @@ fun AuroBreadcrumbHeader(
             ) {
                 items.forEachIndexed { index, item ->
                     val isLast = index == items.size - 1
-                    Text(
-                        text = item.title,
-                        color = if (isLast) AuroColor.TextPrimary else AuroColor.TextSecondary,
-                        fontSize = if (isLast) 16.sp else 13.sp,
-                        fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.clickable { onItemClick(index) }
-                    )
+                    Box(
+                        modifier = Modifier
+                            .defaultMinSize(minHeight = 36.dp)
+                            .clickable { onItemClick(index) }
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        Text(
+                            text = item.title,
+                            color = if (isLast) AuroColor.TextPrimary else AuroColor.TextSecondary,
+                            fontSize = if (isLast) 16.sp else 13.sp,
+                            fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                     if (!isLast) {
                         Text(
-                            text = " / ",
+                            text = "/",
                             color = AuroColor.TextTertiary,
                             fontSize = 13.sp,
-                            modifier = Modifier.padding(horizontal = 4.dp)
+                            modifier = Modifier.padding(horizontal = 2.dp)
                         )
                     }
                 }
@@ -829,6 +838,24 @@ fun AuroAlphabetFastScroller(
 }
 
 /**
+ * Utilitário de normalização para o AuroAlphabetFastScroller.
+ * Trata caracteres acentuados (Á, É, Í, Ó, Ú, etc.) mapeando para a letra base sem acento.
+ */
+fun normalizeBaseLetter(c: Char): Char {
+    val normalized = java.text.Normalizer.normalize(c.toString(), java.text.Normalizer.Form.NFD)
+    val base = normalized.firstOrNull { it in 'A'..'Z' || it in 'a'..'z' } ?: c
+    return base.uppercaseChar()
+}
+
+fun matchesFirstLetter(text: String, targetLetter: Char): Boolean {
+    val firstChar = text.trimStart().firstOrNull() ?: return false
+    if (targetLetter == '#') {
+        return !firstChar.isLetter()
+    }
+    return normalizeBaseLetter(firstChar) == targetLetter.uppercaseChar()
+}
+
+/**
  * 7. CLASSIFICAÇÃO DE 5 ESTRELAS
  */
 @Composable
@@ -850,13 +877,13 @@ fun AuroRatingBar(
                     val newRating = if (rating == i) 0 else i
                     onRatingSelected(newRating)
                 },
-                modifier = Modifier.size(28.dp)
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
                     imageVector = if (isFilled) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                     contentDescription = "$i estrelas",
                     tint = if (isFilled) accent else AuroColor.TextTertiary,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }

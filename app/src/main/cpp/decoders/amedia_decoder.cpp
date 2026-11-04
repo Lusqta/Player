@@ -135,10 +135,13 @@ size_t AmediaDecoder::read(float* outBuffer, size_t framesToRead) {
     }
 
     // 2. Pump codec until we deliver requested frames or hit EOS
-    constexpr int kMaxAttempts = 32;
     int attempts = 0;
 
-    while (framesDelivered < framesToRead && !isEos_ && attempts++ < kMaxAttempts) {
+    while (framesDelivered < framesToRead && !isEos_) {
+        const int maxAttempts = (framesDelivered == 0) ? 128 : 32;
+        if (attempts++ >= maxAttempts) {
+            break;
+        }
         // Enqueue input buffer
         ssize_t inIndex = AMediaCodec_dequeueInputBuffer(codec_, 2000 /* 2ms */);
         if (inIndex >= 0) {

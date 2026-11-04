@@ -175,13 +175,13 @@ fun AuroDrilldownScreen(
                     message = stringResource(R.string.empty_library_message),
                     actionLabel = stringResource(R.string.empty_queue_action),
                     onAction = onBackToCategoryList,
-                    modifier = Modifier.padding(bottom = 120.dp)
+                    modifier = Modifier.padding(bottom = 0.dp)
                 )
             } else {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 120.dp, end = if (tracks.size > 15) 28.dp else 0.dp)
+                    contentPadding = PaddingValues(bottom = 24.dp, end = if (tracks.size > 15) 28.dp else 0.dp)
                 ) {
                     itemsIndexed(tracks, key = { _, t -> t.id }) { index, track ->
                         AuroTrackRow(
@@ -210,12 +210,12 @@ fun AuroDrilldownScreen(
                     AuroAlphabetFastScroller(
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
-                            .padding(bottom = 120.dp),
+                            .padding(bottom = 0.dp),
                         onLetterSelected = { letter ->
                             val targetIndex = if (letter == '#') {
                                 tracks.indexOfFirst { it.title.firstOrNull()?.isLetter() == false }
                             } else {
-                                tracks.indexOfFirst { it.title.startsWith(letter, ignoreCase = true) }
+                                tracks.indexOfFirst { matchesFirstLetter(it.title, letter) }
                             }
                             if (targetIndex >= 0) {
                                 coroutineScope.launch { listState.scrollToItem(targetIndex) }

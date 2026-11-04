@@ -65,7 +65,11 @@ fun AuroCategoryListScreen(
     onToggleSelectTrack: (Track) -> Unit = {},
     showFileFormat: Boolean = true
 ) {
-    val isAllSongs = category == LibraryCategory.ALL_SONGS
+    val isTrackListCategory = category == LibraryCategory.ALL_SONGS ||
+            category == LibraryCategory.MOST_PLAYED ||
+            category == LibraryCategory.RECENTLY_ADDED ||
+            category == LibraryCategory.RECENTLY_PLAYED ||
+            category == LibraryCategory.TOP_RATED
     val isPlaylists = category == LibraryCategory.PLAYLISTS
 
     Column(
@@ -84,7 +88,7 @@ fun AuroCategoryListScreen(
             canGoBack = true,
             onBackClick = onBackClick,
             rightActions = {
-                IconButton(onClick = onSortClick, modifier = Modifier.size(34.dp)) {
+                IconButton(onClick = onSortClick, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.Sort,
                         contentDescription = "Ordenar",
@@ -95,8 +99,8 @@ fun AuroCategoryListScreen(
             }
         )
 
-        // Banner de Ações Rápidas em "Todas as Músicas"
-        if (isAllSongs && displayedTracks.isNotEmpty()) {
+        // Banner de Ações Rápidas em categorias baseadas em faixas
+        if (isTrackListCategory && displayedTracks.isNotEmpty()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -192,7 +196,7 @@ fun AuroCategoryListScreen(
         val coroutineScope = rememberCoroutineScope()
 
         Box(modifier = Modifier.fillMaxSize()) {
-            if (isAllSongs) {
+            if (isTrackListCategory) {
                 if (displayedTracks.isEmpty()) {
                     AuroEmptyState(
                         icon = Icons.Rounded.MusicOff,
@@ -200,13 +204,13 @@ fun AuroCategoryListScreen(
                         message = stringResource(R.string.empty_library_message),
                         actionLabel = stringResource(R.string.empty_library_action),
                         onAction = onBackClick,
-                        modifier = Modifier.padding(bottom = 120.dp)
+                        modifier = Modifier.padding(bottom = 0.dp)
                     )
                 } else {
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 120.dp, end = if (displayedTracks.size > 15) 28.dp else 0.dp)
+                        contentPadding = PaddingValues(bottom = 24.dp, end = if (displayedTracks.size > 15) 28.dp else 0.dp)
                     ) {
                         itemsIndexed(displayedTracks, key = { _, t -> t.id }) { index, track ->
                             AuroTrackRow(
@@ -235,12 +239,12 @@ fun AuroCategoryListScreen(
                         AuroAlphabetFastScroller(
                             modifier = Modifier
                                 .align(Alignment.CenterEnd)
-                                .padding(bottom = 120.dp),
+                                .padding(bottom = 0.dp),
                             onLetterSelected = { letter ->
                                 val targetIndex = if (letter == '#') {
                                     displayedTracks.indexOfFirst { it.title.firstOrNull()?.isLetter() == false }
                                 } else {
-                                    displayedTracks.indexOfFirst { it.title.startsWith(letter, ignoreCase = true) }
+                                    displayedTracks.indexOfFirst { matchesFirstLetter(it.title, letter) }
                                 }
                                 if (targetIndex >= 0) {
                                     coroutineScope.launch { listState.scrollToItem(targetIndex) }
@@ -258,21 +262,21 @@ fun AuroCategoryListScreen(
                             message = stringResource(R.string.empty_playlist_message),
                             actionLabel = stringResource(R.string.create_playlist),
                             onAction = onCreatePlaylist,
-                            modifier = Modifier.padding(bottom = 120.dp)
+                            modifier = Modifier.padding(bottom = 0.dp)
                         )
                     } else {
                         AuroEmptyState(
                             icon = Icons.Rounded.FolderOff,
                             title = stringResource(R.string.empty_library_title),
                             message = stringResource(R.string.empty_library_message),
-                            modifier = Modifier.padding(bottom = 120.dp)
+                            modifier = Modifier.padding(bottom = 0.dp)
                         )
                     }
                 } else {
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 120.dp, end = if (displayedGroups.size > 15) 28.dp else 0.dp)
+                        contentPadding = PaddingValues(bottom = 24.dp, end = if (displayedGroups.size > 15) 28.dp else 0.dp)
                     ) {
                         items(displayedGroups, key = { it.title }) { group ->
                             Row(
@@ -316,12 +320,12 @@ fun AuroCategoryListScreen(
                         AuroAlphabetFastScroller(
                             modifier = Modifier
                                 .align(Alignment.CenterEnd)
-                                .padding(bottom = 120.dp),
+                                .padding(bottom = 0.dp),
                             onLetterSelected = { letter ->
                                 val targetIndex = if (letter == '#') {
                                     displayedGroups.indexOfFirst { it.title.firstOrNull()?.isLetter() == false }
                                 } else {
-                                    displayedGroups.indexOfFirst { it.title.startsWith(letter, ignoreCase = true) }
+                                    displayedGroups.indexOfFirst { matchesFirstLetter(it.title, letter) }
                                 }
                                 if (targetIndex >= 0) {
                                     coroutineScope.launch { listState.scrollToItem(targetIndex) }

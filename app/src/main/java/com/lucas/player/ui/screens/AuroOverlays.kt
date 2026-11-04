@@ -37,6 +37,7 @@ import com.lucas.player.ui.components.AuroOverlayType
 import com.lucas.player.ui.components.AuroRatingBar
 import com.lucas.player.ui.components.formatTimeMs
 import com.lucas.player.ui.theme.*
+import kotlinx.coroutines.delay
 
 /**
  * AURŌ DESIGN SYSTEM v3 - DIÁLOGOS E SOBREPOSIÇÕES (Fase 2.3 & 2.4)
@@ -737,7 +738,7 @@ fun AuroAudioEngineDialog(
                     AuroInfoRow("Pipeline", "Google Oboe (C++ High-Performance)")
                     AuroInfoRow("Driver Nativo", "AAudio / OpenSL ES")
                     AuroInfoRow("Modo de Latência", "PerformanceMode::LowLatency")
-                    AuroInfoRow("Modo de Compartilhamento", "SharingMode::Exclusive")
+                    AuroInfoRow("Modo de Compartilhamento", "SharingMode::Shared")
                     AuroInfoRow("Taxa de Amostragem", "$sampleRate Hz")
                     AuroInfoRow("Buffer", "$bufferSizeFrames quadros (Burst)")
                     AuroInfoRow("Ponto Flutuante", "32-bit Float PCM Engine")
@@ -769,6 +770,17 @@ fun AuroLyricsSheet(
     val listState = rememberLazyListState()
     val accent = LocalAuroAccent.current.a.value
 
+    var isUserScrolling by remember { mutableStateOf(false) }
+
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) {
+            isUserScrolling = true
+        } else if (isUserScrolling) {
+            delay(3000L)
+            isUserScrolling = false
+        }
+    }
+
     val activeLineIndex = remember(lyrics, currentProgressMs) {
         if (lyrics != null && lyrics.isSynced && lyrics.lines.isNotEmpty()) {
             val idx = lyrics.lines.indexOfLast { it.timeMs <= currentProgressMs }
@@ -776,8 +788,8 @@ fun AuroLyricsSheet(
         } else -1
     }
 
-    LaunchedEffect(activeLineIndex) {
-        if (activeLineIndex >= 0) {
+    LaunchedEffect(activeLineIndex, isUserScrolling) {
+        if (!isUserScrolling && activeLineIndex >= 0) {
             val targetScroll = (activeLineIndex - 3).coerceAtLeast(0)
             listState.animateScrollToItem(targetScroll)
         }
@@ -961,6 +973,77 @@ fun AuroSavePresetDialog(
                         Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
                             Text("Salvar", color = AuroColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9.1 DIÁLOGO DE CRIAÇÃO DE PLAYLIST VAZIA
+// ─────────────────────────────────────────────────────────────────────────────
+@Composable
+fun AuroCreatePlaylistDialog(
+    onCreate: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var playlistName by remember { mutableStateOf("") }
+    val accent = LocalAuroAccent.current.a.value
+
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.Dialog
+    ) {
+        Surface(
+            color = AuroColor.Black,
+            shape = RoundedCornerShape(AuroRadius.card),
+            modifier = Modifier
+                .fillMaxWidth(0.88f)
+                .border(1.dp, AuroColor.Hairline, RoundedCornerShape(AuroRadius.card))
+        ) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Text(
+                    text = "NOVA LISTA DE REPRODUÇÃO",
+                    color = AuroColor.TextPrimary,
+                    fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(14.dp))
+                OutlinedTextField(
+                    value = playlistName,
+                    onValueChange = { playlistName = it },
+                    placeholder = { Text("Nome da lista...", color = AuroColor.TextTertiary, fontSize = 13.sp) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = accent,
+                        unfocusedBorderColor = AuroColor.Hairline,
+                        focusedTextColor = AuroColor.TextPrimary,
+                        unfocusedTextColor = AuroColor.TextPrimary
+                    )
+                )
+                Spacer(modifier = Modifier.height(18.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("CANCELAR", color = AuroColor.TextSecondary, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (playlistName.isNotBlank()) {
+                                onCreate(playlistName.trim())
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = accent),
+                        shape = RoundedCornerShape(AuroRadius.chip)
+                    ) {
+                        Text("CRIAR", color = AuroColor.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                     }
                 }
             }

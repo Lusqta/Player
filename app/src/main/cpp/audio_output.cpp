@@ -184,12 +184,10 @@ oboe::DataCallbackResult AudioOutput::onAudioReady(
 
 void AudioOutput::onErrorAfterClose(oboe::AudioStream * /*oboeStream*/, oboe::Result error) {
     if (error == oboe::Result::ErrorDisconnected) {
-        // Stream was disconnected (e.g. headphone unplugged)
-        if (isPlaying_.load(std::memory_order_relaxed)) {
-            // Re-open stream
-            if (openStream(currentSampleRate_)) {
-                start();
-            }
-        }
+        // Stream was disconnected (e.g. headphone unplugged).
+        // Re-open stream ready for future playback without calling start(),
+        // leaving play/pause control strictly to the service layer (noisy receiver).
+        isPlaying_.store(false, std::memory_order_relaxed);
+        openStream(currentSampleRate_);
     }
 }

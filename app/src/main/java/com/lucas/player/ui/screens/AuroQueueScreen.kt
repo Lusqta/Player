@@ -20,6 +20,7 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -144,7 +145,7 @@ fun AuroQueueScreen(
             onBackClick = onBackClick,
             rightActions = {
                 if (totalCount > 0) {
-                    IconButton(onClick = onShuffleQueue, modifier = Modifier.size(34.dp)) {
+                    IconButton(onClick = onShuffleQueue, modifier = Modifier.size(44.dp)) {
                         Icon(
                             imageVector = Icons.Rounded.Shuffle,
                             contentDescription = "Aleatório",
@@ -152,7 +153,7 @@ fun AuroQueueScreen(
                             modifier = Modifier.size(18.dp)
                         )
                     }
-                    IconButton(onClick = onClearQueue, modifier = Modifier.size(34.dp)) {
+                    IconButton(onClick = onClearQueue, modifier = Modifier.size(44.dp)) {
                         Icon(
                             imageVector = Icons.Rounded.DeleteOutline,
                             contentDescription = "Limpar Fila",
@@ -171,7 +172,7 @@ fun AuroQueueScreen(
                 message = stringResource(R.string.empty_queue_message),
                 actionLabel = stringResource(R.string.empty_queue_action),
                 onAction = onBackClick,
-                modifier = Modifier.padding(bottom = 120.dp)
+                modifier = Modifier.padding(bottom = 0.dp)
             )
         } else {
             // Banner informativo da fila
@@ -213,7 +214,7 @@ fun AuroQueueScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 120.dp)
+                contentPadding = PaddingValues(bottom = 24.dp)
             ) {
                 // Seção Prioritária (A SEGUIR)
                 if (localPriorityTracks.isNotEmpty()) {
@@ -489,11 +490,11 @@ private fun AuroQueueTrackRow(
                             .background(Color.Black.copy(alpha = 0.45f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "ılı",
-                            color = accent,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
+                        Icon(
+                            imageVector = Icons.Rounded.Equalizer,
+                            contentDescription = "Tocando",
+                            tint = accent,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -505,18 +506,19 @@ private fun AuroQueueTrackRow(
                 contentAlignment = Alignment.CenterStart
             ) {
                 if (isPlaying) {
-                    Text(
-                        text = "ılı",
-                        color = accent,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
+                    Icon(
+                        imageVector = Icons.Rounded.Equalizer,
+                        contentDescription = "Tocando",
+                        tint = accent,
+                        modifier = Modifier.size(18.dp)
                     )
                 } else {
                     Text(
                         text = if (isPriority) "★${index + 1}" else "${index + 1}",
                         color = if (isPriority) accent else AuroColor.TextTertiary,
                         fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = FontFamily.Monospace,
+                        style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
                     )
                 }
             }
@@ -558,7 +560,8 @@ private fun AuroQueueTrackRow(
             text = formatTimeMs(track.durationMs),
             color = AuroColor.TextSecondary,
             fontSize = 11.sp,
-            fontFamily = FontFamily.Monospace
+            fontFamily = FontFamily.Monospace,
+            style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
         )
 
         Spacer(modifier = Modifier.width(4.dp))

@@ -91,7 +91,7 @@ fun AuroSettingsScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 120.dp)
+            contentPadding = PaddingValues(bottom = 24.dp)
         ) {
             // ─────────────────────────────────────────────────────────────
             // SEÇÃO 1: BIBLIOTECA
@@ -104,6 +104,7 @@ fun AuroSettingsScreen(
                 SettingsClickableRow(
                     title = stringResource(R.string.settings_music_folders),
                     subtitle = stringResource(R.string.settings_music_folders_desc),
+                    onClick = { onRescanLibrary() },
                     trailingContent = {
                         Icon(
                             imageVector = Icons.Rounded.FolderOpen,
@@ -556,7 +557,7 @@ fun AuroSettingsScreen(
                     title = stringResource(R.string.settings_repository),
                     subtitle = "GitHub • Aurō Audio Engine v2.0",
                     onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/lucas/player"))
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Lusqta/Player"))
                         try {
                             context.startActivity(intent)
                         } catch (_: Exception) {}

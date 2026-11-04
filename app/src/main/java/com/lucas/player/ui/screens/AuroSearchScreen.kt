@@ -61,6 +61,7 @@ fun AuroSearchScreen(
     preferencesManager: PreferencesManager,
     onTrackClick: (Track, Int) -> Unit,
     onTrackMenuClick: (Track) -> Unit,
+    onTrackLongClick: (Track) -> Unit = {},
     onAlbumClick: (String) -> Unit,
     onArtistClick: (String) -> Unit,
     onClose: () -> Unit,
@@ -300,7 +301,7 @@ fun AuroSearchScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 120.dp)
+                    contentPadding = PaddingValues(bottom = 24.dp)
                 ) {
                     itemsIndexed(recentSearches, key = { _, item -> item }) { _, queryItem ->
                         Row(
@@ -354,14 +355,14 @@ fun AuroSearchScreen(
                 message = stringResource(R.string.empty_search_message),
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = 120.dp)
+                    .padding(bottom = 0.dp)
             )
         } else {
             // Lista de Resultados
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 120.dp)
+                contentPadding = PaddingValues(bottom = 24.dp)
             ) {
                 when (selectedFilter) {
                     SearchFilter.ALL -> {
@@ -385,7 +386,7 @@ fun AuroSearchScreen(
                                         keyboardController?.hide()
                                         onTrackClick(track, index)
                                     },
-                                    onLongClick = {},
+                                    onLongClick = { onTrackLongClick(track) },
                                     onMenuClick = { onTrackMenuClick(track) }
                                 )
                                 HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
@@ -449,7 +450,7 @@ fun AuroSearchScreen(
                                     keyboardController?.hide()
                                     onTrackClick(track, index)
                                 },
-                                onLongClick = {},
+                                onLongClick = { onTrackLongClick(track) },
                                 onMenuClick = { onTrackMenuClick(track) }
                             )
                             HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)

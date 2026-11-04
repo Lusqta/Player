@@ -32,6 +32,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,6 +48,8 @@ import com.lucas.player.ui.components.AuroHaptics
 import com.lucas.player.ui.components.AuroProgressBar
 import com.lucas.player.ui.components.rememberTrackCover
 import com.lucas.player.ui.theme.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * AURŌ DESIGN SYSTEM v2 - TELA NOW PLAYING OFICIAL DO AURŌ DESIGN SYSTEM
@@ -100,6 +103,7 @@ fun AuroNowPlayingScreen(
     }
 
     val view = LocalView.current
+    val coroutineScope = rememberCoroutineScope()
     val reduceMotion = rememberReduceMotion()
     val backProgress = remember { Animatable(0f) }
 
@@ -149,7 +153,7 @@ fun AuroNowPlayingScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = onCollapse, modifier = Modifier.size(36.dp)) {
+            IconButton(onClick = onCollapse, modifier = Modifier.size(44.dp)) {
                 Icon(
                     imageVector = Icons.Rounded.KeyboardArrowDown,
                     contentDescription = "Recolher",
@@ -164,15 +168,16 @@ fun AuroNowPlayingScreen(
                     color = AuroColor.TextTertiary,
                     fontSize = 11.sp,
                     fontFamily = FontFamily.Monospace,
+                    style = TextStyle(fontFeatureSettings = "tnum"),
                     modifier = Modifier
                         .clickable(onClick = onOpenQueue)
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 )
             } else {
-                Spacer(modifier = Modifier.size(36.dp))
+                Spacer(modifier = Modifier.size(44.dp))
             }
 
-            Spacer(modifier = Modifier.size(36.dp))
+            Spacer(modifier = Modifier.size(44.dp))
         }
 
         Spacer(modifier = Modifier.height(4.dp))
@@ -260,13 +265,13 @@ fun AuroNowPlayingScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // ★ Círculo de vidro de 40dp
+                // ★ Círculo de vidro de 44dp
                 val isFavorite = track.rating > 0
                 AuroGlass(
                     kind = AuroGlassKind.Button,
                     onClick = { onRatingChanged(if (isFavorite) 0 else 5) },
                     haptic = { AuroHaptics.confirm(it) },
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(44.dp)
                 ) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(
@@ -278,11 +283,11 @@ fun AuroNowPlayingScreen(
                     }
                 }
 
-                // ⋮ Círculo de vidro de 40dp
+                // ⋮ Círculo de vidro de 44dp
                 AuroGlass(
                     kind = AuroGlassKind.Button,
                     onClick = onOpenTrackInfo,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(44.dp)
                 ) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(
@@ -333,13 +338,20 @@ fun AuroNowPlayingScreen(
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onPress = {
-                                onBeginRewind()
-                                tryAwaitRelease()
-                                onEndRewind()
-                            },
-                            onTap = {
-                                AuroHaptics.click(view)
-                                onPrevious()
+                                var isHold = false
+                                val holdJob = coroutineScope.launch {
+                                    delay(350L)
+                                    isHold = true
+                                    onBeginRewind()
+                                }
+                                val released = tryAwaitRelease()
+                                holdJob.cancel()
+                                if (isHold) {
+                                    onEndRewind()
+                                } else if (released) {
+                                    AuroHaptics.click(view)
+                                    onPrevious()
+                                }
                             }
                         )
                     }
@@ -379,13 +391,20 @@ fun AuroNowPlayingScreen(
                     .pointerInput(Unit) {
                         detectTapGestures(
                             onPress = {
-                                onBeginFastForward()
-                                tryAwaitRelease()
-                                onEndFastForward()
-                            },
-                            onTap = {
-                                AuroHaptics.click(view)
-                                onNext()
+                                var isHold = false
+                                val holdJob = coroutineScope.launch {
+                                    delay(350L)
+                                    isHold = true
+                                    onBeginFastForward()
+                                }
+                                val released = tryAwaitRelease()
+                                holdJob.cancel()
+                                if (isHold) {
+                                    onEndFastForward()
+                                } else if (released) {
+                                    AuroHaptics.click(view)
+                                    onNext()
+                                }
                             }
                         )
                     }
