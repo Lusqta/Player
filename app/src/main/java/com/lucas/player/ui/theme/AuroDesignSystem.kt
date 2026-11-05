@@ -54,6 +54,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lucas.player.ui.components.AuroHaptics
 import android.view.View
 import androidx.compose.ui.unit.dp
@@ -210,7 +213,7 @@ object AuroTilt {
      * (x pra direita, y pra baixo) e intensidade 0,6..1 (celular deitado = reflexo um pouco mais fraco).
      */
     fun light(gx: Float, gy: Float, sideGain: Float = 1.6f, bias: Float = 0.25f): FloatArray {
-        val x = -gx / 9.81f * sideGain
+        val x = gx / 9.81f * sideGain
         val y = gy / 9.81f + bias
         val len = sqrt(x * x + y * y)
         val inPlane = sqrt(gx * gx + gy * gy) / 9.81f
@@ -286,8 +289,9 @@ fun rememberReduceMotion(): Boolean {
 @Composable
 fun rememberListenerLight(playing: Boolean, tilt: Boolean = true): () -> AuroLight {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val sensed = remember { mutableStateOf(AuroLight()) } // lido só na fase de desenho: não recompõe
-    DisposableEffect(tilt) {
+    DisposableEffect(tilt, lifecycleOwner) {
         val sm = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val sensor = sm.getDefaultSensor(Sensor.TYPE_GRAVITY) ?: sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         if (!tilt || sensor == null) {
@@ -307,8 +311,40 @@ fun rememberListenerLight(playing: Boolean, tilt: Boolean = true): () -> AuroLig
 
             override fun onAccuracyChanged(s: Sensor?, accuracy: Int) {}
         }
-        sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_GAME)
-        onDispose { sm.unregisterListener(listener) }
+
+        var isRegistered = false
+        fun register() {
+            if (!isRegistered) {
+                sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_GAME)
+                isRegistered = true
+            }
+        }
+        fun unregister() {
+            if (isRegistered) {
+                sm.unregisterListener(listener)
+                isRegistered = false
+            }
+        }
+
+        // Ativa o sensor se a tela já estiver no estado STARTED ou RESUMED
+        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+            register()
+        }
+
+        // Observa mudanças de ciclo de vida para economizar bateria em segundo plano (ON_STOP)
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> register()
+                Lifecycle.Event.ON_STOP -> unregister()
+                else -> Unit
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            unregister()
+        }
     }
 
     val transition = rememberInfiniteTransition(label = "light")

@@ -14,7 +14,9 @@ Este documento serve como guia técnico aprofundado para agentes de Inteligênci
    - A luz nunca é desenhada no fundo: ela só surge como reflexo especular na aresta inferior/frontal dos objetos de vidro preto.
 3. **Sensor de Inclinação (`AuroTilt` & `TiltSmoother`)**:
    - O reflexo acompanha fisicamente a gravidade do celular com mola amortecida ($\omega = 7\text{ rad/s}, \zeta = 0{,}8$).
-   - A leitura do sensor deve ocorrer estritamente na fase de desenho (via lambdas e `State`), **nunca** provocando recomposição a 60/120Hz.
+   - A leitura do sensor ocorre estritamente na fase de desenho (via lambdas e `State`), **nunca** provocando recomposição a 60/120Hz.
+   - O listener de sensor é desregistrado em `ON_STOP` e registrado em `ON_START` via `LifecycleEventObserver`, eliminando consumo de bateria em segundo plano.
+   - Inclinar o celular para a direita ($g_x > 0$) desloca o reflexo para a direita ($x > 0$); inclinar para a esquerda desloca para a esquerda.
 4. **Objetos de Vidro Preto (`AuroGlass`)**:
    - Apenas objetos interativos (botões de transporte, cards Fila/Letras, mini-player e botões de ação ★/⋮) são de vidro.
    - Itens de lista, textos, trilhos e headers sentam diretamente sobre o preto com divisores `Hairline` (`0x14FFFFFF`).
@@ -165,3 +167,43 @@ A suíte legada (`Dry*`, `Liquid*`, `Player*`, XML layouts e RecyclerView Adapte
 ### Itens Ocultados / Não Suportados pelo Motor
 - **Seletor manual de árvore de pastas (Blacklist SAF / DocumentFile)**: Ocultado porque o armazenamento do Android 13+ (Scoped Storage / MediaStore) gerencia a indexação de áudio de forma segura e global; em vez de um seletor SAF frágil, exibe-se a informação "Todas as pastas de áudio indexadas do aparelho" com o filtro dinâmico de duração mínima.
 - **Seletor de saída de áudio de baixo nível (AAudio vs OpenSL ES vs AudioTrack direct)**: Ocultado porque a biblioteca Google Oboe já negocia dinamicamente e de forma ótima o melhor endpoint de baixa latência (MMAP / AAudio) suportado pelo hardware. Expor chaves manuais poderia causar falhas de inicialização do stream em dispositivos sem suporte a saída direta.
+
+---
+
+## 7. Acessibilidade e Insets da Fase 5
+
+1. **Acessibilidade Completa da Barra de Progresso e Sliders**:
+   - `AuroProgressBar` possui semânticas completas (`progressBarRangeInfo`, `setProgress`, `stateDescription` informando "mm:ss de mm:ss") e `customActions` de acessibilidade para "Voltar 10 segundos" e "Avançar 10 segundos".
+   - `AuroSlider` do Equalizador anuncia valores em decibéis (ex: "+3,5 dB") e suporta ajuste contínuo via TalkBack.
+2. **Ordem de Foco e Alvos de Toque**:
+   - Ordem de foco no Now Playing: Capa -> Título -> Artista -> Progresso -> Controles de Transporte (Anterior, Play/Pause, Próximo) -> Botão Fila -> Botão Letras.
+   - Todos os botões menores (como ★ e ⋮) possuem área mínima de toque de 48dp (`minimumInteractiveComponentSize`).
+3. **Internacionalização e Textos Literais**:
+   - Paridade 100% entre `values/strings.xml` (Português) e `values-en/strings.xml` (Inglês).
+   - Zero literais de texto hardcoded em arquivos Compose.
+4. **Insets Medidos**:
+   - `LocalAuroBottomInset` provê a altura dinâmica da barra de navegação somada ao mini-player medidos via `onSizeChanged`.
+   - Remoção completa de paddings estáticos (ex: 58dp / 118dp).
+5. **Orientação e Fallback**:
+   - Orientação travada em retrato (`portrait`) no manifesto para estabilidade.
+   - Fallback do `AuroGlass` em Android 8 a 12 (API 26 a 32) via contorno de 1dp branco 10% sem dependência de AGSL.
+
+---
+
+## 8. Qualidade e Definição de Pronto da Fase 6
+
+1. **Orçamento de Desempenho do Vidro**:
+   - Máximo de 8 instâncias de `AuroGlass` ativas por tela (Now Playing: 7, Categoria: 2, Drilldown: 2, Equalizador: 3, Busca: 1, Settings: 1, Queue: 0, MiniPlayer: 1).
+   - Renderização testada a 120 Hz sem perda de quadros.
+2. **Calibração do Sensor de Gravidade**:
+   - Inversão de sinal ajustada: $x = \frac{g_x}{9{,}81} \times \text{sideGain}$ para que a inclinação do lado direito para baixo leve o reflexo de luz diretamente para o lado direito.
+   - Ciclo de vida estrito com `LifecycleEventObserver`: desregistro automático do `SensorEventListener` em `ON_STOP` e registro em `ON_START`.
+3. **Definição de Pronto (DoD) Verificada**:
+   - Toda lista possui estados vazio (`AuroEmptyState`), carregando e erro por faixa (`hasError`).
+   - Zero instâncias de `Toast` no código (substituídos por `AuroSnackbarHost`).
+   - Zero textos literais em Compose.
+   - Zero `.background(AuroColor.Track)` fora das barras de progresso.
+   - Transição em todas as navegações (`AnimatedContent`) com Predictive Back elástico.
+   - Operação completa e testada via TalkBack.
+   - Zero padding fixo de navbar/mini player.
+   - Zero arquivos de UI obsoletos ou sem uso.
