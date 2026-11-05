@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -25,10 +26,12 @@ import androidx.compose.ui.unit.sp
 import com.lucas.player.R
 import com.lucas.player.model.LibraryCategory
 import com.lucas.player.model.Track
+import com.lucas.player.model.getTitleRes
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
+import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlinx.coroutines.launch
 
 /**
@@ -64,8 +67,8 @@ fun AuroDrilldownScreen(
     ) {
         AuroBreadcrumbHeader(
             items = listOf(
-                AuroBreadcrumbItem("Biblioteca"),
-                AuroBreadcrumbItem(category.title),
+                AuroBreadcrumbItem(stringResource(R.string.library_breadcrumb)),
+                AuroBreadcrumbItem(stringResource(category.getTitleRes())),
                 AuroBreadcrumbItem(groupTitle)
             ),
             onItemClick = { index ->
@@ -94,7 +97,7 @@ fun AuroDrilldownScreen(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "${tracks.size} faixas • ${formatTimeMs(totalDurationMs)}",
+                text = "${pluralStringResource(R.plurals.tracks_count, tracks.size, tracks.size)} • ${formatTimeMs(totalDurationMs)}",
                 color = AuroColor.TextSecondary,
                 fontSize = 12.sp
             )
@@ -125,7 +128,7 @@ fun AuroDrilldownScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Tocar Todas",
+                            text = stringResource(R.string.play_all),
                             color = AuroColor.TextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
@@ -153,7 +156,7 @@ fun AuroDrilldownScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Aleatório",
+                            text = stringResource(R.string.shuffle_all),
                             color = AuroColor.TextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
@@ -181,7 +184,7 @@ fun AuroDrilldownScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 24.dp, end = if (tracks.size > 15) 28.dp else 0.dp)
+                    contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp, end = if (tracks.size > 15) 28.dp else 0.dp)
                 ) {
                     itemsIndexed(tracks, key = { _, t -> t.id }) { index, track ->
                         AuroTrackRow(

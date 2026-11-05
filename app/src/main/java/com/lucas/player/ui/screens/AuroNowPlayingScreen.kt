@@ -12,10 +12,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.activity.BackEventCompat
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.Animatable
@@ -32,6 +34,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.traversalIndex
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -55,6 +60,7 @@ import kotlinx.coroutines.launch
  * AURŌ DESIGN SYSTEM v2 - TELA NOW PLAYING OFICIAL DO AURŌ DESIGN SYSTEM
  * Reproduz fielmente a spec e o espécime visual (especimen_design_system.png).
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuroNowPlayingScreen(
     track: Track?,
@@ -141,6 +147,7 @@ fun AuroNowPlayingScreen(
                 shape = RoundedCornerShape((28f * p).dp)
                 clip = p > 0.001f
             }
+            .semantics { isTraversalGroup = true }
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 24.dp)
@@ -156,7 +163,7 @@ fun AuroNowPlayingScreen(
             IconButton(onClick = onCollapse, modifier = Modifier.size(44.dp)) {
                 Icon(
                     imageVector = Icons.Rounded.KeyboardArrowDown,
-                    contentDescription = "Recolher",
+                    contentDescription = stringResource(R.string.cd_collapse),
                     tint = AuroColor.TextSecondary,
                     modifier = Modifier.size(24.dp)
                 )
@@ -188,6 +195,10 @@ fun AuroNowPlayingScreen(
                 .fillMaxWidth()
                 .aspectRatio(1f)
                 .clip(RoundedCornerShape(AuroRadius.cover))
+                .semantics {
+                    isTraversalGroup = true
+                    traversalIndex = 1f
+                }
                 .pointerInput(Unit) {
                     var totalDragX = 0f
                     var totalDragY = 0f
@@ -218,7 +229,7 @@ fun AuroNowPlayingScreen(
             if (coverBitmap != null) {
                 Image(
                     bitmap = coverBitmap.asImageBitmap(),
-                    contentDescription = "Capa",
+                    contentDescription = stringResource(R.string.cd_album_cover),
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -248,16 +259,18 @@ fun AuroNowPlayingScreen(
                     color = AuroColor.TextPrimary,
                     fontSize = 21.sp,
                     fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.semantics { traversalIndex = 2f }
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = track.artist.ifEmpty { "Desconhecido" },
+                    text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
                     color = AuroColor.TextSecondary,
                     fontSize = 14.sp,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.semantics { traversalIndex = 3f }
                 )
             }
 
@@ -265,34 +278,38 @@ fun AuroNowPlayingScreen(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // ★ Círculo de vidro de 44dp
+                // ★ Círculo de vidro de 44dp com touch target de 48dp
                 val isFavorite = track.rating > 0
                 AuroGlass(
                     kind = AuroGlassKind.Button,
                     onClick = { onRatingChanged(if (isFavorite) 0 else 5) },
                     haptic = { AuroHaptics.confirm(it) },
-                    modifier = Modifier.size(44.dp)
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .size(44.dp)
                 ) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                            contentDescription = "Favoritar",
+                            contentDescription = stringResource(if (isFavorite) R.string.cd_unfavorite else R.string.cd_favorite),
                             tint = if (isFavorite) LocalAuroAccent.current.a.value else AuroColor.TextPrimary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                 }
 
-                // ⋮ Círculo de vidro de 44dp
+                // ⋮ Círculo de vidro de 44dp com touch target de 48dp
                 AuroGlass(
                     kind = AuroGlassKind.Button,
                     onClick = onOpenTrackInfo,
-                    modifier = Modifier.size(44.dp)
+                    modifier = Modifier
+                        .minimumInteractiveComponentSize()
+                        .size(44.dp)
                 ) {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Rounded.MoreVert,
-                            contentDescription = "Mais opções",
+                            contentDescription = stringResource(R.string.cd_more_options),
                             tint = AuroColor.TextPrimary,
                             modifier = Modifier.size(20.dp)
                         )
@@ -309,14 +326,20 @@ fun AuroNowPlayingScreen(
             durationMs = durationMs,
             onSeek = onSeek,
             onSeekJumpBackward = onSeekJumpBackward,
-            onSeekJumpForward = onSeekJumpForward
+            onSeekJumpForward = onSeekJumpForward,
+            modifier = Modifier.semantics { traversalIndex = 4f }
         )
 
         Spacer(modifier = Modifier.height(26.dp))
 
         // Controles de Reprodução (3 Círculos de Vidro Preto + Shuffle/Repeat)
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    isTraversalGroup = true
+                    traversalIndex = 5f
+                },
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -324,7 +347,7 @@ fun AuroNowPlayingScreen(
             IconButton(onClick = onToggleShuffle, modifier = Modifier.size(44.dp)) {
                 Icon(
                     imageVector = Icons.Rounded.Shuffle,
-                    contentDescription = "Aleatório",
+                    contentDescription = stringResource(R.string.cd_shuffle),
                     tint = if (shuffleMode != ShuffleMode.OFF) LocalAuroAccent.current.a.value else AuroColor.TextTertiary,
                     modifier = Modifier.size(22.dp)
                 )
@@ -359,7 +382,7 @@ fun AuroNowPlayingScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Rounded.SkipPrevious,
-                        contentDescription = "Anterior",
+                        contentDescription = stringResource(R.string.cd_previous),
                         tint = AuroColor.TextPrimary,
                         modifier = Modifier.size(28.dp)
                     )
@@ -376,7 +399,7 @@ fun AuroNowPlayingScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = if (isPlaying) "Pausar" else "Reproduzir",
+                        contentDescription = stringResource(if (isPlaying) R.string.cd_pause else R.string.cd_play),
                         tint = AuroColor.TextPrimary,
                         modifier = Modifier.size(38.dp)
                     )
@@ -412,7 +435,7 @@ fun AuroNowPlayingScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Rounded.SkipNext,
-                        contentDescription = "Próxima",
+                        contentDescription = stringResource(R.string.cd_next),
                         tint = AuroColor.TextPrimary,
                         modifier = Modifier.size(28.dp)
                     )
@@ -427,7 +450,7 @@ fun AuroNowPlayingScreen(
                         RepeatMode.ALL, RepeatMode.CATEGORY, RepeatMode.ADVANCE_CATEGORY -> Icons.Rounded.Repeat
                         else -> Icons.Rounded.Repeat
                     },
-                    contentDescription = "Repetir",
+                    contentDescription = stringResource(R.string.cd_repeat),
                     tint = if (repeatMode != RepeatMode.OFF) LocalAuroAccent.current.a.value else AuroColor.TextTertiary,
                     modifier = Modifier.size(22.dp)
                 )
@@ -447,10 +470,11 @@ fun AuroNowPlayingScreen(
                 modifier = Modifier
                     .weight(1f)
                     .height(60.dp)
+                    .semantics { traversalIndex = 6f }
             ) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "Fila",
+                        text = stringResource(R.string.queue_label),
                         color = AuroColor.TextPrimary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium
@@ -464,10 +488,11 @@ fun AuroNowPlayingScreen(
                 modifier = Modifier
                     .weight(1f)
                     .height(60.dp)
+                    .semantics { traversalIndex = 7f }
             ) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
-                        text = "Letras",
+                        text = stringResource(R.string.lyrics_label),
                         color = AuroColor.TextPrimary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium
@@ -481,7 +506,11 @@ fun AuroNowPlayingScreen(
         // Título da Seção (ex: VOX (7) como no espécime)
         val headerTitle = if (categoryTitle.isNotBlank()) {
             if (queueSize > 0) "${categoryTitle.uppercase()} ($queueSize)" else categoryTitle.uppercase()
-        } else if (queueSize > 0) "FILA ($queueSize)" else "FILA"
+        } else if (queueSize > 0) {
+            stringResource(R.string.section_queue_with_count, queueSize)
+        } else {
+            stringResource(R.string.section_queue)
+        }
 
         Text(
             text = headerTitle,
@@ -543,7 +572,7 @@ fun AuroNowPlayingScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = nextTrack.artist.ifEmpty { "Desconhecido" },
+                            text = nextTrack.artist.ifEmpty { stringResource(R.string.unknown_artist) },
                             color = AuroColor.TextSecondary,
                             fontSize = 11.5.sp,
                             maxLines = 1,
@@ -598,7 +627,7 @@ fun AuroNowPlayingScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = afterNextTrack.artist.ifEmpty { "Desconhecido" },
+                            text = afterNextTrack.artist.ifEmpty { stringResource(R.string.unknown_artist) },
                             color = AuroColor.TextSecondary,
                             fontSize = 11.5.sp,
                             maxLines = 1,
@@ -610,7 +639,7 @@ fun AuroNowPlayingScreen(
             }
         } else {
             Text(
-                text = "Fim da fila",
+                text = stringResource(R.string.end_of_queue),
                 color = AuroColor.TextTertiary,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(vertical = 8.dp)

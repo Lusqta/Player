@@ -19,18 +19,21 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
 import com.lucas.player.model.LibraryCategory
+import com.lucas.player.model.getTitleRes
 import com.lucas.player.ui.components.AuroBreadcrumbHeader
 import com.lucas.player.ui.components.AuroBreadcrumbItem
 import com.lucas.player.ui.components.AuroEmptyState
 import com.lucas.player.ui.components.AuroLoadingBar
 import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.LocalAuroAccent
+import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlinx.coroutines.delay
 
 /**
@@ -58,20 +61,20 @@ fun AuroLibraryRootScreen(
     }
     val categories = remember {
         listOf(
-            LibraryCategory.ALL_SONGS to ("Todas as Músicas" to Icons.AutoMirrored.Rounded.PlaylistPlay),
-            LibraryCategory.FOLDERS to ("Pastas" to Icons.Rounded.Folder),
-            LibraryCategory.ALBUMS to ("Álbuns" to Icons.Rounded.Album),
-            LibraryCategory.ARTISTS to ("Artistas" to Icons.Rounded.Person),
-            LibraryCategory.ALBUM_ARTISTS to ("Artistas do Álbum" to Icons.Rounded.Group),
-            LibraryCategory.GENRES to ("Gêneros" to Icons.Rounded.Category),
-            LibraryCategory.PLAYLISTS to ("Listas de Reprodução" to Icons.Rounded.PlaylistAddCheck),
-            LibraryCategory.QUEUE to ("Fila de Reprodução" to Icons.AutoMirrored.Rounded.QueueMusic),
-            LibraryCategory.YEARS to ("Anos" to Icons.Rounded.DateRange),
-            LibraryCategory.COMPOSERS to ("Compositores" to Icons.Rounded.Piano),
-            LibraryCategory.MOST_PLAYED to ("Mais Tocadas" to Icons.Rounded.TrendingUp),
-            LibraryCategory.RECENTLY_ADDED to ("Adicionadas Recentemente" to Icons.Rounded.Schedule),
-            LibraryCategory.RECENTLY_PLAYED to ("Tocadas Recentemente" to Icons.Rounded.History),
-            LibraryCategory.TOP_RATED to ("Melhor Classificadas" to Icons.Rounded.Star)
+            LibraryCategory.ALL_SONGS to Icons.AutoMirrored.Rounded.PlaylistPlay,
+            LibraryCategory.FOLDERS to Icons.Rounded.Folder,
+            LibraryCategory.ALBUMS to Icons.Rounded.Album,
+            LibraryCategory.ARTISTS to Icons.Rounded.Person,
+            LibraryCategory.ALBUM_ARTISTS to Icons.Rounded.Group,
+            LibraryCategory.GENRES to Icons.Rounded.Category,
+            LibraryCategory.PLAYLISTS to Icons.Rounded.PlaylistAddCheck,
+            LibraryCategory.QUEUE to Icons.AutoMirrored.Rounded.QueueMusic,
+            LibraryCategory.YEARS to Icons.Rounded.DateRange,
+            LibraryCategory.COMPOSERS to Icons.Rounded.Piano,
+            LibraryCategory.MOST_PLAYED to Icons.Rounded.TrendingUp,
+            LibraryCategory.RECENTLY_ADDED to Icons.Rounded.Schedule,
+            LibraryCategory.RECENTLY_PLAYED to Icons.Rounded.History,
+            LibraryCategory.TOP_RATED to Icons.Rounded.Star
         )
     }
 
@@ -81,14 +84,14 @@ fun AuroLibraryRootScreen(
             .background(AuroColor.Black)
     ) {
         AuroBreadcrumbHeader(
-            items = listOf(AuroBreadcrumbItem("Biblioteca")),
+            items = listOf(AuroBreadcrumbItem(stringResource(R.string.library_breadcrumb))),
             onItemClick = {},
             canGoBack = false,
             rightActions = {
                 IconButton(onClick = onSortClick, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.Sort,
-                        contentDescription = "Ordenar",
+                        contentDescription = stringResource(R.string.cd_sort),
                         tint = AuroColor.TextSecondary,
                         modifier = Modifier.size(18.dp)
                     )
@@ -96,7 +99,7 @@ fun AuroLibraryRootScreen(
                 IconButton(onClick = onRescanClick, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = Icons.Rounded.Refresh,
-                        contentDescription = "Atualizar",
+                        contentDescription = stringResource(R.string.cd_refresh),
                         tint = AuroColor.TextSecondary,
                         modifier = Modifier.size(18.dp)
                     )
@@ -117,7 +120,7 @@ fun AuroLibraryRootScreen(
         } else {
             // Resumo
             Text(
-                text = "$totalTracksCount faixas indexadas",
+                text = pluralStringResource(R.plurals.tracks_indexed_count, totalTracksCount, totalTracksCount),
                 color = AuroColor.TextSecondary,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -140,10 +143,9 @@ fun AuroLibraryRootScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 24.dp)
+                contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp)
             ) {
-                items(categories, key = { it.first.name }) { (cat, info) ->
-                    val (title, icon) = info
+                items(categories, key = { it.first.name }) { (cat, icon) ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -160,7 +162,7 @@ fun AuroLibraryRootScreen(
                         Spacer(modifier = Modifier.width(14.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = title,
+                                text = stringResource(cat.getTitleRes()),
                                 color = AuroColor.TextPrimary,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Medium

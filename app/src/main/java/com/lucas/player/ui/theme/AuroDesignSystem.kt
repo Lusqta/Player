@@ -33,6 +33,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.State
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -267,6 +268,7 @@ val LocalAuroAccent = staticCompositionLocalOf<AuroAccentState> {
 
 val LocalAuroSoft = staticCompositionLocalOf { 0.6f }
 val LocalReduceMotionOverride = staticCompositionLocalOf<Boolean?> { null }
+val LocalAuroBottomInset = compositionLocalOf { 0.dp }
 
 /** true se o usuário desligou as animações do sistema ou configurou no app. */
 @Composable

@@ -29,12 +29,14 @@ import androidx.compose.ui.unit.sp
 import com.lucas.player.R
 import com.lucas.player.model.LibraryCategory
 import com.lucas.player.model.Track
+import com.lucas.player.model.getTitleRes
 import com.lucas.player.ui.GroupItem
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
 import com.lucas.player.ui.theme.LocalAuroAccent
+import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlinx.coroutines.launch
 
 /**
@@ -79,8 +81,8 @@ fun AuroCategoryListScreen(
     ) {
         AuroBreadcrumbHeader(
             items = listOf(
-                AuroBreadcrumbItem("Biblioteca"),
-                AuroBreadcrumbItem(category.title)
+                AuroBreadcrumbItem(stringResource(R.string.library_breadcrumb)),
+                AuroBreadcrumbItem(stringResource(category.getTitleRes()))
             ),
             onItemClick = { index ->
                 if (index == 0) onBackClick()
@@ -91,7 +93,7 @@ fun AuroCategoryListScreen(
                 IconButton(onClick = onSortClick, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.Sort,
-                        contentDescription = "Ordenar",
+                        contentDescription = stringResource(R.string.cd_sort),
                         tint = AuroColor.TextSecondary,
                         modifier = Modifier.size(18.dp)
                     )
@@ -128,7 +130,7 @@ fun AuroCategoryListScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Tocar Todas",
+                            text = stringResource(R.string.play_all),
                             color = AuroColor.TextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
@@ -156,7 +158,7 @@ fun AuroCategoryListScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Aleatório",
+                            text = stringResource(R.string.shuffle_all),
                             color = AuroColor.TextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium
@@ -184,7 +186,7 @@ fun AuroCategoryListScreen(
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    text = "+ Nova Lista de Reprodução",
+                    text = stringResource(R.string.new_playlist_button),
                     color = LocalAuroAccent.current.a.value,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
@@ -210,7 +212,7 @@ fun AuroCategoryListScreen(
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 24.dp, end = if (displayedTracks.size > 15) 28.dp else 0.dp)
+                        contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp, end = if (displayedTracks.size > 15) 28.dp else 0.dp)
                     ) {
                         itemsIndexed(displayedTracks, key = { _, t -> t.id }) { index, track ->
                             AuroTrackRow(
@@ -276,7 +278,7 @@ fun AuroCategoryListScreen(
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = 24.dp, end = if (displayedGroups.size > 15) 28.dp else 0.dp)
+                        contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp, end = if (displayedGroups.size > 15) 28.dp else 0.dp)
                     ) {
                         items(displayedGroups, key = { it.title }) { group ->
                             Row(

@@ -34,6 +34,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -42,6 +44,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lucas.player.R
 import com.lucas.player.data.CoverArtLoader
 import com.lucas.player.model.Track
 import com.lucas.player.ui.navigation.NavScreen
@@ -104,12 +107,53 @@ fun AuroProgressBar(
     val displayedMs = (activeFraction * durationMs).toLong()
     val remainingMs = (durationMs - displayedMs).coerceAtLeast(0)
 
+    val seekBackLabel = stringResource(R.string.cd_seek_back_10)
+    val seekForwardLabel = stringResource(R.string.cd_seek_forward_10)
+    val cdProgress = stringResource(R.string.cd_track_progress)
+    val stateDesc = stringResource(R.string.progress_state_desc, formatTimeMs(displayedMs), formatTimeMs(durationMs))
+
     Column(modifier = modifier.fillMaxWidth()) {
         // Trilho de 3dp com thumb de 10dp
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp) // Aumentado de 30.dp para 48.dp (trilho interno continua 3.dp)
+                .semantics(mergeDescendants = true) {
+                    contentDescription = cdProgress
+                    stateDescription = stateDesc
+                    progressBarRangeInfo = ProgressBarRangeInfo(
+                        current = displayedMs.toFloat(),
+                        range = 0f..(durationMs.toFloat().coerceAtLeast(1f)),
+                        steps = 0
+                    )
+                    setProgress { targetValue ->
+                        if (durationMs > 0) {
+                            val targetFrac = (targetValue / durationMs.toFloat()).coerceIn(0f, 1f)
+                            onSeek(targetFrac)
+                            true
+                        } else false
+                    }
+                    customActions = listOf(
+                        CustomAccessibilityAction(seekBackLabel) {
+                            if (durationMs > 0) {
+                                val currentMs = (activeFraction * durationMs).toLong()
+                                val newMs = (currentMs - 10_000L).coerceAtLeast(0L)
+                                onSeek(newMs.toFloat() / durationMs.toFloat())
+                                onSeekJumpBackward()
+                                true
+                            } else false
+                        },
+                        CustomAccessibilityAction(seekForwardLabel) {
+                            if (durationMs > 0) {
+                                val currentMs = (activeFraction * durationMs).toLong()
+                                val newMs = (currentMs + 10_000L).coerceAtMost(durationMs)
+                                onSeek(newMs.toFloat() / durationMs.toFloat())
+                                onSeekJumpForward()
+                                true
+                            } else false
+                        }
+                    )
+                }
                 .pointerInput(Unit) {
                     detectDragGestures(
                         onDragStart = { offset ->
@@ -259,7 +303,7 @@ fun AuroMiniPlayer(
                 if (coverBitmap != null) {
                     Image(
                         bitmap = coverBitmap.asImageBitmap(),
-                        contentDescription = "Capa",
+                        contentDescription = stringResource(R.string.cd_album_cover),
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
                             .size(40.dp)
@@ -287,7 +331,7 @@ fun AuroMiniPlayer(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = track.artist.ifEmpty { "Desconhecido" },
+                        text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
                         color = AuroColor.TextSecondary,
                         fontSize = 11.5.sp,
                         maxLines = 1,
@@ -299,7 +343,7 @@ fun AuroMiniPlayer(
                 IconButton(onClick = { AuroHaptics.click(view); onPrevious() }, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = Icons.Rounded.SkipPrevious,
-                        contentDescription = "Anterior",
+                        contentDescription = stringResource(R.string.cd_previous),
                         tint = AuroColor.TextPrimary,
                         modifier = Modifier.size(22.dp)
                     )
@@ -308,7 +352,7 @@ fun AuroMiniPlayer(
                 IconButton(onClick = { AuroHaptics.confirm(view); onPlayPause() }, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = if (isPlaying) "Pausar" else "Reproduzir",
+                        contentDescription = if (isPlaying) stringResource(R.string.cd_pause) else stringResource(R.string.cd_play),
                         tint = AuroColor.TextPrimary,
                         modifier = Modifier.size(26.dp)
                     )
@@ -317,7 +361,7 @@ fun AuroMiniPlayer(
                 IconButton(onClick = { AuroHaptics.click(view); onNext() }, modifier = Modifier.size(44.dp)) {
                     Icon(
                         imageVector = Icons.Rounded.SkipNext,
-                        contentDescription = "Próxima",
+                        contentDescription = stringResource(R.string.cd_next),
                         tint = AuroColor.TextPrimary,
                         modifier = Modifier.size(22.dp)
                     )
@@ -356,28 +400,28 @@ fun AuroNavbar(
         ) {
             AuroNavbarTab(
                 icon = Icons.Rounded.GraphicEq,
-                label = "Equalizador",
+                label = stringResource(R.string.tab_equalizer),
                 isActive = currentScreen is NavScreen.Equalizer,
                 onClick = onEqClick
             )
 
             AuroNavbarTab(
                 icon = Icons.Rounded.LibraryMusic,
-                label = "Biblioteca",
+                label = stringResource(R.string.tab_library),
                 isActive = currentScreen is NavScreen.LibraryRoot || currentScreen is NavScreen.CategoryList || currentScreen is NavScreen.Drilldown,
                 onClick = onLibraryClick
             )
 
             AuroNavbarTab(
                 icon = Icons.Rounded.Search,
-                label = "Buscar",
+                label = stringResource(R.string.tab_search),
                 isActive = currentScreen is NavScreen.Search,
                 onClick = onSearchClick
             )
 
             AuroNavbarTab(
                 icon = Icons.Rounded.Menu,
-                label = "Menu",
+                label = stringResource(R.string.tab_menu),
                 isActive = false,
                 onClick = onMenuClick
             )
@@ -525,7 +569,7 @@ fun AuroTrackRow(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Equalizer,
-                            contentDescription = "Tocando",
+                            contentDescription = stringResource(R.string.cd_playing_indicator),
                             tint = accent,
                             modifier = Modifier.size(18.dp)
                         )
@@ -542,7 +586,7 @@ fun AuroTrackRow(
                 if (isPlayingThis) {
                     Icon(
                         imageVector = Icons.Rounded.Equalizer,
-                        contentDescription = "Tocando",
+                        contentDescription = stringResource(R.string.cd_playing_indicator),
                         tint = accent,
                         modifier = Modifier.size(16.dp)
                     )
@@ -564,7 +608,7 @@ fun AuroTrackRow(
                 if (hasError) {
                     Icon(
                         imageVector = Icons.Rounded.WarningAmber,
-                        contentDescription = "Erro de reprodução",
+                        contentDescription = stringResource(R.string.cd_error_indicator),
                         tint = Color(0xFFFF5252),
                         modifier = Modifier.size(15.dp)
                     )
@@ -645,7 +689,7 @@ fun AuroTrackRow(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.MoreVert,
-                    contentDescription = "Mais opções",
+                    contentDescription = stringResource(R.string.cd_more_options),
                     tint = AuroColor.TextTertiary,
                     modifier = Modifier.size(16.dp)
                 )
@@ -688,7 +732,7 @@ fun AuroBreadcrumbHeader(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = "Voltar",
+                        contentDescription = stringResource(R.string.cd_back),
                         tint = AuroColor.TextPrimary,
                         modifier = Modifier.size(20.dp)
                     )
@@ -858,6 +902,7 @@ fun matchesFirstLetter(text: String, targetLetter: Char): Boolean {
 /**
  * 7. CLASSIFICAÇÃO DE 5 ESTRELAS
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuroRatingBar(
     rating: Int,
@@ -877,11 +922,13 @@ fun AuroRatingBar(
                     val newRating = if (rating == i) 0 else i
                     onRatingSelected(newRating)
                 },
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier
+                    .minimumInteractiveComponentSize()
+                    .size(40.dp)
             ) {
                 Icon(
                     imageVector = if (isFilled) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                    contentDescription = "$i estrelas",
+                    contentDescription = pluralStringResource(R.plurals.star_rating_desc, i, i),
                     tint = if (isFilled) accent else AuroColor.TextTertiary,
                     modifier = Modifier.size(20.dp)
                 )
@@ -971,6 +1018,8 @@ fun AuroSlider(
     modifier: Modifier = Modifier,
     valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
     steps: Int = 0,
+    contentDescription: String? = null,
+    stateDescription: String? = null,
     onValueChangeFinished: (() -> Unit)? = null,
     enabled: Boolean = true
 ) {
@@ -983,6 +1032,12 @@ fun AuroSlider(
             .fillMaxWidth()
             .height(44.dp)
             .semantics(mergeDescendants = true) {
+                if (contentDescription != null) {
+                    this.contentDescription = contentDescription
+                }
+                if (stateDescription != null) {
+                    this.stateDescription = stateDescription
+                }
                 progressBarRangeInfo = ProgressBarRangeInfo(
                     current = value,
                     range = valueRange,

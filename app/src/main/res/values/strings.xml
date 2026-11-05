@@ -115,4 +115,215 @@
     <string name="notification_play">Tocar</string>
     <string name="notification_pause">Pausar</string>
     <string name="notification_next">Próxima</string>
+
+    <!-- Acessibilidade & Semantics (Fase 5.1 & 5.2) -->
+    <string name="cd_track_progress">Progresso da faixa</string>
+    <string name="progress_state_desc">%1$s de %2$s</string>
+    <string name="cd_seek_back_10">Voltar 10 segundos</string>
+    <string name="cd_seek_forward_10">Avançar 10 segundos</string>
+    <string name="cd_eq_band">Banda %1$s</string>
+    <string name="cd_album_cover">Capa do álbum</string>
+    <string name="cd_favorite">Favoritar</string>
+    <string name="cd_unfavorite">Remover dos favoritos</string>
+    <string name="cd_more_options">Mais opções</string>
+    <string name="cd_collapse">Recolher</string>
+    <string name="cd_close">Fechar</string>
+    <string name="cd_back">Voltar</string>
+    <string name="cd_shuffle">Aleatório</string>
+    <string name="cd_repeat">Repetir</string>
+    <string name="cd_previous">Anterior</string>
+    <string name="cd_next">Próxima</string>
+    <string name="cd_play">Reproduzir</string>
+    <string name="cd_pause">Pausar</string>
+    <string name="cd_sort">Ordenar</string>
+    <string name="cd_refresh">Atualizar</string>
+    <string name="cd_delete_preset">Excluir preset</string>
+    <string name="cd_clear_queue">Limpar fila</string>
+    <string name="cd_clear_search">Limpar busca</string>
+    <string name="cd_remove_item">Remover</string>
+    <string name="cd_playing_indicator">Tocando agora</string>
+    <string name="cd_error_indicator">Erro de reprodução</string>
+
+    <!-- Comuns / Ações -->
+    <string name="close">Fechar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="save">Salvar</string>
+    <string name="create">Criar</string>
+    <string name="delete">Excluir</string>
+    <string name="ok">OK</string>
+    <string name="unknown_artist">Desconhecido</string>
+    <string name="unknown_album">Álbum desconhecido</string>
+    <string name="rating_stars_toast">Classificada com %1$d estrelas</string>
+    <string name="rating_removed_toast">Classificação removida</string>
+
+    <!-- Plurais (Fase 5.3) -->
+    <plurals name="tracks_count">
+        <item quantity="one">%d faixa</item>
+        <item quantity="other">%d faixas</item>
+    </plurals>
+    <plurals name="tracks_indexed_count">
+        <item quantity="one">%d faixa indexada</item>
+        <item quantity="other">%d faixas indexadas</item>
+    </plurals>
+    <plurals name="priority_tracks_count">
+        <item quantity="one">%d prioritária</item>
+        <item quantity="other">%d prioritárias</item>
+    </plurals>
+    <plurals name="star_rating_desc">
+        <item quantity="one">%d estrela</item>
+        <item quantity="other">%d estrelas</item>
+    </plurals>
+
+    <!-- Now Playing (Fase 5.3) -->
+    <string name="queue_label">Fila</string>
+    <string name="lyrics_label">Letras</string>
+    <string name="end_of_queue">Fim da fila</string>
+    <string name="section_queue_with_count">FILA (%1$d)</string>
+    <string name="section_queue">FILA</string>
+
+    <!-- Diálogos & Overlays (Fase 5.3) -->
+    <string name="context_rating">Classificação:</string>
+    <string name="context_play_next">Tocar a seguir (Fila prioritária)</string>
+    <string name="context_add_queue">Adicionar ao fim da fila</string>
+    <string name="context_add_playlist">Adicionar à lista de reprodução…</string>
+    <string name="context_track_info">Informações da faixa</string>
+    <string name="sort_title">ORDENAR POR</string>
+    <string name="track_info_title">DETALHES DA FAIXA</string>
+    <string name="track_info_track_title">Título</string>
+    <string name="track_info_artist">Artista</string>
+    <string name="track_info_album">Álbum</string>
+    <string name="track_info_duration">Duração</string>
+    <string name="track_info_format">Formato</string>
+    <string name="track_info_sample_rate">Taxa de Amostragem</string>
+    <string name="track_info_bitrate">Bitrate</string>
+    <string name="track_info_path">Caminho</string>
+    <string name="add_to_playlist_title">ADICIONAR À LISTA</string>
+    <string name="new_playlist_header">NOVA LISTA DE REPRODUÇÃO</string>
+    <string name="new_playlist_hint">Nome da lista…</string>
+    <string name="create_and_add">Criar &amp; Adicionar</string>
+    <string name="new_playlist_button">+ Nova Lista de Reprodução</string>
+    <string name="no_playlists_yet">Nenhuma lista criada ainda</string>
+    <string name="sleep_timer_title">TEMPORIZADOR</string>
+    <string name="sleep_timer_active_desc">ATIVO: %1$dm %2$ds restantes</string>
+    <string name="sleep_timer_stop_at_end">Tocar até o fim da faixa</string>
+    <string name="menu_sheet_title">MENU</string>
+    <string name="audio_engine_title">MOTOR DE ÁUDIO NATIVO</string>
+    <string name="audio_engine_pipeline">Pipeline</string>
+    <string name="audio_engine_pipeline_val">Google Oboe (C++ High-Performance)</string>
+    <string name="audio_engine_driver">Driver Nativo</string>
+    <string name="audio_engine_driver_val">AAudio / OpenSL ES</string>
+    <string name="audio_engine_latency">Modo de Latência</string>
+    <string name="audio_engine_latency_val">PerformanceMode::LowLatency</string>
+    <string name="audio_engine_sharing">Modo de Compartilhamento</string>
+    <string name="audio_engine_sharing_val">SharingMode::Shared</string>
+    <string name="audio_engine_sample_rate">Taxa de Amostragem</string>
+    <string name="audio_engine_buffer">Buffer</string>
+    <string name="audio_engine_buffer_val">%1$d quadros (Burst)</string>
+    <string name="audio_engine_fp">Ponto Flutuante</string>
+    <string name="audio_engine_fp_val">32-bit Float PCM Engine</string>
+    <string name="lyrics_sheet_title">LETRAS</string>
+    <string name="lyrics_no_local">Sem letras locais</string>
+    <string name="lyrics_none_found">Nenhuma letra encontrada</string>
+    <string name="lyrics_lrc_hint">Coloque um arquivo .lrc na mesma pasta com o mesmo nome da música.</string>
+    <string name="save_preset_title">SALVAR PRESET</string>
+    <string name="preset_name_hint">Nome do preset…</string>
+    <string name="create_playlist_title">NOVA LISTA DE REPRODUÇÃO</string>
+    <string name="confirm_delete_title">Excluir playlist</string>
+    <string name="about_app_title">AURŌ PLAYER</string>
+    <string name="about_app_version_format">v%1$s (Build %2$d) • Aurō DS v3</string>
+    <string name="about_app_specs">• Motor de áudio nativo Google Oboe C++\n• Processamento de luz global única com AGSL RuntimeShader\n• Vidro preto líquido com dispersão cromática por canal\n• Extração harmônica de cores de capa via AndroidX Palette\n• Letras sincronizadas (.LRC) e equalizador de 10 bandas</string>
+
+    <!-- Fila de Reprodução (Fase 5.3) -->
+    <string name="queue_total_header">FILA TOTAL</string>
+    <string name="queue_section_priority">A SEGUIR (PRIORITÁRIA)</string>
+    <string name="queue_section_normal">REPRODUÇÃO NORMAL</string>
+
+    <!-- Biblioteca & Navegação (Fase 5.3) -->
+    <string name="play_all">Tocar Todas</string>
+    <string name="shuffle_all">Aleatório</string>
+    <string name="library_breadcrumb">Biblioteca</string>
+    <string name="queue_breadcrumb">Fila de Reprodução</string>
+    <string name="equalizer_breadcrumb">Equalizador</string>
+    <string name="tab_equalizer">Equalizador</string>
+    <string name="tab_library">Biblioteca</string>
+    <string name="tab_search">Buscar</string>
+    <string name="tab_menu">Menu</string>
+
+    <!-- Equalizador (Fase 5.3) -->
+    <string name="eq_presets_header">PRESETS</string>
+    <string name="eq_reset">Redefinir</string>
+    <string name="eq_save">+ Salvar</string>
+    <string name="eq_tone_preamp_header">TOM &amp; PRÉ-AMP</string>
+    <string name="eq_mono">Mono</string>
+    <string name="eq_bands_header">10 BANDAS</string>
+    <string name="eq_preamp_label">Pré-Amp</string>
+    <string name="eq_bass_label">Graves</string>
+    <string name="eq_treble_label">Agudos</string>
+    <string name="eq_balance_label">Balanço</string>
+    <string name="eq_balance_center">Centro</string>
+
+    <!-- Snackbars & Avisos (Fase 5.3) -->
+    <string name="snackbar_queue_cleared">Fila limpa</string>
+    <string name="snackbar_queue_shuffled">Fila aleatória</string>
+    <string name="snackbar_library_updated">Biblioteca atualizada</string>
+    <string name="snackbar_enqueued_priority">Tocar a seguir (Fila prioritária)</string>
+    <string name="snackbar_enqueued_end">Adicionada ao fim da fila</string>
+    <string name="snackbar_playlist_created">Lista de reprodução criada!</string>
+    <string name="snackbar_playlist_created_track_added">Playlist criada e faixa adicionada!</string>
+    <string name="snackbar_added_to_playlist">Adicionada à playlist “%1$s”</string>
+    <string name="snackbar_added_multiple_to_playlist">Adicionadas à playlist “%1$s”</string>
+    <string name="snackbar_timer_off">Temporizador desligado</string>
+    <string name="snackbar_eq_reset">Equalizador redefinido para Flat (0dB)</string>
+    <string name="snackbar_preset_saved">Preset “%1$s” salvo</string>
+    <string name="snackbar_preset_deleted">Preset “%1$s” excluído</string>
+    <string name="snackbar_playlist_deleted">Playlist “%1$s” excluída</string>
+    <string name="settings_licenses_text">• Android Jetpack Compose (Apache 2.0)\n• Oboe C++ Audio Engine (Apache 2.0)\n• Material 3 Icons (Apache 2.0)\n• AndroidX Palette (Apache 2.0)\n• AGSL Runtime Shaders (Google DeepMind/Auro)</string>
+
+    <!-- Categorias da Biblioteca (Fase 5.3) -->
+    <string name="category_all_songs">Todas as Músicas</string>
+    <string name="category_folders">Pastas</string>
+    <string name="category_albums">Álbuns</string>
+    <string name="category_artists">Artistas</string>
+    <string name="category_album_artists">Artistas do Álbum</string>
+    <string name="category_genres">Gêneros</string>
+    <string name="category_years">Anos</string>
+    <string name="category_composers">Compositores</string>
+    <string name="category_playlists">Listas de Reprodução</string>
+    <string name="category_queue">Fila de Reprodução</string>
+    <string name="category_recently_added">Adicionadas Recentemente</string>
+    <string name="category_recently_played">Tocadas Recentemente</string>
+    <string name="category_most_played">Mais Tocadas</string>
+    <string name="category_top_rated">Mais Votadas</string>
+
+    <!-- Modos de Ordenação (Fase 5.3) -->
+    <string name="sort_title_asc">Título (A-Z)</string>
+    <string name="sort_title_desc">Título (Z-A)</string>
+    <string name="sort_artist_asc">Artista (A-Z)</string>
+    <string name="sort_album_asc">Álbum (A-Z)</string>
+    <string name="sort_year_desc">Ano (Mais recente)</string>
+    <string name="sort_year_asc">Ano (Mais antigo)</string>
+    <string name="sort_track_number">Número da Faixa</string>
+    <string name="sort_duration_desc">Duração (Mais longa)</string>
+    <string name="sort_duration_asc">Duração (Mais curta)</string>
+    <string name="sort_date_added_desc">Data de Adição (Recentes)</string>
+    <string name="sort_play_count_desc">Mais Tocadas</string>
+    <string name="sort_rating_desc">Mais Votadas</string>
+
+    <!-- Subtítulos de Grupos (Fase 5.3) -->
+    <string name="group_subtitle_album">Álbum</string>
+    <string name="group_subtitle_artist">Artista</string>
+    <string name="group_subtitle_album_artist">Artista do Álbum</string>
+    <string name="group_subtitle_genre">Gênero</string>
+    <string name="group_subtitle_year">Ano</string>
+    <string name="group_subtitle_composer">Compositor</string>
+    <string name="group_subtitle_playlist">Playlist</string>
+
+    <!-- Confirmações e Avisos Adicionais (Fase 5.3) -->
+    <string name="confirm_delete_playlist_message">Deseja excluir a lista “%1$s”?</string>
+    <string name="confirm_delete_preset_title">Excluir Preset</string>
+    <string name="confirm_delete_preset_message">Deseja excluir o preset “%1$s”?</string>
+    <string name="snackbar_timer_set">Desligará em %1$d min</string>
+    <string name="snackbar_timer_set_track_end">Desligará em %1$d min (ao fim da faixa)</string>
+    <string name="snackbar_rating_set">Classificada com %1$d estrelas</string>
+    <string name="snackbar_rating_removed">Classificação removida</string>
 </resources>

@@ -24,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +44,7 @@ import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
 import com.lucas.player.ui.theme.LocalAuroAccent
+import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlinx.coroutines.delay
 
 enum class SearchFilter {
@@ -155,7 +157,7 @@ fun AuroSearchScreen(
             IconButton(onClick = onClose, modifier = Modifier.size(36.dp)) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Voltar",
+                    contentDescription = stringResource(R.string.cd_back),
                     tint = AuroColor.TextPrimary,
                     modifier = Modifier.size(20.dp)
                 )
@@ -226,7 +228,7 @@ fun AuroSearchScreen(
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Close,
-                                contentDescription = "Limpar",
+                                contentDescription = stringResource(R.string.cd_clear_search),
                                 tint = AuroColor.TextSecondary,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -301,7 +303,7 @@ fun AuroSearchScreen(
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 24.dp)
+                    contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp)
                 ) {
                     itemsIndexed(recentSearches, key = { _, item -> item }) { _, queryItem ->
                         Row(
@@ -337,7 +339,7 @@ fun AuroSearchScreen(
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.Close,
-                                    contentDescription = "Remover",
+                                    contentDescription = stringResource(R.string.delete),
                                     tint = AuroColor.TextTertiary,
                                     modifier = Modifier.size(16.dp)
                                 )
@@ -362,7 +364,7 @@ fun AuroSearchScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 24.dp)
+                contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp)
             ) {
                 when (selectedFilter) {
                     SearchFilter.ALL -> {
@@ -588,7 +590,7 @@ private fun SearchAlbumRow(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "${album.artist} • ${album.trackCount} faixas",
+                text = "${album.artist} • ${pluralStringResource(R.plurals.tracks_count, album.trackCount, album.trackCount)}",
                 color = AuroColor.TextSecondary,
                 fontSize = 11.5.sp,
                 maxLines = 1,
@@ -634,7 +636,7 @@ private fun SearchArtistRow(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "${artist.trackCount} faixas",
+                text = pluralStringResource(R.plurals.tracks_count, artist.trackCount, artist.trackCount),
                 color = AuroColor.TextSecondary,
                 fontSize = 11.5.sp,
                 maxLines = 1,

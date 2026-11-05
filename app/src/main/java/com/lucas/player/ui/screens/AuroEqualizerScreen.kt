@@ -18,18 +18,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lucas.player.R
 import com.lucas.player.data.MusicDatabase
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
 import com.lucas.player.ui.theme.LocalAuroAccent
+import com.lucas.player.ui.theme.LocalAuroBottomInset
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -78,8 +81,8 @@ fun AuroEqualizerScreen(
     ) {
         AuroBreadcrumbHeader(
             items = listOf(
-                AuroBreadcrumbItem("Biblioteca"),
-                AuroBreadcrumbItem("Equalizador")
+                AuroBreadcrumbItem(stringResource(R.string.library_breadcrumb)),
+                AuroBreadcrumbItem(stringResource(R.string.equalizer_breadcrumb))
             ),
             onItemClick = { onClose() },
             canGoBack = true,
@@ -97,7 +100,7 @@ fun AuroEqualizerScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 12.dp, bottom = 24.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = LocalAuroBottomInset.current + 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // Presets
@@ -108,14 +111,14 @@ fun AuroEqualizerScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "PRESETS",
+                        text = stringResource(R.string.eq_presets_header),
                         color = AuroColor.TextTertiary,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = "Redefinir",
+                            text = stringResource(R.string.eq_reset),
                             color = AuroColor.TextSecondary,
                             fontSize = 12.sp,
                             modifier = Modifier
@@ -124,7 +127,7 @@ fun AuroEqualizerScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "+ Salvar",
+                            text = stringResource(R.string.eq_save),
                             color = accent,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -165,7 +168,7 @@ fun AuroEqualizerScreen(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Rounded.Close,
-                                            contentDescription = "Excluir preset",
+                                            contentDescription = stringResource(R.string.cd_delete_preset),
                                             tint = AuroColor.TextTertiary,
                                             modifier = Modifier.size(16.dp)
                                         )
@@ -191,7 +194,7 @@ fun AuroEqualizerScreen(
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = "TOM & PRÉ-AMP",
+                                    text = stringResource(R.string.eq_tone_preamp_header),
                                     color = AuroColor.TextTertiary,
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace
@@ -204,7 +207,7 @@ fun AuroEqualizerScreen(
                                 )
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Mono", color = AuroColor.TextSecondary, fontSize = 12.sp)
+                                Text(stringResource(R.string.eq_mono), color = AuroColor.TextSecondary, fontSize = 12.sp)
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Checkbox(
                                     checked = isMono,
@@ -215,10 +218,10 @@ fun AuroEqualizerScreen(
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
-                        AuroToneRow(label = "Pré-Amp", value = preampDb, range = -12f..12f, enabled = eqEnabled, onValueChange = onPreampChange)
-                        AuroToneRow(label = "Graves", value = bassDb, range = -12f..12f, enabled = eqEnabled && toneEnabled, onValueChange = onBassChange)
-                        AuroToneRow(label = "Agudos", value = trebleDb, range = -12f..12f, enabled = eqEnabled && toneEnabled, onValueChange = onTrebleChange)
-                        AuroToneRow(label = "Balanço", value = balance, range = -1f..1f, isBalance = true, enabled = true, onValueChange = onBalanceChange)
+                        AuroToneRow(label = stringResource(R.string.eq_preamp_label), value = preampDb, range = -12f..12f, enabled = eqEnabled, onValueChange = onPreampChange)
+                        AuroToneRow(label = stringResource(R.string.eq_bass_label), value = bassDb, range = -12f..12f, enabled = eqEnabled && toneEnabled, onValueChange = onBassChange)
+                        AuroToneRow(label = stringResource(R.string.eq_treble_label), value = trebleDb, range = -12f..12f, enabled = eqEnabled && toneEnabled, onValueChange = onTrebleChange)
+                        AuroToneRow(label = stringResource(R.string.eq_balance_label), value = balance, range = -1f..1f, isBalance = true, enabled = true, onValueChange = onBalanceChange)
                     }
                 }
             }
@@ -231,7 +234,7 @@ fun AuroEqualizerScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            text = "10 BANDAS",
+                            text = stringResource(R.string.eq_bands_header),
                             color = AuroColor.TextTertiary,
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace
@@ -240,6 +243,7 @@ fun AuroEqualizerScreen(
 
                         bandFreqs.forEachIndexed { bandIndex, freqLabel ->
                             val gain = bandGains.getOrElse(bandIndex) { 0f }
+                            val formattedGain = String.format(Locale.getDefault(), "%+.1f dB", gain)
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -258,6 +262,8 @@ fun AuroEqualizerScreen(
                                     value = gain,
                                     onValueChange = { onBandGainChange(bandIndex, it) },
                                     valueRange = -12f..12f,
+                                    contentDescription = stringResource(R.string.cd_eq_band, freqLabel),
+                                    stateDescription = formattedGain,
                                     enabled = eqEnabled,
                                     modifier = Modifier
                                         .weight(1f)
@@ -265,7 +271,7 @@ fun AuroEqualizerScreen(
                                 )
 
                                 Text(
-                                    text = String.format(Locale.getDefault(), "%+.1fdB", gain),
+                                    text = formattedGain,
                                     color = AuroColor.TextSecondary,
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace,
@@ -303,24 +309,26 @@ private fun AuroToneRow(
             fontSize = 12.sp,
             modifier = Modifier.width(86.dp)
         )
+        val textVal = if (isBalance) {
+            when {
+                value < -0.05f -> "L ${(value * -100).roundToInt()}%"
+                value > 0.05f -> "R ${(value * 100).roundToInt()}%"
+                else -> stringResource(R.string.eq_balance_center)
+            }
+        } else {
+            String.format(Locale.getDefault(), "%+.1f dB", value)
+        }
         AuroSlider(
             value = value,
             onValueChange = onValueChange,
             valueRange = range,
+            contentDescription = label,
+            stateDescription = textVal,
             enabled = enabled,
             modifier = Modifier
                 .weight(1f)
                 .height(36.dp)
         )
-        val textVal = if (isBalance) {
-            when {
-                value < -0.05f -> "L ${(value * -100).roundToInt()}%"
-                value > 0.05f -> "R ${(value * 100).roundToInt()}%"
-                else -> "Centro"
-            }
-        } else {
-            String.format(Locale.getDefault(), "%+.1fdB", value)
-        }
         Text(
             text = textVal,
             color = if (enabled) AuroColor.TextPrimary else AuroColor.TextTertiary,

@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -32,6 +33,7 @@ import com.lucas.player.data.LyricsManager
 import com.lucas.player.model.SortMode
 import com.lucas.player.model.Track
 import com.lucas.player.model.UserPlaylist
+import com.lucas.player.model.getDisplayNameRes
 import com.lucas.player.ui.components.AuroOverlay
 import com.lucas.player.ui.components.AuroOverlayType
 import com.lucas.player.ui.components.AuroRatingBar
@@ -88,7 +90,7 @@ fun AuroTrackContextMenuDialog(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = track.artist.ifEmpty { "Desconhecido" },
+                            text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
                             color = AuroColor.TextSecondary,
                             fontSize = 12.sp,
                             maxLines = 1,
@@ -98,7 +100,7 @@ fun AuroTrackContextMenuDialog(
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                         Icon(
                             imageVector = Icons.Rounded.Close,
-                            contentDescription = "Fechar",
+                            contentDescription = stringResource(R.string.cd_close),
                             tint = AuroColor.TextSecondary,
                             modifier = Modifier.size(18.dp)
                         )
@@ -114,7 +116,7 @@ fun AuroTrackContextMenuDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Classificação:",
+                        text = stringResource(R.string.context_rating),
                         color = AuroColor.TextSecondary,
                         fontSize = 13.sp
                     )
@@ -137,25 +139,25 @@ fun AuroTrackContextMenuDialog(
 
                 AuroDialogOption(
                     icon = Icons.AutoMirrored.Rounded.QueueMusic,
-                    title = "Tocar a seguir (Fila prioritária)",
+                    title = stringResource(R.string.context_play_next),
                     onClick = onPlayNext
                 )
 
                 AuroDialogOption(
                     icon = Icons.AutoMirrored.Rounded.PlaylistPlay,
-                    title = "Adicionar ao fim da fila",
+                    title = stringResource(R.string.context_add_queue),
                     onClick = onEnqueueEnd
                 )
 
                 AuroDialogOption(
                     icon = Icons.AutoMirrored.Rounded.PlaylistAdd,
-                    title = "Adicionar à lista de reprodução...",
+                    title = stringResource(R.string.context_add_playlist),
                     onClick = onAddToPlaylist
                 )
 
                 AuroDialogOption(
                     icon = Icons.Rounded.Info,
-                    title = "Informações da faixa",
+                    title = stringResource(R.string.context_track_info),
                     onClick = onShowInfo
                 )
             }
@@ -192,14 +194,14 @@ fun AuroSortDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "ORDENAR POR",
+                        text = stringResource(R.string.sort_title),
                         color = AuroColor.TextPrimary,
                         fontSize = 14.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Fechar", tint = AuroColor.TextSecondary, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_close), tint = AuroColor.TextSecondary, modifier = Modifier.size(18.dp))
                     }
                 }
 
@@ -228,7 +230,7 @@ fun AuroSortDialog(
                             )
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
-                                text = mode.displayName,
+                                text = stringResource(mode.getDisplayNameRes()),
                                 color = if (isSelected) LocalAuroAccent.current.a.value else AuroColor.TextPrimary,
                                 fontSize = 14.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
@@ -270,14 +272,14 @@ fun AuroTrackInfoDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "DETALHES DA FAIXA",
+                        text = stringResource(R.string.track_info_title),
                         color = AuroColor.TextPrimary,
                         fontSize = 14.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Fechar", tint = AuroColor.TextSecondary, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_close), tint = AuroColor.TextSecondary, modifier = Modifier.size(18.dp))
                     }
                 }
 
@@ -287,20 +289,20 @@ fun AuroTrackInfoDialog(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    item { AuroInfoRow("Título", track.title) }
-                    item { AuroInfoRow("Artista", track.artist) }
-                    item { AuroInfoRow("Álbum", track.album) }
-                    item { AuroInfoRow("Duração", formatTimeMs(track.durationMs)) }
-                    item { AuroInfoRow("Formato", track.formatTag.uppercase()) }
-                    item { AuroInfoRow("Taxa de Amostragem", if (track.sampleRateHz > 0) "${track.sampleRateHz} Hz" else "N/A") }
-                    item { AuroInfoRow("Bitrate", if (track.bitrateKbps > 0) "${track.bitrateKbps} kbps" else "N/A") }
-                    item { AuroInfoRow("Caminho", track.path) }
+                    item { AuroInfoRow(stringResource(R.string.track_info_track_title), track.title) }
+                    item { AuroInfoRow(stringResource(R.string.track_info_artist), track.artist.ifEmpty { stringResource(R.string.unknown_artist) }) }
+                    item { AuroInfoRow(stringResource(R.string.track_info_album), track.album.ifEmpty { stringResource(R.string.unknown_album) }) }
+                    item { AuroInfoRow(stringResource(R.string.track_info_duration), formatTimeMs(track.durationMs)) }
+                    item { AuroInfoRow(stringResource(R.string.track_info_format), track.formatTag.uppercase()) }
+                    item { AuroInfoRow(stringResource(R.string.track_info_sample_rate), if (track.sampleRateHz > 0) "${track.sampleRateHz} Hz" else "N/A") }
+                    item { AuroInfoRow(stringResource(R.string.track_info_bitrate), if (track.bitrateKbps > 0) "${track.bitrateKbps} kbps" else "N/A") }
+                    item { AuroInfoRow(stringResource(R.string.track_info_path), track.path) }
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) {
-                        Text("Fechar", color = AuroColor.TextPrimary, fontSize = 14.sp)
+                        Text(stringResource(R.string.close), color = AuroColor.TextPrimary, fontSize = 14.sp)
                     }
                 }
             }
@@ -344,7 +346,7 @@ fun AuroAddToPlaylistDialog(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "ADICIONAR À LISTA",
+                            text = stringResource(R.string.add_to_playlist_title),
                             color = AuroColor.TextPrimary,
                             fontSize = 14.sp,
                             fontFamily = FontFamily.Monospace,
@@ -359,7 +361,7 @@ fun AuroAddToPlaylistDialog(
                         )
                     }
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Fechar", tint = AuroColor.TextSecondary, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_close), tint = AuroColor.TextSecondary, modifier = Modifier.size(18.dp))
                     }
                 }
 
@@ -372,12 +374,12 @@ fun AuroAddToPlaylistDialog(
                             .border(1.dp, AuroColor.Hairline, RoundedCornerShape(12.dp))
                             .padding(12.dp)
                     ) {
-                        Text("NOVA LISTA DE REPRODUÇÃO", color = AuroColor.TextTertiary, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        Text(stringResource(R.string.new_playlist_header), color = AuroColor.TextTertiary, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
                         Spacer(modifier = Modifier.height(6.dp))
                         OutlinedTextField(
                             value = newPlaylistName,
                             onValueChange = { newPlaylistName = it },
-                            placeholder = { Text("Nome da lista...", color = AuroColor.TextTertiary, fontSize = 13.sp) },
+                            placeholder = { Text(stringResource(R.string.new_playlist_hint), color = AuroColor.TextTertiary, fontSize = 13.sp) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -393,7 +395,7 @@ fun AuroAddToPlaylistDialog(
                             horizontalArrangement = Arrangement.End
                         ) {
                             TextButton(onClick = { isCreatingNew = false }) {
-                                Text("Cancelar", color = AuroColor.TextSecondary, fontSize = 12.sp)
+                                Text(stringResource(R.string.cancel), color = AuroColor.TextSecondary, fontSize = 12.sp)
                             }
                             Spacer(modifier = Modifier.width(6.dp))
                             AuroGlass(
@@ -408,7 +410,7 @@ fun AuroAddToPlaylistDialog(
                                 modifier = Modifier.height(36.dp)
                             ) {
                                 Box(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
-                                    Text("Criar & Adicionar", color = AuroColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.create_and_add), color = AuroColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -424,7 +426,7 @@ fun AuroAddToPlaylistDialog(
                     ) {
                         Icon(Icons.Rounded.Add, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text("+ Nova Lista de Reprodução", color = accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.new_playlist_button), color = accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                     HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
                 }
@@ -441,7 +443,7 @@ fun AuroAddToPlaylistDialog(
                                     .padding(vertical = 24.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("Nenhuma lista criada ainda", color = AuroColor.TextSecondary, fontSize = 12.sp)
+                                Text(stringResource(R.string.no_playlists_yet), color = AuroColor.TextSecondary, fontSize = 12.sp)
                             }
                         }
                     } else {
@@ -457,7 +459,7 @@ fun AuroAddToPlaylistDialog(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(text = pl.name, color = AuroColor.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                                    Text(text = "${pl.trackCount} faixas", color = AuroColor.TextSecondary, fontSize = 11.5.sp)
+                                    Text(text = pluralStringResource(R.plurals.tracks_count, pl.trackCount, pl.trackCount), color = AuroColor.TextSecondary, fontSize = 11.5.sp)
                                 }
                             }
                             HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
@@ -502,21 +504,21 @@ fun AuroSleepTimerDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "TEMPORIZADOR",
+                        text = stringResource(R.string.sleep_timer_title),
                         color = AuroColor.TextPrimary,
                         fontSize = 14.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Fechar", tint = AuroColor.TextSecondary, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_close), tint = AuroColor.TextSecondary, modifier = Modifier.size(18.dp))
                     }
                 }
 
                 if (remainingSeconds > 0) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "ATIVO: ${remainingSeconds / 60}m ${remainingSeconds % 60}s restantes",
+                        text = stringResource(R.string.sleep_timer_active_desc, remainingSeconds / 60, remainingSeconds % 60),
                         color = accent,
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace,
@@ -543,7 +545,7 @@ fun AuroSleepTimerDialog(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Tocar até o fim da faixa",
+                        text = stringResource(R.string.sleep_timer_stop_at_end),
                         color = AuroColor.TextPrimary,
                         fontSize = 13.sp
                     )
@@ -554,7 +556,7 @@ fun AuroSleepTimerDialog(
                 options.forEach { minutes ->
                     AuroDialogOption(
                         icon = Icons.Rounded.Schedule,
-                        title = "$minutes minutos",
+                        title = "$minutes min",
                         onClick = {
                             onSetTimerMinutes(minutes, stopAtTrackEnd)
                             onDismiss()
@@ -566,7 +568,7 @@ fun AuroSleepTimerDialog(
                     Spacer(modifier = Modifier.height(6.dp))
                     AuroDialogOption(
                         icon = Icons.Rounded.Cancel,
-                        title = "Desativar Temporizador",
+                        title = stringResource(R.string.snackbar_timer_off),
                         onClick = {
                             onCancelTimer()
                             onDismiss()
@@ -622,14 +624,14 @@ fun AuroPowerampMenuSheet(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "MENU",
+                        text = stringResource(R.string.menu_sheet_title),
                         color = AuroColor.TextPrimary,
                         fontSize = 14.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Fechar", tint = AuroColor.TextSecondary, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_close), tint = AuroColor.TextSecondary, modifier = Modifier.size(16.dp))
                     }
                 }
 
@@ -646,7 +648,7 @@ fun AuroPowerampMenuSheet(
 
                 AuroDialogOption(
                     icon = Icons.Rounded.GraphicEq,
-                    title = "Equalizador",
+                    title = stringResource(R.string.equalizer_breadcrumb),
                     onClick = {
                         onDismiss()
                         onOpenEqualizer()
@@ -655,7 +657,7 @@ fun AuroPowerampMenuSheet(
 
                 AuroDialogOption(
                     icon = Icons.Rounded.Schedule,
-                    title = "Temporizador para Dormir",
+                    title = stringResource(R.string.sleep_timer_title),
                     onClick = {
                         onDismiss()
                         onOpenSleepTimer()
@@ -664,7 +666,7 @@ fun AuroPowerampMenuSheet(
 
                 AuroDialogOption(
                     icon = Icons.Rounded.Speed,
-                    title = "Informações do Motor de Áudio",
+                    title = stringResource(R.string.audio_engine_title),
                     onClick = {
                         onDismiss()
                         onOpenAudioInfo()
@@ -673,7 +675,7 @@ fun AuroPowerampMenuSheet(
 
                 AuroDialogOption(
                     icon = Icons.Rounded.Refresh,
-                    title = "Reavaliar / Atualizar Biblioteca",
+                    title = stringResource(R.string.settings_rescan_library),
                     onClick = {
                         onDismiss()
                         onRescanLibrary()
@@ -682,7 +684,7 @@ fun AuroPowerampMenuSheet(
 
                 AuroDialogOption(
                     icon = Icons.Rounded.Info,
-                    title = "Sobre o Player",
+                    title = stringResource(R.string.settings_section_about),
                     onClick = {
                         onDismiss()
                         onOpenAbout()
@@ -721,34 +723,34 @@ fun AuroAudioEngineDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "MOTOR DE ÁUDIO NATIVO",
+                        text = stringResource(R.string.audio_engine_title),
                         color = AuroColor.TextPrimary,
                         fontSize = 13.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.size(30.dp)) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Fechar", tint = AuroColor.TextSecondary, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_close), tint = AuroColor.TextSecondary, modifier = Modifier.size(16.dp))
                     }
                 }
 
                 HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp, modifier = Modifier.padding(vertical = 10.dp))
 
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AuroInfoRow("Pipeline", "Google Oboe (C++ High-Performance)")
-                    AuroInfoRow("Driver Nativo", "AAudio / OpenSL ES")
-                    AuroInfoRow("Modo de Latência", "PerformanceMode::LowLatency")
-                    AuroInfoRow("Modo de Compartilhamento", "SharingMode::Shared")
-                    AuroInfoRow("Taxa de Amostragem", "$sampleRate Hz")
-                    AuroInfoRow("Buffer", "$bufferSizeFrames quadros (Burst)")
-                    AuroInfoRow("Ponto Flutuante", "32-bit Float PCM Engine")
+                    AuroInfoRow(stringResource(R.string.audio_engine_pipeline), stringResource(R.string.audio_engine_pipeline_val))
+                    AuroInfoRow(stringResource(R.string.audio_engine_driver), stringResource(R.string.audio_engine_driver_val))
+                    AuroInfoRow(stringResource(R.string.audio_engine_latency), stringResource(R.string.audio_engine_latency_val))
+                    AuroInfoRow(stringResource(R.string.audio_engine_sharing), stringResource(R.string.audio_engine_sharing_val))
+                    AuroInfoRow(stringResource(R.string.audio_engine_sample_rate), "$sampleRate Hz")
+                    AuroInfoRow(stringResource(R.string.audio_engine_buffer), stringResource(R.string.audio_engine_buffer_val, bufferSizeFrames))
+                    AuroInfoRow(stringResource(R.string.audio_engine_fp), stringResource(R.string.audio_engine_fp_val))
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) {
-                        Text("OK", color = AuroColor.TextPrimary, fontSize = 14.sp)
+                        Text(stringResource(R.string.ok), color = AuroColor.TextPrimary, fontSize = 14.sp)
                     }
                 }
             }
@@ -828,14 +830,14 @@ fun AuroLyricsSheet(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "LETRAS",
+                            text = stringResource(R.string.lyrics_sheet_title),
                             color = AuroColor.TextPrimary,
                             fontSize = 14.sp,
                             fontFamily = FontFamily.Monospace,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "${track.title} • ${lyrics?.source ?: "Sem letras locais"}",
+                            text = "${track.title} • ${lyrics?.source ?: stringResource(R.string.lyrics_no_local)}",
                             color = AuroColor.TextTertiary,
                             fontSize = 11.5.sp,
                             maxLines = 1,
@@ -843,7 +845,7 @@ fun AuroLyricsSheet(
                         )
                     }
                     IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Fechar", tint = AuroColor.TextSecondary, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_close), tint = AuroColor.TextSecondary, modifier = Modifier.size(16.dp))
                     }
                 }
 
@@ -858,14 +860,14 @@ fun AuroLyricsSheet(
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "Nenhuma letra encontrada",
+                                text = stringResource(R.string.lyrics_none_found),
                                 color = AuroColor.TextPrimary,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "Coloque um arquivo .lrc na mesma pasta com o mesmo nome da música.",
+                                text = stringResource(R.string.lyrics_lrc_hint),
                                 color = AuroColor.TextSecondary,
                                 fontSize = 12.sp,
                                 textAlign = TextAlign.Center,
@@ -931,7 +933,7 @@ fun AuroSavePresetDialog(
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
-                    text = "SALVAR PRESET",
+                    text = stringResource(R.string.save_preset_title),
                     color = AuroColor.TextPrimary,
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
@@ -941,7 +943,7 @@ fun AuroSavePresetDialog(
                 OutlinedTextField(
                     value = presetName,
                     onValueChange = { presetName = it },
-                    placeholder = { Text("Nome do preset...", color = AuroColor.TextTertiary, fontSize = 13.sp) },
+                    placeholder = { Text(stringResource(R.string.preset_name_hint), color = AuroColor.TextTertiary, fontSize = 13.sp) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -957,7 +959,7 @@ fun AuroSavePresetDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancelar", color = AuroColor.TextSecondary, fontSize = 13.sp)
+                        Text(stringResource(R.string.cancel), color = AuroColor.TextSecondary, fontSize = 13.sp)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     AuroGlass(
@@ -971,7 +973,7 @@ fun AuroSavePresetDialog(
                         modifier = Modifier.height(38.dp)
                     ) {
                         Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
-                            Text("Salvar", color = AuroColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.save), color = AuroColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1005,7 +1007,7 @@ fun AuroCreatePlaylistDialog(
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
-                    text = "NOVA LISTA DE REPRODUÇÃO",
+                    text = stringResource(R.string.create_playlist_title),
                     color = AuroColor.TextPrimary,
                     fontSize = 13.sp,
                     fontFamily = FontFamily.Monospace,
@@ -1015,7 +1017,7 @@ fun AuroCreatePlaylistDialog(
                 OutlinedTextField(
                     value = playlistName,
                     onValueChange = { playlistName = it },
-                    placeholder = { Text("Nome da lista...", color = AuroColor.TextTertiary, fontSize = 13.sp) },
+                    placeholder = { Text(stringResource(R.string.new_playlist_hint), color = AuroColor.TextTertiary, fontSize = 13.sp) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -1031,7 +1033,7 @@ fun AuroCreatePlaylistDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("CANCELAR", color = AuroColor.TextSecondary, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        Text(stringResource(R.string.cancel), color = AuroColor.TextSecondary, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
@@ -1043,7 +1045,7 @@ fun AuroCreatePlaylistDialog(
                         colors = ButtonDefaults.buttonColors(containerColor = accent),
                         shape = RoundedCornerShape(AuroRadius.chip)
                     ) {
-                        Text("CRIAR", color = AuroColor.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.create), color = AuroColor.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -1093,7 +1095,7 @@ fun AuroConfirmDeleteDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text("Cancelar", color = AuroColor.TextSecondary, fontSize = 13.sp)
+                        Text(stringResource(R.string.cancel), color = AuroColor.TextSecondary, fontSize = 13.sp)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     AuroGlass(
@@ -1105,7 +1107,7 @@ fun AuroConfirmDeleteDialog(
                         modifier = Modifier.height(38.dp)
                     ) {
                         Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
-                            Text("Excluir", color = AuroColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.delete), color = AuroColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1135,13 +1137,13 @@ fun AuroAboutDialog(
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
-                    text = "AURŌ PLAYER",
+                    text = stringResource(R.string.about_app_title),
                     color = AuroColor.TextPrimary,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "v${BuildConfig.VERSION_NAME} (Build ${BuildConfig.VERSION_CODE}) • Aurō DS v3",
+                    text = stringResource(R.string.about_app_version_format, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
                     color = AuroColor.TextSecondary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
@@ -1150,11 +1152,7 @@ fun AuroAboutDialog(
                 HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp, modifier = Modifier.padding(vertical = 12.dp))
 
                 Text(
-                    text = "• Motor de áudio nativo Google Oboe C++\n" +
-                            "• Processamento de luz global única com AGSL RuntimeShader\n" +
-                            "• Vidro preto líquido com dispersão cromática por canal\n" +
-                            "• Extração harmônica de cores de capa via AndroidX Palette\n" +
-                            "• Letras sincronizadas (.LRC) e equalizador de 10 bandas",
+                    text = stringResource(R.string.about_app_specs),
                     color = AuroColor.TextSecondary,
                     fontSize = 12.5.sp,
                     lineHeight = 20.sp
@@ -1164,7 +1162,7 @@ fun AuroAboutDialog(
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) {
-                        Text("Fechar", color = AuroColor.TextPrimary, fontSize = 14.sp)
+                        Text(stringResource(R.string.close), color = AuroColor.TextPrimary, fontSize = 14.sp)
                     }
                 }
             }

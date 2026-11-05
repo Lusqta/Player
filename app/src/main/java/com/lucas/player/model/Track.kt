@@ -103,3 +103,35 @@ enum class SortMode(val displayName: String) {
     PLAY_COUNT_DESC("Mais Tocadas"),
     RATING_DESC("Mais Votadas")
 }
+
+fun LibraryCategory.getTitleRes(): Int = when (this) {
+    LibraryCategory.ALL_SONGS -> com.lucas.player.R.string.category_all_songs
+    LibraryCategory.FOLDERS -> com.lucas.player.R.string.category_folders
+    LibraryCategory.ALBUMS -> com.lucas.player.R.string.category_albums
+    LibraryCategory.ARTISTS -> com.lucas.player.R.string.category_artists
+    LibraryCategory.ALBUM_ARTISTS -> com.lucas.player.R.string.category_album_artists
+    LibraryCategory.GENRES -> com.lucas.player.R.string.category_genres
+    LibraryCategory.YEARS -> com.lucas.player.R.string.category_years
+    LibraryCategory.COMPOSERS -> com.lucas.player.R.string.category_composers
+    LibraryCategory.PLAYLISTS -> com.lucas.player.R.string.category_playlists
+    LibraryCategory.QUEUE -> com.lucas.player.R.string.category_queue
+    LibraryCategory.RECENTLY_ADDED -> com.lucas.player.R.string.category_recently_added
+    LibraryCategory.RECENTLY_PLAYED -> com.lucas.player.R.string.category_recently_played
+    LibraryCategory.MOST_PLAYED -> com.lucas.player.R.string.category_most_played
+    LibraryCategory.TOP_RATED -> com.lucas.player.R.string.category_top_rated
+}
+
+fun SortMode.getDisplayNameRes(): Int = when (this) {
+    SortMode.TITLE_ASC -> com.lucas.player.R.string.sort_title_asc
+    SortMode.TITLE_DESC -> com.lucas.player.R.string.sort_title_desc
+    SortMode.ARTIST_ASC -> com.lucas.player.R.string.sort_artist_asc
+    SortMode.ALBUM_ASC -> com.lucas.player.R.string.sort_album_asc
+    SortMode.YEAR_DESC -> com.lucas.player.R.string.sort_year_desc
+    SortMode.YEAR_ASC -> com.lucas.player.R.string.sort_year_asc
+    SortMode.TRACK_NUMBER -> com.lucas.player.R.string.sort_track_number
+    SortMode.DURATION_DESC -> com.lucas.player.R.string.sort_duration_desc
+    SortMode.DURATION_ASC -> com.lucas.player.R.string.sort_duration_asc
+    SortMode.DATE_ADDED_DESC -> com.lucas.player.R.string.sort_date_added_desc
+    SortMode.PLAY_COUNT_DESC -> com.lucas.player.R.string.sort_play_count_desc
+    SortMode.RATING_DESC -> com.lucas.player.R.string.sort_rating_desc
+}

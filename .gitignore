@@ -12,6 +12,8 @@
 /rea
 *.log
 core_dump.txt
+full_dump.txt
+ui_dump.txt
 non_ui_code/
 non_ui_files/
 non_ui_files.zip

@@ -31,6 +31,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -415,11 +417,17 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         else -> null
                     }
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(AuroColor.Black)
-                    ) {
+                    var bottomBarHeightPx by remember { mutableIntStateOf(0) }
+                    val density = LocalDensity.current
+                    val bottomBarInsetDp = with(density) { bottomBarHeightPx.toDp() }
+                    val activeBottomInset = if (currentScreen is NavScreen.NowPlaying) 0.dp else bottomBarInsetDp
+
+                    CompositionLocalProvider(LocalAuroBottomInset provides activeBottomInset) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(AuroColor.Black)
+                        ) {
                         // Barra Superior de Seleção Múltipla (Fase 4.3)
                         if (isSelectionModeState.value) {
                             val selectedCount = selectedTrackIdsState.size
@@ -545,11 +553,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             }
                         }
 
-                    // Conteúdo Principal de Acordo com a Tela Ativa
+                    // Conteúdo Principal de Acordo com a Tela Ativa (Fase 5.4: insets medidos via LocalAuroBottomInset)
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(bottom = if (currentScreen is NavScreen.NowPlaying) 58.dp else if (currentTrack != null) 118.dp else 58.dp)
+                        modifier = Modifier.fillMaxSize()
                     ) {
                         AnimatedContent(
                             targetState = currentScreen,
@@ -628,7 +634,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                                 regularQueueState.value = s.queueManager.getTracks()
                                             }
                                             renderCurrentCategory()
-                                            snackbarState.show("Fila limpa")
+                                            snackbarState.show(getString(R.string.snackbar_queue_cleared))
                                         },
                                         onShuffleQueue = {
                                             playbackService?.shuffleCurrentQueue()
@@ -637,7 +643,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                                 regularQueueState.value = s.queueManager.getTracks()
                                             }
                                             renderCurrentCategory()
-                                            snackbarState.show("Fila aleatória")
+                                            snackbarState.show(getString(R.string.snackbar_queue_shuffled))
                                         },
                                         onMoveItem = { section, from, to ->
                                             playbackService?.moveQueueItem(section, from, to)
@@ -922,7 +928,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                             NavScreen.Drilldown(
                                                 category = LibraryCategory.ALBUMS,
                                                 title = albumName,
-                                                subtitle = "Álbum"
+                                                subtitle = getString(R.string.group_subtitle_album)
                                             )
                                         )
                                     },
@@ -932,7 +938,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                             NavScreen.Drilldown(
                                                 category = LibraryCategory.ARTISTS,
                                                 title = artistName,
-                                                subtitle = "Artista"
+                                                subtitle = getString(R.string.group_subtitle_artist)
                                             )
                                         )
                                     },
@@ -972,7 +978,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                             regularQueueState.value = s.queueManager.getTracks()
                                         }
                                         renderCurrentCategory()
-                                        snackbarState.show("Fila limpa")
+                                        snackbarState.show(getString(R.string.snackbar_queue_cleared))
                                     },
                                     onShuffleQueue = {
                                         playbackService?.shuffleCurrentQueue()
@@ -981,7 +987,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                             regularQueueState.value = s.queueManager.getTracks()
                                         }
                                         renderCurrentCategory()
-                                        snackbarState.show("Fila aleatória")
+                                        snackbarState.show(getString(R.string.snackbar_queue_shuffled))
                                     },
                                     onMoveItem = { section, from, to ->
                                         playbackService?.moveQueueItem(section, from, to)
@@ -1004,7 +1010,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onBackClick = { navController.navigateUp() },
                                     onRescanLibrary = {
                                         loadLibrary()
-                                        snackbarState.show("Biblioteca atualizada")
+                                        snackbarState.show(getString(R.string.snackbar_library_updated))
                                     },
                                     onSettingsChanged = {
                                         playbackService?.let { s -> s.queueManager.currentTrack?.let { s.applyEffectivePreamp(it) } }
@@ -1017,13 +1023,11 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         }
                     }
 
-                    // AuroSnackbarHost posicionado acima do mini player / navbar
+                    // AuroSnackbarHost posicionado acima do mini player / navbar (Fase 5.4: insets medidos)
                     val snackbarBottomPadding = if (currentScreen is NavScreen.NowPlaying) {
                         16.dp
-                    } else if (currentTrack != null) {
-                        142.dp
                     } else {
-                        70.dp
+                        activeBottomInset + 16.dp
                     }
 
                     AuroSnackbarHost(
@@ -1039,6 +1043,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
+                            .onSizeChanged { size -> bottomBarHeightPx = size.height }
                     ) {
                         AnimatedVisibility(
                             visible = currentScreen !is NavScreen.NowPlaying && currentTrack != null,
@@ -1076,12 +1081,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             onPlayNext = {
                                 playbackService?.enqueueNext(track)
                                 trackContextMenuState.value = null
-                                snackbarState.show("Tocar a seguir (Fila prioritária)")
+                                snackbarState.show(getString(R.string.snackbar_enqueued_priority))
                             },
                             onEnqueueEnd = {
                                 playbackService?.enqueueEnd(track)
                                 trackContextMenuState.value = null
-                                snackbarState.show("Adicionada ao fim da fila")
+                                snackbarState.show(getString(R.string.snackbar_enqueued_end))
                             },
                             onAddToPlaylist = {
                                 trackContextMenuState.value = null
@@ -1114,7 +1119,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 val plId = libraryRepo.createPlaylist(name)
                                 if (plId > 0) {
                                     tracks.forEach { libraryRepo.addTrackToUserPlaylist(plId, it.id) }
-                                    snackbarState.show("Adicionadas à playlist '$name'")
+                                    snackbarState.show(getString(R.string.snackbar_added_multiple_to_playlist, name))
                                 }
                                 tracksToAddToPlaylistState.value = emptyList()
                                 isSelectionModeState.value = false
@@ -1122,7 +1127,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             },
                             onSelectPlaylist = { pl ->
                                 tracks.forEach { libraryRepo.addTrackToUserPlaylist(pl.id, it.id) }
-                                snackbarState.show("Adicionadas à playlist '${pl.name}'")
+                                snackbarState.show(getString(R.string.snackbar_added_multiple_to_playlist, pl.name))
                                 tracksToAddToPlaylistState.value = emptyList()
                                 isSelectionModeState.value = false
                                 selectedTrackIdsState.clear()
@@ -1137,7 +1142,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 val plId = libraryRepo.createPlaylist(name)
                                 if (plId > 0) {
                                     renderCurrentCategory()
-                                    snackbarState.show("Lista de reprodução criada!")
+                                    snackbarState.show(getString(R.string.snackbar_playlist_created))
                                 }
                                 showCreatePlaylistDialogState.value = false
                             },
@@ -1153,13 +1158,13 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 val plId = libraryRepo.createPlaylist(name)
                                 if (plId > 0) {
                                     libraryRepo.addTrackToUserPlaylist(plId, track.id)
-                                    snackbarState.show("Playlist criada e faixa adicionada!")
+                                    snackbarState.show(getString(R.string.snackbar_playlist_created_track_added))
                                 }
                                 addToPlaylistDialogTrack.value = null
                             },
                             onSelectPlaylist = { pl ->
                                 libraryRepo.addTrackToUserPlaylist(pl.id, track.id)
-                                snackbarState.show("Adicionada à playlist '${pl.name}'")
+                                snackbarState.show(getString(R.string.snackbar_added_to_playlist, pl.name))
                                 addToPlaylistDialogTrack.value = null
                             },
                             onDismiss = { addToPlaylistDialogTrack.value = null }
@@ -1186,12 +1191,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             remainingSeconds = playbackService?.getSleepTimerRemainingSeconds() ?: 0,
                             onSetTimerMinutes = { min, stopAtEnd ->
                                 playbackService?.startSleepTimer(min, stopAtEnd)
-                                val msg = if (stopAtEnd) "Desligará em $min min (ao fim da faixa)" else "Desligará em $min min"
+                                val msg = if (stopAtEnd) getString(R.string.snackbar_timer_set_track_end, min) else getString(R.string.snackbar_timer_set, min)
                                 snackbarState.show(msg)
                             },
                             onCancelTimer = {
                                 playbackService?.cancelSleepTimer()
-                                snackbarState.show("Temporizador desligado")
+                                snackbarState.show(getString(R.string.snackbar_timer_off))
                             },
                             onDismiss = { showSleepTimerState.value = false }
                         )
@@ -1205,7 +1210,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             onOpenAudioInfo = { showAudioInfoState.value = true },
                             onRescanLibrary = {
                                 loadLibrary()
-                                snackbarState.show("Biblioteca atualizada")
+                                snackbarState.show(getString(R.string.snackbar_library_updated))
                             },
                             onOpenAbout = { showAboutState.value = true },
                             onDismiss = { showMenuSheetState.value = false }
@@ -1255,8 +1260,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                     deletePlaylistTargetState.value?.let { group ->
                         AuroConfirmDeleteDialog(
-                            title = "Excluir Playlist",
-                            message = "Deseja excluir a lista '${group.title}'?",
+                            title = getString(R.string.confirm_delete_title),
+                            message = getString(R.string.confirm_delete_playlist_message, group.title),
                             onConfirm = {
                                 deleteUserPlaylist(group.title)
                                 deletePlaylistTargetState.value = null
@@ -1267,8 +1272,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                     deletePresetTargetState.value?.let { preset ->
                         AuroConfirmDeleteDialog(
-                            title = "Excluir Preset",
-                            message = "Deseja excluir o preset '${preset.name}'?",
+                            title = getString(R.string.confirm_delete_preset_title),
+                            message = getString(R.string.confirm_delete_preset_message, preset.name),
                             onConfirm = {
                                 deleteCustomPreset(preset)
                                 deletePresetTargetState.value = null
@@ -1278,6 +1283,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                     }
                 }
             }
+        }
             }
         }
     }
@@ -1304,7 +1310,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         service.setPreamp(0f)
         preferencesManager.savePreamp(0f)
 
-        snackbarState.show("Equalizador redefinido para Flat (0dB)")
+        snackbarState.show(getString(R.string.snackbar_eq_reset))
     }
 
     private fun saveCustomPreset(name: String) {
@@ -1318,7 +1324,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         presetsListState.value = musicDb.getAllPresets()
         activePresetNameState.value = name
         preferencesManager.saveActivePresetName(name)
-        snackbarState.show("Preset '$name' salvo")
+        snackbarState.show(getString(R.string.snackbar_preset_saved, name))
     }
 
     private fun deleteCustomPreset(preset: MusicDatabase.EqPreset) {
@@ -1329,7 +1335,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             activePresetNameState.value = "Flat"
             preferencesManager.saveActivePresetName("Flat")
         }
-        snackbarState.show("Preset '${preset.name}' excluído")
+        snackbarState.show(getString(R.string.snackbar_preset_deleted, preset.name))
     }
 
     private fun deleteUserPlaylist(playlistName: String) {
@@ -1337,7 +1343,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         if (pl != null) {
             libraryRepo.deletePlaylist(pl.id)
             renderCurrentCategory()
-            snackbarState.show("Playlist '${pl.name}' excluída")
+            snackbarState.show(getString(R.string.snackbar_playlist_deleted, pl.name))
         }
     }
 
@@ -1348,7 +1354,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             currentTrackState.value = track.copy(rating = rating)
         }
         renderCurrentCategory()
-        snackbarState.show(if (rating > 0) "Classificada com $rating estrelas" else "Classificação removida")
+        snackbarState.show(if (rating > 0) getString(R.string.snackbar_rating_set, rating) else getString(R.string.snackbar_rating_removed))
     }
 
     private fun selectCategory(category: LibraryCategory) {
@@ -1367,40 +1373,52 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             }
             LibraryCategory.FOLDERS -> {
                 val folders = libraryRepo.getFolders()
-                displayedGroupsState.value = folders.map { GroupItem(it.name, it.path, "${it.trackCount} faixas") }
+                displayedGroupsState.value = folders.map {
+                    GroupItem(it.name, it.path, resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount))
+                }
                 displayedTracksState.value = emptyList()
             }
             LibraryCategory.ALBUMS -> {
                 val albums = libraryRepo.getAlbums()
                 displayedGroupsState.value = albums.map {
                     val yearStr = if (it.year > 0) " • ${it.year}" else ""
-                    GroupItem(it.name, "${it.artist}$yearStr", "${it.trackCount} faixas")
+                    GroupItem(it.name, "${it.artist}$yearStr", resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount))
                 }
                 displayedTracksState.value = emptyList()
             }
             LibraryCategory.ARTISTS -> {
                 val artists = libraryRepo.getArtists()
-                displayedGroupsState.value = artists.map { GroupItem(it.name, "Artista", "${it.trackCount} faixas") }
+                displayedGroupsState.value = artists.map {
+                    GroupItem(it.name, getString(R.string.group_subtitle_artist), resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount))
+                }
                 displayedTracksState.value = emptyList()
             }
             LibraryCategory.ALBUM_ARTISTS -> {
                 val artists = libraryRepo.getAlbumArtists()
-                displayedGroupsState.value = artists.map { GroupItem(it.name, "Artista do Álbum", "${it.trackCount} faixas") }
+                displayedGroupsState.value = artists.map {
+                    GroupItem(it.name, getString(R.string.group_subtitle_album_artist), resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount))
+                }
                 displayedTracksState.value = emptyList()
             }
             LibraryCategory.GENRES -> {
                 val genres = libraryRepo.getGenres()
-                displayedGroupsState.value = genres.map { GroupItem(it.name, "Gênero", "${it.trackCount} faixas") }
+                displayedGroupsState.value = genres.map {
+                    GroupItem(it.name, getString(R.string.group_subtitle_genre), resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount))
+                }
                 displayedTracksState.value = emptyList()
             }
             LibraryCategory.YEARS -> {
                 val years = libraryRepo.getYears()
-                displayedGroupsState.value = years.map { GroupItem(it.year.toString(), "Ano", "${it.trackCount} faixas") }
+                displayedGroupsState.value = years.map {
+                    GroupItem(it.year.toString(), getString(R.string.group_subtitle_year), resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount))
+                }
                 displayedTracksState.value = emptyList()
             }
             LibraryCategory.COMPOSERS -> {
                 val comps = libraryRepo.getComposers()
-                displayedGroupsState.value = comps.map { GroupItem(it.name, "Compositor", "${it.trackCount} faixas") }
+                displayedGroupsState.value = comps.map {
+                    GroupItem(it.name, getString(R.string.group_subtitle_composer), resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount))
+                }
                 displayedTracksState.value = emptyList()
             }
             LibraryCategory.QUEUE -> {
@@ -1410,7 +1428,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             }
             LibraryCategory.PLAYLISTS -> {
                 val pls = libraryRepo.getUserPlaylists()
-                displayedGroupsState.value = pls.map { GroupItem(it.name, "Playlist", "${it.trackCount} faixas") }
+                displayedGroupsState.value = pls.map {
+                    GroupItem(it.name, getString(R.string.group_subtitle_playlist), resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount))
+                }
                 displayedTracksState.value = emptyList()
             }
             LibraryCategory.MOST_PLAYED -> {

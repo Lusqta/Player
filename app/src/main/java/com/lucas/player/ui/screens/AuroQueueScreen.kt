@@ -34,6 +34,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
@@ -51,6 +52,7 @@ import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.AuroMotion
 import com.lucas.player.ui.theme.LocalAuroAccent
+import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlin.math.roundToInt
@@ -137,8 +139,8 @@ fun AuroQueueScreen(
     ) {
         AuroBreadcrumbHeader(
             items = listOf(
-                AuroBreadcrumbItem("Biblioteca"),
-                AuroBreadcrumbItem("Fila de Reprodução")
+                AuroBreadcrumbItem(stringResource(R.string.library_breadcrumb)),
+                AuroBreadcrumbItem(stringResource(R.string.queue_breadcrumb))
             ),
             onItemClick = { onBackClick() },
             canGoBack = true,
@@ -148,7 +150,7 @@ fun AuroQueueScreen(
                     IconButton(onClick = onShuffleQueue, modifier = Modifier.size(44.dp)) {
                         Icon(
                             imageVector = Icons.Rounded.Shuffle,
-                            contentDescription = "Aleatório",
+                            contentDescription = stringResource(R.string.cd_shuffle),
                             tint = AuroColor.TextSecondary,
                             modifier = Modifier.size(18.dp)
                         )
@@ -156,7 +158,7 @@ fun AuroQueueScreen(
                     IconButton(onClick = onClearQueue, modifier = Modifier.size(44.dp)) {
                         Icon(
                             imageVector = Icons.Rounded.DeleteOutline,
-                            contentDescription = "Limpar Fila",
+                            contentDescription = stringResource(R.string.cd_clear_queue),
                             tint = AuroColor.TextSecondary,
                             modifier = Modifier.size(18.dp)
                         )
@@ -185,14 +187,14 @@ fun AuroQueueScreen(
             ) {
                 Column {
                     Text(
-                        text = "FILA TOTAL",
+                        text = stringResource(R.string.queue_total_header),
                         color = AuroColor.TextTertiary,
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "$totalCount faixas • ${formatTimeMs(totalDuration)}",
+                        text = "${pluralStringResource(R.plurals.tracks_count, totalCount, totalCount)} • ${formatTimeMs(totalDuration)}",
                         color = AuroColor.TextPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
@@ -201,7 +203,7 @@ fun AuroQueueScreen(
 
                 if (localPriorityTracks.isNotEmpty()) {
                     Text(
-                        text = "${localPriorityTracks.size} prioritárias",
+                        text = pluralStringResource(R.plurals.priority_tracks_count, localPriorityTracks.size, localPriorityTracks.size),
                         color = LocalAuroAccent.current.a.value,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
@@ -214,13 +216,13 @@ fun AuroQueueScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 24.dp)
+                contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp)
             ) {
                 // Seção Prioritária (A SEGUIR)
                 if (localPriorityTracks.isNotEmpty()) {
                     item(key = "header_priority") {
                         Text(
-                            text = "A SEGUIR (PRIORITÁRIA)",
+                            text = stringResource(R.string.queue_section_priority),
                             color = LocalAuroAccent.current.a.value,
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
@@ -324,7 +326,7 @@ fun AuroQueueScreen(
                 if (localRegularTracks.isNotEmpty()) {
                     item(key = "header_regular") {
                         Text(
-                            text = "REPRODUÇÃO NORMAL",
+                            text = stringResource(R.string.queue_section_normal),
                             color = AuroColor.TextTertiary,
                             fontSize = 11.sp,
                             fontFamily = FontFamily.Monospace,
@@ -492,7 +494,7 @@ private fun AuroQueueTrackRow(
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Equalizer,
-                            contentDescription = "Tocando",
+                            contentDescription = stringResource(R.string.cd_playing_indicator),
                             tint = accent,
                             modifier = Modifier.size(18.dp)
                         )
@@ -508,7 +510,7 @@ private fun AuroQueueTrackRow(
                 if (isPlaying) {
                     Icon(
                         imageVector = Icons.Rounded.Equalizer,
-                        contentDescription = "Tocando",
+                        contentDescription = stringResource(R.string.cd_playing_indicator),
                         tint = accent,
                         modifier = Modifier.size(18.dp)
                     )
@@ -529,7 +531,7 @@ private fun AuroQueueTrackRow(
                 if (hasError) {
                     Icon(
                         imageVector = Icons.Rounded.WarningAmber,
-                        contentDescription = "Erro de reprodução",
+                        contentDescription = stringResource(R.string.cd_error_indicator),
                         tint = Color(0xFFFF5252),
                         modifier = Modifier.size(15.dp)
                     )
@@ -546,7 +548,7 @@ private fun AuroQueueTrackRow(
             }
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = track.artist.ifEmpty { "Desconhecido" },
+                text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
                 color = AuroColor.TextSecondary,
                 fontSize = 11.5.sp,
                 maxLines = 1,
@@ -569,7 +571,7 @@ private fun AuroQueueTrackRow(
         IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
             Icon(
                 imageVector = Icons.Rounded.Close,
-                contentDescription = "Remover",
+                contentDescription = stringResource(R.string.cd_remove_item),
                 tint = AuroColor.TextTertiary,
                 modifier = Modifier.size(16.dp)
             )

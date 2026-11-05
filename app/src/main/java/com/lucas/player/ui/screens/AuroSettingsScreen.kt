@@ -32,6 +32,7 @@ import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
 import com.lucas.player.ui.theme.AuroRadius
 import com.lucas.player.ui.theme.LocalAuroAccent
+import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlin.math.roundToInt
 
 /**
@@ -81,7 +82,7 @@ fun AuroSettingsScreen(
     ) {
         AuroBreadcrumbHeader(
             items = listOf(
-                AuroBreadcrumbItem("Biblioteca"),
+                AuroBreadcrumbItem(stringResource(R.string.library_breadcrumb)),
                 AuroBreadcrumbItem(stringResource(R.string.settings_title))
             ),
             onItemClick = { onBackClick() },
@@ -91,7 +92,7 @@ fun AuroSettingsScreen(
 
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 24.dp)
+            contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp)
         ) {
             // ─────────────────────────────────────────────────────────────
             // SEÇÃO 1: BIBLIOTECA
@@ -715,7 +716,7 @@ fun AuroSettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "• Android Jetpack Compose (Apache 2.0)\n• Oboe C++ Audio Engine (Apache 2.0)\n• Material 3 Icons (Apache 2.0)\n• AndroidX Palette (Apache 2.0)\n• AGSL Runtime Shaders (Google DeepMind/Auro)",
+                        text = stringResource(R.string.settings_licenses_text),
                         color = AuroColor.TextSecondary,
                         fontSize = 13.sp,
                         lineHeight = 20.sp
@@ -723,7 +724,7 @@ fun AuroSettingsScreen(
                     Spacer(modifier = Modifier.height(16.dp))
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                         Text(
-                            text = "Fechar",
+                            text = stringResource(R.string.close),
                             color = accent,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
