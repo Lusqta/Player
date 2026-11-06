@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -81,20 +82,17 @@ fun AuroSettingsScreen(
             .fillMaxSize()
             .background(AuroColor.Black)
     ) {
-        AuroBreadcrumbHeader(
-            items = listOf(
-                AuroBreadcrumbItem(stringResource(R.string.library_breadcrumb)),
-                AuroBreadcrumbItem(stringResource(R.string.settings_title))
-            ),
-            onItemClick = { onBackClick() },
+        AuroTopBar(
+            title = stringResource(R.string.settings_title),
             canGoBack = true,
             onBackClick = onBackClick
         )
 
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp)
-        ) {
+        Box(modifier = Modifier.weight(1f)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp)
+            ) {
             // ─────────────────────────────────────────────────────────────
             // SEÇÃO 1: BIBLIOTECA
             // ─────────────────────────────────────────────────────────────
@@ -558,7 +556,7 @@ fun AuroSettingsScreen(
                     },
                     trailingContent = {
                         Icon(
-                            imageVector = Icons.Rounded.OpenInNew,
+                            imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
                             contentDescription = null,
                             tint = AuroColor.TextTertiary,
                             modifier = Modifier.size(18.dp)
@@ -568,7 +566,11 @@ fun AuroSettingsScreen(
                 HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
             }
         }
+
+        // Fade sutil de 16dp no topo
+        AuroTopFade(modifier = Modifier.align(Alignment.TopCenter))
     }
+}
 
     // Modal Sheet de Escolha do ReplayGain
     if (showReplayGainPicker) {

@@ -390,7 +390,11 @@ fun AuroSearchScreen(
                                     onLongClick = { onTrackLongClick(track) },
                                     onMenuClick = { onTrackMenuClick(track) }
                                 )
-                                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(start = 80.dp),
+                                    color = AuroColor.Hairline,
+                                    thickness = 1.dp
+                                )
                             }
                         }
 
@@ -412,7 +416,11 @@ fun AuroSearchScreen(
                                         onAlbumClick(album.name)
                                     }
                                 )
-                                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(start = 80.dp),
+                                    color = AuroColor.Hairline,
+                                    thickness = 1.dp
+                                )
                             }
                         }
 
@@ -434,7 +442,11 @@ fun AuroSearchScreen(
                                         onArtistClick(artist.name)
                                     }
                                 )
-                                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(start = 80.dp),
+                                    color = AuroColor.Hairline,
+                                    thickness = 1.dp
+                                )
                             }
                         }
                     }
@@ -454,7 +466,11 @@ fun AuroSearchScreen(
                                 onLongClick = { onTrackLongClick(track) },
                                 onMenuClick = { onTrackMenuClick(track) }
                             )
-                            HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 80.dp),
+                                color = AuroColor.Hairline,
+                                thickness = 1.dp
+                            )
                         }
                     }
 
@@ -468,7 +484,11 @@ fun AuroSearchScreen(
                                     onAlbumClick(album.name)
                                 }
                             )
-                            HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 80.dp),
+                                color = AuroColor.Hairline,
+                                thickness = 1.dp
+                            )
                         }
                     }
 
@@ -482,7 +502,11 @@ fun AuroSearchScreen(
                                     onArtistClick(artist.name)
                                 }
                             )
-                            HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 80.dp),
+                                color = AuroColor.Hairline,
+                                thickness = 1.dp
+                            )
                         }
                     }
                 }

@@ -80,12 +80,8 @@ fun AuroEqualizerScreen(
             .fillMaxSize()
             .background(AuroColor.Black)
     ) {
-        AuroBreadcrumbHeader(
-            items = listOf(
-                AuroBreadcrumbItem(stringResource(R.string.library_breadcrumb)),
-                AuroBreadcrumbItem(stringResource(R.string.equalizer_breadcrumb))
-            ),
-            onItemClick = { onClose() },
+        AuroTopBar(
+            title = stringResource(R.string.equalizer_breadcrumb),
             canGoBack = true,
             onBackClick = onClose,
             rightActions = {
@@ -96,14 +92,15 @@ fun AuroEqualizerScreen(
             }
         )
 
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 12.dp, bottom = LocalAuroBottomInset.current + 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+        Box(modifier = Modifier.weight(1f)) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(top = 12.dp, bottom = LocalAuroBottomInset.current + 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
             // Presets
             item {
                 Row(
@@ -295,7 +292,11 @@ fun AuroEqualizerScreen(
                 }
             }
         }
+
+        // Fade sutil de 16dp no topo
+        AuroTopFade(modifier = Modifier.align(Alignment.TopCenter))
     }
+}
 }
 
 @Composable

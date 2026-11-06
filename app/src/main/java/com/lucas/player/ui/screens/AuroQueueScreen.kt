@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Shuffle
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -138,30 +140,27 @@ fun AuroQueueScreen(
             .fillMaxSize()
             .background(AuroColor.Black)
     ) {
-        AuroBreadcrumbHeader(
-            items = listOf(
-                AuroBreadcrumbItem(stringResource(R.string.library_breadcrumb)),
-                AuroBreadcrumbItem(stringResource(R.string.queue_breadcrumb))
-            ),
-            onItemClick = { onBackClick() },
+        AuroTopBar(
+            title = stringResource(R.string.queue_breadcrumb),
+            subtitle = if (totalCount > 0) pluralStringResource(R.plurals.tracks_count, totalCount, totalCount) else null,
             canGoBack = true,
             onBackClick = onBackClick,
             rightActions = {
                 if (totalCount > 0) {
-                    IconButton(onClick = onShuffleQueue, modifier = Modifier.size(44.dp)) {
+                    IconButton(onClick = onShuffleQueue, modifier = Modifier.size(40.dp)) {
                         Icon(
-                            imageVector = Icons.Rounded.Shuffle,
+                            imageVector = Icons.Outlined.Shuffle,
                             contentDescription = stringResource(R.string.cd_shuffle),
                             tint = AuroColor.TextSecondary,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
-                    IconButton(onClick = onClearQueue, modifier = Modifier.size(44.dp)) {
+                    IconButton(onClick = onClearQueue, modifier = Modifier.size(40.dp)) {
                         Icon(
-                            imageVector = Icons.Rounded.DeleteOutline,
+                            imageVector = Icons.Outlined.DeleteOutline,
                             contentDescription = stringResource(R.string.cd_clear_queue),
                             tint = AuroColor.TextSecondary,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
@@ -214,11 +213,12 @@ fun AuroQueueScreen(
 
             HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
 
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp)
-            ) {
+            Box(modifier = Modifier.weight(1f)) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp)
+                ) {
                 // Seção Prioritária (A SEGUIR)
                 if (localPriorityTracks.isNotEmpty()) {
                     item(key = "header_priority") {
@@ -320,7 +320,11 @@ fun AuroQueueScreen(
                                 }
                             )
                         }
-                        HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 80.dp),
+                            color = AuroColor.Hairline,
+                            thickness = 1.dp
+                        )
                     }
                 }
 
@@ -424,12 +428,20 @@ fun AuroQueueScreen(
                                 }
                             )
                         }
-                        HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 80.dp),
+                            color = AuroColor.Hairline,
+                            thickness = 1.dp
+                        )
                     }
                 }
             }
+
+            // Fade sutil de 16dp no topo da fila
+            AuroTopFade(modifier = Modifier.align(Alignment.TopCenter))
         }
     }
+}
 }
 
 @Composable

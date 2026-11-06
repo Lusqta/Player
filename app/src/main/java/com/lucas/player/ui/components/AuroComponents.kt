@@ -2,8 +2,13 @@ package com.lucas.player.ui.components
 
 import android.graphics.Bitmap
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
@@ -788,8 +793,96 @@ private fun AuroNavbarTab(
 }
 
 /**
+ * Três barras animadas de equalizador sobre a miniatura da faixa tocando.
+ * Param quando pausado ou quando reduce motion estiver ativo.
+ */
+@Composable
+fun AuroEqualizerBars(
+    isPlaying: Boolean,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    val reduceMotion = rememberReduceMotion()
+    val shouldAnimate = isPlaying && !reduceMotion
+
+    val infiniteTransition = rememberInfiniteTransition(label = "auro_eq_bars")
+
+    val height1 by if (shouldAnimate) {
+        infiniteTransition.animateFloat(
+            initialValue = 0.25f,
+            targetValue = 0.90f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(460, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "bar1"
+        )
+    } else {
+        remember { mutableFloatStateOf(0.35f) }
+    }
+
+    val height2 by if (shouldAnimate) {
+        infiniteTransition.animateFloat(
+            initialValue = 0.45f,
+            targetValue = 1.0f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(620, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "bar2"
+        )
+    } else {
+        remember { mutableFloatStateOf(0.70f) }
+    }
+
+    val height3 by if (shouldAnimate) {
+        infiniteTransition.animateFloat(
+            initialValue = 0.20f,
+            targetValue = 0.80f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(520, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "bar3"
+        )
+    } else {
+        remember { mutableFloatStateOf(0.45f) }
+    }
+
+    Row(
+        modifier = modifier.size(width = 18.dp, height = 18.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.5.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .fillMaxHeight(height1)
+                .clip(RoundedCornerShape(1.5.dp))
+                .background(color)
+        )
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .fillMaxHeight(height2)
+                .clip(RoundedCornerShape(1.5.dp))
+                .background(color)
+        )
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .fillMaxHeight(height3)
+                .clip(RoundedCornerShape(1.5.dp))
+                .background(color)
+        )
+    }
+}
+
+/**
  * 4. LINHA DE FAIXA NA LISTA (AURŌ TRACK ROW)
- * Regra: "Linha de lista: título 14sp TextPrimary, artista 11,5sp TextSecondary, fio Hairline. Sem vidro."
+ * Specs: Altura 58dp, miniatura 44dp (raio 10), título Body, artista Label em TextSecondary,
+ * duração Label à direita. Faixa tocando: 3 barras de accent A animadas sobre miniatura
+ * escurecida a 45% (param quando pausado) e título em accent A. Sem capa: nota musical a 55% de accent (sem caixa).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -804,7 +897,8 @@ fun AuroTrackRow(
     hasError: Boolean = false,
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
-    showFormatTag: Boolean = true
+    showFormatTag: Boolean = true,
+    isAudioPlaying: Boolean = LocalAuroIsPlaying.current
 ) {
     val accent = LocalAuroAccent.current.a.value
     val view = LocalView.current
@@ -812,6 +906,7 @@ fun AuroTrackRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .height(AuroHeight.TrackRow)
             .combinedClickable(
                 onClick = {
                     AuroHaptics.click(view)
@@ -824,7 +919,7 @@ fun AuroTrackRow(
                     }
                 }
             )
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = AuroSpace.ScreenMargin),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Indicador de Seleção Múltipla (Fase 4.3): 24dp à esquerda
@@ -856,11 +951,11 @@ fun AuroTrackRow(
         val coverBitmap = rememberTrackCover(track, 100)
 
         if (coverBitmap != null) {
-            // Com capa: miniatura de 42dp
+            // Com capa: miniatura de 44dp com raio 10dp
             Box(
                 modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(6.dp)),
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(AuroRadius.thumbnail)),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
@@ -876,48 +971,46 @@ fun AuroTrackRow(
                             .background(Color.Black.copy(alpha = 0.45f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Equalizer,
-                            contentDescription = stringResource(R.string.cd_playing_indicator),
-                            tint = accent,
-                            modifier = Modifier.size(18.dp)
+                        AuroEqualizerBars(
+                            isPlaying = isAudioPlaying,
+                            color = accent
                         )
                     }
                 }
             }
-            Spacer(modifier = Modifier.width(12.dp))
         } else {
-            // Sem capa: mantém o número da faixa exatamente como antes
+            // Sem capa: sem caixa, só a nota musical a 55% de accent, ou barras quando tocando
             Box(
-                modifier = Modifier.width(28.dp),
-                contentAlignment = Alignment.CenterStart
+                modifier = Modifier.size(44.dp),
+                contentAlignment = Alignment.Center
             ) {
                 if (isPlayingThis) {
-                    Icon(
-                        imageVector = Icons.Rounded.Equalizer,
-                        contentDescription = stringResource(R.string.cd_playing_indicator),
-                        tint = accent,
-                        modifier = Modifier.size(16.dp)
+                    AuroEqualizerBars(
+                        isPlaying = isAudioPlaying,
+                        color = accent
                     )
                 } else {
-                    Text(
-                        text = "${trackIndex + 1}",
-                        style = AuroType.Caption.copy(
-                            color = AuroColor.TextTertiary,
-                            fontFamily = FontFamily.Monospace,
-                            fontFeatureSettings = "tnum"
-                        )
+                    Icon(
+                        imageVector = Icons.Outlined.MusicNote,
+                        contentDescription = null,
+                        tint = accent.copy(alpha = 0.55f),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
         }
 
+        Spacer(modifier = Modifier.width(12.dp))
+
         // Título e Artista
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (hasError) {
                     Icon(
-                        imageVector = Icons.Rounded.WarningAmber,
+                        imageVector = Icons.Outlined.WarningAmber,
                         contentDescription = stringResource(R.string.cd_error_indicator),
                         tint = AuroColor.Danger,
                         modifier = Modifier.size(15.dp)
@@ -940,7 +1033,7 @@ fun AuroTrackRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "${track.artist} • ${track.album}",
-                    style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
+                    style = AuroType.Label.copy(color = AuroColor.TextSecondary),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
@@ -950,7 +1043,7 @@ fun AuroTrackRow(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "★ ${track.rating}",
-                        style = AuroType.NavLabel.copy(
+                        style = AuroType.Caption.copy(
                             color = accent,
                             fontFeatureSettings = "tnum"
                         )
@@ -985,7 +1078,7 @@ fun AuroTrackRow(
         // Duração da faixa
         Text(
             text = formatTimeMs(track.durationMs),
-            style = AuroType.Caption.copy(
+            style = AuroType.Label.copy(
                 color = AuroColor.TextSecondary,
                 fontFamily = FontFamily.Monospace,
                 fontFeatureSettings = "tnum"
@@ -995,16 +1088,16 @@ fun AuroTrackRow(
         if (!isSelectionMode) {
             Spacer(modifier = Modifier.width(4.dp))
 
-            // Menu da faixa
+            // Menu da faixa (Outlined MoreVert)
             IconButton(
                 onClick = onMenuClick,
-                modifier = Modifier.size(44.dp)
+                modifier = Modifier.size(40.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.MoreVert,
+                    imageVector = Icons.Outlined.MoreVert,
                     contentDescription = stringResource(R.string.cd_more_options),
-                    tint = AuroColor.TextTertiary,
-                    modifier = Modifier.size(16.dp)
+                    tint = AuroColor.TextSecondary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -1012,77 +1105,104 @@ fun AuroTrackRow(
 }
 
 /**
- * 5. CABEÇALHO BREADCRUMB (AURŌ BREADCRUMB HEADER)
+ * Gradiente sutil de 16dp de preto para transparente no topo das listas roláveis,
+ * garantindo transição suave sob a AuroTopBar sem necessidade de borda inferior.
  */
-data class AuroBreadcrumbItem(val title: String)
-
 @Composable
-fun AuroBreadcrumbHeader(
-    items: List<AuroBreadcrumbItem>,
-    onItemClick: (Int) -> Unit,
+fun AuroTopFade(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(16.dp)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(AuroColor.Black, Color.Transparent)
+                )
+            )
+    )
+}
+
+/**
+ * 5. CABEÇALHO DO AURŌ PLAYER (AURŌ TOP BAR)
+ * Substitui AuroBreadcrumbHeader:
+ * - Raiz: título Display, subtítulo Label (contagens), à direita botão de vidro ⋮ de 40dp
+ * - Telas internas: botão voltar de vidro 40dp, título Subtitle, subtítulo Label. Com profundidade >= 2, breadcrumb acima.
+ * - Sem borda inferior.
+ */
+@Composable
+fun AuroTopBar(
+    title: String,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    breadcrumb: String? = null,
+    isRoot: Boolean = false,
     canGoBack: Boolean = false,
     onBackClick: () -> Unit = {},
-    rightActions: @Composable RowScope.() -> Unit = {},
-    modifier: Modifier = Modifier
+    rightActions: @Composable RowScope.() -> Unit = {}
 ) {
+    val view = LocalView.current
     Surface(
         color = AuroColor.Black,
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .border(width = 1.dp, color = AuroColor.Hairline)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = AuroSpace.ScreenMargin, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (canGoBack) {
-                IconButton(
-                    onClick = onBackClick,
-                    modifier = Modifier.size(44.dp)
+                AuroGlass(
+                    kind = AuroGlassKind.Button,
+                    cornerRadius = 20.dp,
+                    modifier = Modifier.size(AuroHeight.GlassButton), // 40.dp
+                    onClick = {
+                        AuroHaptics.click(view)
+                        onBackClick()
+                    }
                 ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = stringResource(R.string.cd_back),
-                        tint = AuroColor.TextPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = stringResource(R.string.cd_back),
+                            tint = AuroColor.TextPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(14.dp))
             }
 
-            Row(
+            Column(
                 modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.Center
             ) {
-                items.forEachIndexed { index, item ->
-                    val isLast = index == items.size - 1
-                    Box(
-                        modifier = Modifier
-                            .defaultMinSize(minHeight = 36.dp)
-                            .clickable { onItemClick(index) }
-                            .padding(horizontal = 4.dp, vertical = 6.dp),
-                        contentAlignment = Alignment.CenterStart
-                    ) {
-                        Text(
-                            text = item.title,
-                            style = (if (isLast) AuroType.Subtitle else AuroType.Label).copy(
-                                color = if (isLast) AuroColor.TextPrimary else AuroColor.TextSecondary,
-                                fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    if (!isLast) {
-                        Text(
-                            text = "/",
-                            style = AuroType.Label.copy(color = AuroColor.TextTertiary),
-                            modifier = Modifier.padding(horizontal = 2.dp)
-                        )
-                    }
+                if (!breadcrumb.isNullOrEmpty()) {
+                    Text(
+                        text = breadcrumb,
+                        style = AuroType.Label.copy(color = AuroColor.TextSecondary),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                }
+                Text(
+                    text = title,
+                    style = if (isRoot) AuroType.Display else AuroType.Subtitle,
+                    color = AuroColor.TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (!subtitle.isNullOrEmpty()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        style = AuroType.Label.copy(color = AuroColor.TextSecondary),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
 
@@ -1092,6 +1212,34 @@ fun AuroBreadcrumbHeader(
             )
         }
     }
+}
+
+data class AuroBreadcrumbItem(val title: String)
+
+@Composable
+fun AuroBreadcrumbHeader(
+    items: List<AuroBreadcrumbItem>,
+    onItemClick: (Int) -> Unit = {},
+    canGoBack: Boolean = false,
+    onBackClick: () -> Unit = {},
+    rightActions: @Composable RowScope.() -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    val title = items.lastOrNull()?.title ?: ""
+    val breadcrumb = if (items.size > 2) {
+        items.dropLast(1).joinToString(" › ") { it.title }
+    } else null
+    val isRoot = items.size <= 1 && !canGoBack
+
+    AuroTopBar(
+        title = title,
+        breadcrumb = breadcrumb,
+        isRoot = isRoot,
+        canGoBack = canGoBack,
+        onBackClick = onBackClick,
+        rightActions = rightActions,
+        modifier = modifier
+    )
 }
 
 /**

@@ -66,44 +66,20 @@ fun AuroDrilldownScreen(
             .fillMaxSize()
             .background(AuroColor.Black)
     ) {
-        AuroBreadcrumbHeader(
-            items = listOf(
-                AuroBreadcrumbItem(stringResource(R.string.library_breadcrumb)),
-                AuroBreadcrumbItem(stringResource(category.getTitleRes())),
-                AuroBreadcrumbItem(groupTitle)
-            ),
-            onItemClick = { index ->
-                when (index) {
-                    0 -> onBackToLibraryRoot()
-                    1 -> onBackToCategoryList()
-                }
-            },
+        AuroTopBar(
+            title = groupTitle,
+            breadcrumb = stringResource(category.getTitleRes()),
+            subtitle = "${pluralStringResource(R.plurals.tracks_count, tracks.size, tracks.size)} • ${formatTimeMs(totalDurationMs)}",
             canGoBack = true,
             onBackClick = onBackToCategoryList
         )
 
-        // Banner do grupo e ações
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            Text(
-                text = groupTitle,
-                style = AuroType.Title.copy(fontWeight = FontWeight.Bold),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "${pluralStringResource(R.plurals.tracks_count, tracks.size, tracks.size)} • ${formatTimeMs(totalDurationMs)}",
-                style = AuroType.Label.copy(color = AuroColor.TextSecondary)
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
+        // Banner de Ações Rápidas (Tocar tudo / Aleatório)
+        if (tracks.isNotEmpty()) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 AuroGlass(
@@ -158,9 +134,8 @@ fun AuroDrilldownScreen(
                     }
                 }
             }
+            HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
         }
-
-        HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
 
         val coroutineScope = rememberCoroutineScope()
 
@@ -199,7 +174,11 @@ fun AuroDrilldownScreen(
                             onLongClick = { onTrackLongClick(track) },
                             onMenuClick = { onTrackMenuClick(track) }
                         )
-                        HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                        HorizontalDivider(
+                            modifier = Modifier.padding(start = 80.dp),
+                            color = AuroColor.Hairline,
+                            thickness = 1.dp
+                        )
                     }
                 }
 
@@ -220,6 +199,9 @@ fun AuroDrilldownScreen(
                         }
                     )
                 }
+
+                // Fade de 16dp no topo da lista
+                AuroTopFade(modifier = Modifier.align(Alignment.TopCenter))
             }
         }
     }

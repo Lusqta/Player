@@ -366,6 +366,7 @@ val LocalAuroAccent = staticCompositionLocalOf<AuroAccentState> {
 val LocalAuroSoft = staticCompositionLocalOf { 0.6f }
 val LocalReduceMotionOverride = staticCompositionLocalOf<Boolean?> { null }
 val LocalAuroBottomInset = compositionLocalOf { 0.dp }
+val LocalAuroIsPlaying = compositionLocalOf { false }
 
 /** true se o usuário desligou as animações do sistema ou configurou no app. */
 @Composable

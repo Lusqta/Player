@@ -10,8 +10,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.automirrored.rounded.Sort
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -80,23 +81,18 @@ fun AuroCategoryListScreen(
             .fillMaxSize()
             .background(AuroColor.Black)
     ) {
-        AuroBreadcrumbHeader(
-            items = listOf(
-                AuroBreadcrumbItem(stringResource(R.string.library_breadcrumb)),
-                AuroBreadcrumbItem(stringResource(category.getTitleRes()))
-            ),
-            onItemClick = { index ->
-                if (index == 0) onBackClick()
-            },
+        AuroTopBar(
+            title = stringResource(category.getTitleRes()),
+            subtitle = if (isTrackListCategory) "${displayedTracks.size} faixas" else "${displayedGroups.size} itens",
             canGoBack = true,
             onBackClick = onBackClick,
             rightActions = {
-                IconButton(onClick = onSortClick, modifier = Modifier.size(44.dp)) {
+                IconButton(onClick = onSortClick, modifier = Modifier.size(40.dp)) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.Sort,
+                        imageVector = Icons.AutoMirrored.Outlined.Sort,
                         contentDescription = stringResource(R.string.cd_sort),
                         tint = AuroColor.TextSecondary,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -231,7 +227,11 @@ fun AuroCategoryListScreen(
                                 onLongClick = { onTrackLongClick(track) },
                                 onMenuClick = { onTrackMenuClick(track) }
                             )
-                            HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 80.dp),
+                                color = AuroColor.Hairline,
+                                thickness = 1.dp
+                            )
                         }
                     }
 
@@ -309,7 +309,11 @@ fun AuroCategoryListScreen(
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
-                            HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                            HorizontalDivider(
+                                modifier = Modifier.padding(start = 66.dp),
+                                color = AuroColor.Hairline,
+                                thickness = 1.dp
+                            )
                         }
                     }
 
@@ -332,6 +336,9 @@ fun AuroCategoryListScreen(
                     }
                 }
             }
+
+            // Fade sutil de 16dp no topo das listas
+            AuroTopFade(modifier = Modifier.align(Alignment.TopCenter))
         }
     }
 }

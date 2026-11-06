@@ -421,7 +421,10 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                     val dockHeight = if (currentTrack != null) AuroHeight.Dock else AuroHeight.DockCollapsed
                     val activeBottomInset = if (currentScreen is NavScreen.NowPlaying) 0.dp else (dockHeight + AuroSpace.EdgeMargin + navBarBottomInset)
 
-                    CompositionLocalProvider(LocalAuroBottomInset provides activeBottomInset) {
+                    CompositionLocalProvider(
+                        LocalAuroBottomInset provides activeBottomInset,
+                        LocalAuroIsPlaying provides isPlaying
+                    ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
