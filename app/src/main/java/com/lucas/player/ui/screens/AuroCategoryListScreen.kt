@@ -33,6 +33,7 @@ import com.lucas.player.model.getTitleRes
 import com.lucas.player.ui.GroupItem
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.AuroColor
+import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
 import com.lucas.player.ui.theme.LocalAuroAccent
@@ -131,9 +132,7 @@ fun AuroCategoryListScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = stringResource(R.string.play_all),
-                            color = AuroColor.TextPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                            style = AuroType.Label
                         )
                     }
                 }
@@ -159,9 +158,7 @@ fun AuroCategoryListScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = stringResource(R.string.shuffle_all),
-                            color = AuroColor.TextPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                            style = AuroType.Label
                         )
                     }
                 }
@@ -187,9 +184,10 @@ fun AuroCategoryListScreen(
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = stringResource(R.string.new_playlist_button),
-                    color = LocalAuroAccent.current.a.value,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
+                    style = AuroType.Label.copy(
+                        color = LocalAuroAccent.current.a.value,
+                        fontWeight = FontWeight.Bold
+                    )
                 )
             }
             HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
@@ -294,17 +292,14 @@ fun AuroCategoryListScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = group.title,
-                                        color = AuroColor.TextPrimary,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Medium,
+                                        style = AuroType.Body.copy(fontWeight = FontWeight.Medium),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
                                         text = group.subtitle,
-                                        color = AuroColor.TextSecondary,
-                                        fontSize = 12.sp
+                                        style = AuroType.Label.copy(color = AuroColor.TextSecondary)
                                     )
                                 }
                                 Icon(

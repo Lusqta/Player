@@ -172,10 +172,11 @@ fun AuroNowPlayingScreen(
             if (queueSize > 0) {
                 Text(
                     text = "${currentTrackIndex + 1} / $queueSize",
-                    color = AuroColor.TextTertiary,
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace,
-                    style = TextStyle(fontFeatureSettings = "tnum"),
+                    style = AuroType.Caption.copy(
+                        color = AuroColor.TextTertiary,
+                        fontFamily = FontFamily.Monospace,
+                        fontFeatureSettings = "tnum"
+                    ),
                     modifier = Modifier
                         .clickable(onClick = onOpenQueue)
                         .padding(horizontal = 6.dp, vertical = 2.dp)
@@ -256,9 +257,7 @@ fun AuroNowPlayingScreen(
             ) {
                 Text(
                     text = track.title,
-                    color = AuroColor.TextPrimary,
-                    fontSize = 21.sp,
-                    fontWeight = FontWeight.Medium,
+                    style = AuroType.Title,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.semantics { traversalIndex = 2f }
@@ -266,8 +265,7 @@ fun AuroNowPlayingScreen(
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                    color = AuroColor.TextSecondary,
-                    fontSize = 14.sp,
+                    style = AuroType.Body.copy(color = AuroColor.TextSecondary),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.semantics { traversalIndex = 3f }
@@ -475,9 +473,7 @@ fun AuroNowPlayingScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = stringResource(R.string.queue_label),
-                        color = AuroColor.TextPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium
+                        style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
                     )
                 }
             }
@@ -493,9 +489,7 @@ fun AuroNowPlayingScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
                         text = stringResource(R.string.lyrics_label),
-                        color = AuroColor.TextPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium
+                        style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
                     )
                 }
             }
@@ -514,10 +508,11 @@ fun AuroNowPlayingScreen(
 
         Text(
             text = headerTitle,
-            color = AuroColor.TextPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace,
+            style = AuroType.SectionHeader.copy(
+                color = AuroColor.TextPrimary,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace
+            ),
             modifier = Modifier
                 .padding(vertical = 8.dp)
                 .clickable(onClick = onOpenQueue)
@@ -564,17 +559,14 @@ fun AuroNowPlayingScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = nextTrack.title,
-                            color = AuroColor.TextPrimary,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
+                            style = AuroType.Body.copy(fontWeight = FontWeight.Medium),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = nextTrack.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                            color = AuroColor.TextSecondary,
-                            fontSize = 11.5.sp,
+                            style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -619,17 +611,14 @@ fun AuroNowPlayingScreen(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = afterNextTrack.title,
-                            color = AuroColor.TextPrimary,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
+                            style = AuroType.Body.copy(fontWeight = FontWeight.Medium),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = afterNextTrack.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                            color = AuroColor.TextSecondary,
-                            fontSize = 11.5.sp,
+                            style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -640,8 +629,7 @@ fun AuroNowPlayingScreen(
         } else {
             Text(
                 text = stringResource(R.string.end_of_queue),
-                color = AuroColor.TextTertiary,
-                fontSize = 12.sp,
+                style = AuroType.Label.copy(color = AuroColor.TextTertiary),
                 modifier = Modifier.padding(vertical = 8.dp)
             )
         }

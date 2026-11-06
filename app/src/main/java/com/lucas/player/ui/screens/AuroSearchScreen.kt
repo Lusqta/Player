@@ -41,6 +41,7 @@ import com.lucas.player.ui.components.AuroEmptyState
 import com.lucas.player.ui.components.AuroHaptics
 import com.lucas.player.ui.components.AuroTrackRow
 import com.lucas.player.ui.theme.AuroColor
+import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
 import com.lucas.player.ui.theme.LocalAuroAccent
@@ -191,8 +192,7 @@ fun AuroSearchScreen(
                         placeholder = {
                             Text(
                                 text = stringResource(R.string.search_placeholder),
-                                color = AuroColor.TextTertiary,
-                                fontSize = 13.sp
+                                style = AuroType.Body.copy(color = AuroColor.TextTertiary)
                             )
                         },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -282,15 +282,15 @@ fun AuroSearchScreen(
                 ) {
                     Text(
                         text = stringResource(R.string.search_recent_title),
-                        color = AuroColor.TextSecondary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
+                        style = AuroType.SectionHeader.copy(
+                            color = AuroColor.TextSecondary,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
                     )
                     Text(
                         text = stringResource(R.string.search_recent_clear),
-                        color = AuroColor.TextTertiary,
-                        fontSize = 12.sp,
+                        style = AuroType.Label.copy(color = AuroColor.TextTertiary),
                         modifier = Modifier
                             .clickable {
                                 preferencesManager.clearRecentSearches()
@@ -326,8 +326,7 @@ fun AuroSearchScreen(
                             Spacer(modifier = Modifier.width(14.dp))
                             Text(
                                 text = queryItem,
-                                color = AuroColor.TextPrimary,
-                                fontSize = 14.sp,
+                                style = AuroType.Body,
                                 modifier = Modifier.weight(1f)
                             )
                             IconButton(
@@ -518,9 +517,10 @@ private fun SearchFilterChip(
     ) {
         Text(
             text = label,
-            color = if (isSelected) accent else AuroColor.TextSecondary,
-            fontSize = 12.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+            style = AuroType.Label.copy(
+                color = if (isSelected) accent else AuroColor.TextSecondary,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+            )
         )
     }
 }
@@ -541,17 +541,16 @@ private fun SearchSectionHeader(
     ) {
         Text(
             text = title,
-            color = AuroColor.TextSecondary,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace
+            style = AuroType.SectionHeader.copy(
+                color = AuroColor.TextSecondary,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace
+            )
         )
         if (canViewAll) {
             Text(
                 text = stringResource(R.string.search_view_all),
-                color = accent,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
+                style = AuroType.Label.copy(color = accent, fontWeight = FontWeight.Bold),
                 modifier = Modifier
                     .clickable(onClick = onViewAll)
                     .padding(4.dp)
@@ -582,17 +581,14 @@ private fun SearchAlbumRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = album.name,
-                color = AuroColor.TextPrimary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
+                style = AuroType.Body.copy(fontWeight = FontWeight.Medium),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = "${album.artist} • ${pluralStringResource(R.plurals.tracks_count, album.trackCount, album.trackCount)}",
-                color = AuroColor.TextSecondary,
-                fontSize = 11.5.sp,
+                style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -628,17 +624,14 @@ private fun SearchArtistRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = artist.name,
-                color = AuroColor.TextPrimary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
+                style = AuroType.Body.copy(fontWeight = FontWeight.Medium),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = pluralStringResource(R.plurals.tracks_count, artist.trackCount, artist.trackCount),
-                color = AuroColor.TextSecondary,
-                fontSize = 11.5.sp,
+                style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )

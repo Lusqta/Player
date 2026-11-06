@@ -465,9 +465,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                             } else {
                                                 stringResource(R.string.selection_count, selectedCount)
                                             },
-                                            color = AuroColor.TextPrimary,
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold
+                                            style = AuroType.Subtitle.copy(fontWeight = FontWeight.Bold)
                                         )
                                     }
 

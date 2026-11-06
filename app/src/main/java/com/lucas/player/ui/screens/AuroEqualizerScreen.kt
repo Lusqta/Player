@@ -29,6 +29,7 @@ import com.lucas.player.R
 import com.lucas.player.data.MusicDatabase
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.AuroColor
+import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
 import com.lucas.player.ui.theme.LocalAuroAccent
@@ -112,15 +113,15 @@ fun AuroEqualizerScreen(
                 ) {
                     Text(
                         text = stringResource(R.string.eq_presets_header),
-                        color = AuroColor.TextTertiary,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace
+                        style = AuroType.Caption.copy(
+                            color = AuroColor.TextTertiary,
+                            fontFamily = FontFamily.Monospace
+                        )
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = stringResource(R.string.eq_reset),
-                            color = AuroColor.TextSecondary,
-                            fontSize = 12.sp,
+                            style = AuroType.Label.copy(color = AuroColor.TextSecondary),
                             modifier = Modifier
                                 .clickable { onResetEq() }
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
@@ -128,9 +129,10 @@ fun AuroEqualizerScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = stringResource(R.string.eq_save),
-                            color = accent,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
+                            style = AuroType.Label.copy(
+                                color = accent,
+                                fontWeight = FontWeight.Bold
+                            ),
                             modifier = Modifier
                                 .clickable { onSavePreset() }
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
@@ -154,9 +156,10 @@ fun AuroEqualizerScreen(
                             ) {
                                 Text(
                                     text = p.name,
-                                    color = if (isSelected) accent else AuroColor.TextPrimary,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    style = AuroType.Body.copy(
+                                        color = if (isSelected) accent else AuroColor.TextPrimary,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
                                 )
                                 if (!p.isBuiltin) {
                                     Spacer(modifier = Modifier.width(4.dp))
@@ -195,9 +198,10 @@ fun AuroEqualizerScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = stringResource(R.string.eq_tone_preamp_header),
-                                    color = AuroColor.TextTertiary,
-                                    fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace
+                                    style = AuroType.Caption.copy(
+                                        color = AuroColor.TextTertiary,
+                                        fontFamily = FontFamily.Monospace
+                                    )
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
                                 AuroSwitch(
@@ -207,7 +211,10 @@ fun AuroEqualizerScreen(
                                 )
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(stringResource(R.string.eq_mono), color = AuroColor.TextSecondary, fontSize = 12.sp)
+                                Text(
+                                    text = stringResource(R.string.eq_mono),
+                                    style = AuroType.Label.copy(color = AuroColor.TextSecondary)
+                                )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Checkbox(
                                     checked = isMono,
@@ -235,9 +242,10 @@ fun AuroEqualizerScreen(
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
                             text = stringResource(R.string.eq_bands_header),
-                            color = AuroColor.TextTertiary,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace
+                            style = AuroType.Caption.copy(
+                                color = AuroColor.TextTertiary,
+                                fontFamily = FontFamily.Monospace
+                            )
                         )
                         Spacer(modifier = Modifier.height(10.dp))
 
@@ -252,9 +260,10 @@ fun AuroEqualizerScreen(
                             ) {
                                 Text(
                                     text = freqLabel,
-                                    color = AuroColor.TextPrimary,
-                                    fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace,
+                                    style = AuroType.Caption.copy(
+                                        color = AuroColor.TextPrimary,
+                                        fontFamily = FontFamily.Monospace
+                                    ),
                                     modifier = Modifier.width(50.dp)
                                 )
 
@@ -272,10 +281,11 @@ fun AuroEqualizerScreen(
 
                                 Text(
                                     text = formattedGain,
-                                    color = AuroColor.TextSecondary,
-                                    fontSize = 11.sp,
-                                    fontFamily = FontFamily.Monospace,
-                                    style = TextStyle(fontFeatureSettings = "tnum"),
+                                    style = AuroType.Caption.copy(
+                                        color = AuroColor.TextSecondary,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontFeatureSettings = "tnum"
+                                    ),
                                     textAlign = TextAlign.End,
                                     modifier = Modifier.width(54.dp)
                                 )
@@ -305,8 +315,9 @@ private fun AuroToneRow(
     ) {
         Text(
             text = label,
-            color = if (enabled) AuroColor.TextSecondary else AuroColor.TextTertiary,
-            fontSize = 12.sp,
+            style = AuroType.Label.copy(
+                color = if (enabled) AuroColor.TextSecondary else AuroColor.TextTertiary
+            ),
             modifier = Modifier.width(86.dp)
         )
         val textVal = if (isBalance) {
@@ -331,10 +342,11 @@ private fun AuroToneRow(
         )
         Text(
             text = textVal,
-            color = if (enabled) AuroColor.TextPrimary else AuroColor.TextTertiary,
-            fontSize = 11.sp,
-            fontFamily = FontFamily.Monospace,
-            style = TextStyle(fontFeatureSettings = "tnum"),
+            style = AuroType.Caption.copy(
+                color = if (enabled) AuroColor.TextPrimary else AuroColor.TextTertiary,
+                fontFamily = FontFamily.Monospace,
+                fontFeatureSettings = "tnum"
+            ),
             textAlign = TextAlign.End,
             modifier = Modifier.width(54.dp)
         )

@@ -50,6 +50,7 @@ import com.lucas.player.model.Track
 import com.lucas.player.queue.QueueSection
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.AuroColor
+import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.AuroMotion
 import com.lucas.player.ui.theme.LocalAuroAccent
 import com.lucas.player.ui.theme.LocalAuroBottomInset
@@ -188,25 +189,25 @@ fun AuroQueueScreen(
                 Column {
                     Text(
                         text = stringResource(R.string.queue_total_header),
-                        color = AuroColor.TextTertiary,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace
+                        style = AuroType.Caption.copy(
+                            color = AuroColor.TextTertiary,
+                            fontFamily = FontFamily.Monospace
+                        )
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "${pluralStringResource(R.plurals.tracks_count, totalCount, totalCount)} • ${formatTimeMs(totalDuration)}",
-                        color = AuroColor.TextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
+                        style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
                     )
                 }
 
                 if (localPriorityTracks.isNotEmpty()) {
                     Text(
                         text = pluralStringResource(R.plurals.priority_tracks_count, localPriorityTracks.size, localPriorityTracks.size),
-                        color = LocalAuroAccent.current.a.value,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                        style = AuroType.Label.copy(
+                            color = LocalAuroAccent.current.a.value,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
                 }
             }
@@ -223,10 +224,11 @@ fun AuroQueueScreen(
                     item(key = "header_priority") {
                         Text(
                             text = stringResource(R.string.queue_section_priority),
-                            color = LocalAuroAccent.current.a.value,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
+                            style = AuroType.SectionHeader.copy(
+                                color = LocalAuroAccent.current.a.value,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            ),
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                         )
                     }
@@ -327,9 +329,10 @@ fun AuroQueueScreen(
                     item(key = "header_regular") {
                         Text(
                             text = stringResource(R.string.queue_section_normal),
-                            color = AuroColor.TextTertiary,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
+                            style = AuroType.SectionHeader.copy(
+                                color = AuroColor.TextTertiary,
+                                fontFamily = FontFamily.Monospace
+                            ),
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                         )
                     }
@@ -517,10 +520,11 @@ private fun AuroQueueTrackRow(
                 } else {
                     Text(
                         text = if (isPriority) "★${index + 1}" else "${index + 1}",
-                        color = if (isPriority) accent else AuroColor.TextTertiary,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
+                        style = AuroType.Caption.copy(
+                            color = if (isPriority) accent else AuroColor.TextTertiary,
+                            fontFamily = FontFamily.Monospace,
+                            fontFeatureSettings = "tnum"
+                        )
                     )
                 }
             }
@@ -532,16 +536,17 @@ private fun AuroQueueTrackRow(
                     Icon(
                         imageVector = Icons.Rounded.WarningAmber,
                         contentDescription = stringResource(R.string.cd_error_indicator),
-                        tint = Color(0xFFFF5252),
+                        tint = AuroColor.Danger,
                         modifier = Modifier.size(15.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                 }
                 Text(
                     text = track.title,
-                    color = if (hasError) Color(0xFFFF5252) else if (isPlaying) accent else AuroColor.TextPrimary,
-                    fontSize = 14.sp,
-                    fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.Medium,
+                    style = AuroType.Body.copy(
+                        color = if (hasError) AuroColor.Danger else if (isPlaying) accent else AuroColor.TextPrimary,
+                        fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.Medium
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -549,8 +554,7 @@ private fun AuroQueueTrackRow(
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                color = AuroColor.TextSecondary,
-                fontSize = 11.5.sp,
+                style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
@@ -560,10 +564,11 @@ private fun AuroQueueTrackRow(
 
         Text(
             text = formatTimeMs(track.durationMs),
-            color = AuroColor.TextSecondary,
-            fontSize = 11.sp,
-            fontFamily = FontFamily.Monospace,
-            style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
+            style = AuroType.Caption.copy(
+                color = AuroColor.TextSecondary,
+                fontFamily = FontFamily.Monospace,
+                fontFeatureSettings = "tnum"
+            )
         )
 
         Spacer(modifier = Modifier.width(4.dp))

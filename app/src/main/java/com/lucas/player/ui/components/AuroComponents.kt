@@ -216,7 +216,6 @@ fun AuroProgressBar(
         }
 
         // Tempos (ex: 1:24 e -3:41 conforme o espécime)
-        val tabularStyle = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -226,17 +225,19 @@ fun AuroProgressBar(
         ) {
             Text(
                 text = formatTimeMs(displayedMs),
-                color = AuroColor.TextSecondary,
-                fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace,
-                style = tabularStyle
+                style = AuroType.Caption.copy(
+                    color = AuroColor.TextSecondary,
+                    fontFamily = FontFamily.Monospace,
+                    fontFeatureSettings = "tnum"
+                )
             )
             Text(
                 text = if (showRemainingTime) "-${formatTimeMs(remainingMs)}" else formatTimeMs(durationMs),
-                color = AuroColor.TextSecondary,
-                fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace,
-                style = tabularStyle,
+                style = AuroType.Caption.copy(
+                    color = AuroColor.TextSecondary,
+                    fontFamily = FontFamily.Monospace,
+                    fontFeatureSettings = "tnum"
+                ),
                 modifier = Modifier.clickable { showRemainingTime = !showRemainingTime }
             )
         }
@@ -323,17 +324,14 @@ fun AuroMiniPlayer(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = track.title,
-                        color = AuroColor.TextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
+                        style = AuroType.Body.copy(fontWeight = FontWeight.Medium),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                        color = AuroColor.TextSecondary,
-                        fontSize = 11.5.sp,
+                        style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -471,9 +469,10 @@ private fun AuroNavbarTab(
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = label,
-            color = tint,
-            fontSize = 10.sp,
-            fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal
+            style = AuroType.NavLabel.copy(
+                color = tint,
+                fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal
+            )
         )
     }
 }
@@ -593,10 +592,11 @@ fun AuroTrackRow(
                 } else {
                     Text(
                         text = "${trackIndex + 1}",
-                        color = AuroColor.TextTertiary,
-                        fontSize = 11.sp,
-                        fontFamily = FontFamily.Monospace,
-                        style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
+                        style = AuroType.Caption.copy(
+                            color = AuroColor.TextTertiary,
+                            fontFamily = FontFamily.Monospace,
+                            fontFeatureSettings = "tnum"
+                        )
                     )
                 }
             }
@@ -609,16 +609,17 @@ fun AuroTrackRow(
                     Icon(
                         imageVector = Icons.Rounded.WarningAmber,
                         contentDescription = stringResource(R.string.cd_error_indicator),
-                        tint = Color(0xFFFF5252),
+                        tint = AuroColor.Danger,
                         modifier = Modifier.size(15.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                 }
                 Text(
                     text = track.title,
-                    color = if (hasError) Color(0xFFFF5252) else if (isPlayingThis) accent else AuroColor.TextPrimary,
-                    fontSize = 14.sp,
-                    fontWeight = if (isPlayingThis) FontWeight.Bold else FontWeight.Medium,
+                    style = AuroType.Body.copy(
+                        color = if (hasError) AuroColor.Danger else if (isPlayingThis) accent else AuroColor.TextPrimary,
+                        fontWeight = if (isPlayingThis) FontWeight.Bold else FontWeight.Medium
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -629,8 +630,7 @@ fun AuroTrackRow(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "${track.artist} • ${track.album}",
-                    color = AuroColor.TextSecondary,
-                    fontSize = 11.5.sp,
+                    style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
@@ -640,9 +640,10 @@ fun AuroTrackRow(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "★ ${track.rating}",
-                        color = accent,
-                        fontSize = 10.sp,
-                        style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
+                        style = AuroType.NavLabel.copy(
+                            color = accent,
+                            fontFeatureSettings = "tnum"
+                        )
                     )
                 }
             }
@@ -661,10 +662,11 @@ fun AuroTrackRow(
             ) {
                 Text(
                     text = track.formatTag,
-                    color = AuroColor.TextSecondary,
-                    fontSize = 9.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
+                    style = AuroType.FastScroller.copy(
+                        color = AuroColor.TextSecondary,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
                 )
             }
             Spacer(modifier = Modifier.width(6.dp))
@@ -673,10 +675,11 @@ fun AuroTrackRow(
         // Duração da faixa
         Text(
             text = formatTimeMs(track.durationMs),
-            color = AuroColor.TextSecondary,
-            fontSize = 11.sp,
-            fontFamily = FontFamily.Monospace,
-            style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum")
+            style = AuroType.Caption.copy(
+                color = AuroColor.TextSecondary,
+                fontFamily = FontFamily.Monospace,
+                fontFeatureSettings = "tnum"
+            )
         )
 
         if (!isSelectionMode) {
@@ -755,9 +758,10 @@ fun AuroBreadcrumbHeader(
                     ) {
                         Text(
                             text = item.title,
-                            color = if (isLast) AuroColor.TextPrimary else AuroColor.TextSecondary,
-                            fontSize = if (isLast) 16.sp else 13.sp,
-                            fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal,
+                            style = (if (isLast) AuroType.Subtitle else AuroType.Label).copy(
+                                color = if (isLast) AuroColor.TextPrimary else AuroColor.TextSecondary,
+                                fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal
+                            ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -765,8 +769,7 @@ fun AuroBreadcrumbHeader(
                     if (!isLast) {
                         Text(
                             text = "/",
-                            color = AuroColor.TextTertiary,
-                            fontSize = 13.sp,
+                            style = AuroType.Label.copy(color = AuroColor.TextTertiary),
                             modifier = Modifier.padding(horizontal = 2.dp)
                         )
                     }
@@ -849,9 +852,10 @@ fun AuroAlphabetFastScroller(
             alphabet.forEach { letter ->
                 Text(
                     text = letter.toString(),
-                    color = if (letter == selectedLetter) AuroColor.TextPrimary else AuroColor.TextTertiary,
-                    fontSize = 9.sp,
-                    fontWeight = if (letter == selectedLetter) FontWeight.Bold else FontWeight.Normal
+                    style = AuroType.FastScroller.copy(
+                        color = if (letter == selectedLetter) AuroColor.TextPrimary else AuroColor.TextTertiary,
+                        fontWeight = if (letter == selectedLetter) FontWeight.Bold else FontWeight.Normal
+                    )
                 )
             }
         }
@@ -870,9 +874,7 @@ fun AuroAlphabetFastScroller(
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             text = letter.toString(),
-                            color = AuroColor.TextPrimary,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold
+                            style = AuroType.Title.copy(fontWeight = FontWeight.Bold)
                         )
                     }
                 }
@@ -937,10 +939,11 @@ fun AuroRatingBar(
         if (rating > 0) {
             Text(
                 text = "$rating/5",
-                color = AuroColor.TextSecondary,
-                fontSize = 11.sp,
-                fontFamily = FontFamily.Monospace,
-                style = LocalTextStyle.current.copy(fontFeatureSettings = "tnum"),
+                style = AuroType.Caption.copy(
+                    color = AuroColor.TextSecondary,
+                    fontFamily = FontFamily.Monospace,
+                    fontFeatureSettings = "tnum"
+                ),
                 modifier = Modifier.padding(start = 4.dp)
             )
         }

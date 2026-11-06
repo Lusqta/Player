@@ -54,6 +54,10 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -87,11 +91,101 @@ object AuroColor {
     val TextTertiary = Color(0xFF616161)  // branco 38%, 3,4:1: só dica/desabilitado, nunca texto essencial
     val Hairline = Color(0x14FFFFFF)      // branco 8%: fio de 1dp entre linhas
     val Track = Color(0xFF2D2D2D)         // trilho da barra de progresso
+    val Danger = Color(0xFFFF6B6B)        // só para texto e ícone de ação destrutiva
 }
 
-object AuroSpace { val xs = 4.dp; val s = 8.dp; val m = 12.dp; val l = 16.dp; val xl = 24.dp; val xxl = 32.dp }
+object AuroType {
+    val Display = TextStyle(
+        fontSize = 28.sp,
+        lineHeight = 34.sp,
+        fontWeight = FontWeight.Medium,
+        color = AuroColor.TextPrimary
+    )
+    val Title = TextStyle(
+        fontSize = 21.sp,
+        lineHeight = 28.sp,
+        fontWeight = FontWeight.Medium,
+        color = AuroColor.TextPrimary
+    )
+    val Subtitle = TextStyle(
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
+        fontWeight = FontWeight.Medium,
+        color = AuroColor.TextPrimary
+    )
+    val Body = TextStyle(
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
+        fontWeight = FontWeight.Normal,
+        color = AuroColor.TextPrimary
+    )
+    val Label = TextStyle(
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        fontWeight = FontWeight.Medium,
+        color = AuroColor.TextPrimary
+    )
+    val Caption = TextStyle(
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        fontWeight = FontWeight.Normal,
+        color = AuroColor.TextSecondary
+    )
+    val NavLabel = TextStyle(
+        fontSize = 10.sp,
+        lineHeight = 12.sp,
+        fontWeight = FontWeight.Normal,
+        color = AuroColor.TextSecondary
+    )
+    val SectionHeader = TextStyle(
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 1.sp,
+        color = AuroColor.TextTertiary
+    )
+    val FastScroller = TextStyle(
+        fontSize = 8.5.sp,
+        lineHeight = 10.sp,
+        fontWeight = FontWeight.Normal,
+        color = Color(0x66FFFFFF)
+    )
+}
 
-object AuroRadius { val card = 24.dp; val cover = 22.dp; val chip = 16.dp }
+object AuroSpace {
+    val xxs = 2.dp
+    val xs = 4.dp
+    val s = 8.dp
+    val m = 12.dp
+    val l = 16.dp
+    val xl = 20.dp
+    val xxl = 24.dp
+    val xxxl = 32.dp
+
+    val ScreenMargin = 20.dp
+    val EdgeMargin = 12.dp
+}
+
+object AuroHeight {
+    val CategoryRow = 50.dp
+    val TrackRow = 58.dp
+    val DialogOption = 48.dp
+    val Chip = 32.dp
+    val GlassButton = 40.dp
+    val SearchField = 52.dp
+    val Dock = 122.dp
+    val DockCollapsed = 62.dp
+    val TouchTarget = 48.dp
+}
+
+object AuroRadius {
+    val card = 24.dp
+    val cover = 22.dp
+    val chip = 16.dp
+    val dock = 28.dp
+    val button = 20.dp
+    val thumbnail = 10.dp
+}
 
 object AuroMotion {
     val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)   // sai rápido e pousa devagar: o "líquido"
@@ -548,26 +642,32 @@ half4 main(float2 fragCoord) {
                         max(dot(n, L * 0.99939 - Lp * 0.03490), 0.0));
 
     // reflexo: um lóbulo estreito e um largo; uSoft controla o quão borrado
-    float eN = mix(10.0, 4.0, uSoft);
-    float eW = mix(3.0, 1.4, uSoft);
+    float eN = mix(14.0, 5.0, uSoft);
+    float eW = mix(4.0, 1.8, uSoft);
     float3 lN = pow(ndl, float3(eN));
     float3 lW = pow(ndl, float3(eW));
-    float core = exp(-dd / 1.0);                            // linha de ~1dp
-    float mid = exp(-dd / (2.2 + 2.6 * uSoft));             // faixa de poucos dp
-    float bloom = exp(-dd / (5.0 + 6.0 * uSoft));           // brilho suave que entra no vidro
-    float3 hot = mix(uAccent, float3(1.0), 0.55);
-    float3 refl = hot * (lN * (0.55 * core + 0.55 * mid) + lW * (0.30 * mid + 0.10 * bloom)) * I;
-    float3 sparkCol = mix(hot, float3(1.0), 0.6) * lN.g * core * mix(0.9, 0.5, uSoft) * I;
 
-    // linha de contorno com presença: contínua em volta do objeto, mais forte do lado da luz
-    float3 rimCol = mix(float3(1.0), uAccent, 0.25) * exp(-dd / 1.0) * (0.06 + 0.20 * pow(ndl.g, 1.5)) * I;
+    // Luz com duas cores refinadas (transição suave ao longo do objeto)
+    float tCol = clamp((p.x / max(uSize.x * 0.45, 1.0)) * 0.5 + 0.5, 0.0, 1.0);
+    float3 lightColor = mix(uAccent, uAccent2, tCol);
 
-    // a luz que atravessa sai pelo lado oposto: fio interno fraco
+    // Perfil afinado: núcleo nítido de ~0.8dp
+    float core = exp(-dd / 0.8);                            // linha nítida e refinada
+    float mid = exp(-dd / (1.8 + 2.0 * uSoft));             // faixa elegante
+    float bloom = exp(-dd / (3.8 + 4.0 * uSoft));           // brilho contido
+    float3 hot = mix(lightColor, float3(1.0), 0.55);
+    float3 refl = hot * (lN * (0.60 * core + 0.45 * mid) + lW * (0.25 * mid + 0.08 * bloom)) * I;
+    float3 sparkCol = mix(hot, float3(1.0), 0.65) * lN.g * core * mix(0.9, 0.5, uSoft) * I;
+
+    // linha de contorno com presença afinada: contínua em volta do objeto, mais forte do lado da luz
+    float3 rimCol = mix(float3(1.0), lightColor, 0.28) * exp(-dd / 0.85) * (0.05 + 0.22 * pow(ndl.g, 1.5)) * I;
+
+    // a luz que atravessa sai pelo lado oposto: fio interno secundário
     float opp = pow(max(-dot(n, L), 0.0), 3.0);
     float band = exp(-pow((depth - 0.5 * uBevel) / (0.3 * uBevel), 2.0));
-    float3 inner = mix(uAccent2, hot, 0.4) * opp * band * 0.07 * I;
+    float3 inner = mix(uAccent2, hot, 0.35) * opp * band * 0.09 * I;
 
-    float3 body = uAccent * uBody * I * exp(-dd / 6.0);     // 0 = corpo preto
+    float3 body = lightColor * uBody * I * exp(-dd / 5.0);     // 0 = corpo preto
 
     float3 c = body + (refl + sparkCol) * uSpec * press + rimCol * press + inner;
     float mx = max(c.r, max(c.g, c.b));

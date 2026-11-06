@@ -82,17 +82,14 @@ fun AuroTrackContextMenuDialog(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = track.title,
-                            color = AuroColor.TextPrimary,
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
+                            style = AuroType.Subtitle.copy(fontWeight = FontWeight.Bold),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                            color = AuroColor.TextSecondary,
-                            fontSize = 12.sp,
+                            style = AuroType.Label.copy(color = AuroColor.TextSecondary),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -117,8 +114,7 @@ fun AuroTrackContextMenuDialog(
                 ) {
                     Text(
                         text = stringResource(R.string.context_rating),
-                        color = AuroColor.TextSecondary,
-                        fontSize = 13.sp
+                        style = AuroType.Body.copy(color = AuroColor.TextSecondary)
                     )
                     AuroRatingBar(
                         rating = track.rating,
@@ -195,10 +191,11 @@ fun AuroSortDialog(
                 ) {
                     Text(
                         text = stringResource(R.string.sort_title),
-                        color = AuroColor.TextPrimary,
-                        fontSize = 14.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
+                        style = AuroType.SectionHeader.copy(
+                            color = AuroColor.TextPrimary,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                         Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_close), tint = AuroColor.TextSecondary, modifier = Modifier.size(18.dp))
@@ -231,9 +228,10 @@ fun AuroSortDialog(
                             Spacer(modifier = Modifier.width(10.dp))
                             Text(
                                 text = stringResource(mode.getDisplayNameRes()),
-                                color = if (isSelected) LocalAuroAccent.current.a.value else AuroColor.TextPrimary,
-                                fontSize = 14.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                style = AuroType.Body.copy(
+                                    color = if (isSelected) LocalAuroAccent.current.a.value else AuroColor.TextPrimary,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
                             )
                         }
                         HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
@@ -273,10 +271,11 @@ fun AuroTrackInfoDialog(
                 ) {
                     Text(
                         text = stringResource(R.string.track_info_title),
-                        color = AuroColor.TextPrimary,
-                        fontSize = 14.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
+                        style = AuroType.SectionHeader.copy(
+                            color = AuroColor.TextPrimary,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                         Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_close), tint = AuroColor.TextSecondary, modifier = Modifier.size(18.dp))
@@ -302,7 +301,13 @@ fun AuroTrackInfoDialog(
                 Spacer(modifier = Modifier.height(14.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.close), color = AuroColor.TextPrimary, fontSize = 14.sp)
+                        Text(
+                            text = stringResource(R.string.close),
+                            style = AuroType.Label.copy(
+                                color = AuroColor.TextPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
                     }
                 }
             }
@@ -347,15 +352,15 @@ fun AuroAddToPlaylistDialog(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = stringResource(R.string.add_to_playlist_title),
-                            color = AuroColor.TextPrimary,
-                            fontSize = 14.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
+                            style = AuroType.SectionHeader.copy(
+                                color = AuroColor.TextPrimary,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
                         )
                         Text(
                             text = track.title,
-                            color = AuroColor.TextSecondary,
-                            fontSize = 12.sp,
+                            style = AuroType.Label.copy(color = AuroColor.TextSecondary),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -374,12 +379,23 @@ fun AuroAddToPlaylistDialog(
                             .border(1.dp, AuroColor.Hairline, RoundedCornerShape(12.dp))
                             .padding(12.dp)
                     ) {
-                        Text(stringResource(R.string.new_playlist_header), color = AuroColor.TextTertiary, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+                        Text(
+                            text = stringResource(R.string.new_playlist_header),
+                            style = AuroType.Caption.copy(
+                                color = AuroColor.TextTertiary,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        )
                         Spacer(modifier = Modifier.height(6.dp))
                         OutlinedTextField(
                             value = newPlaylistName,
                             onValueChange = { newPlaylistName = it },
-                            placeholder = { Text(stringResource(R.string.new_playlist_hint), color = AuroColor.TextTertiary, fontSize = 13.sp) },
+                            placeholder = {
+                                Text(
+                                    text = stringResource(R.string.new_playlist_hint),
+                                    style = AuroType.Body.copy(color = AuroColor.TextTertiary)
+                                )
+                            },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -395,7 +411,10 @@ fun AuroAddToPlaylistDialog(
                             horizontalArrangement = Arrangement.End
                         ) {
                             TextButton(onClick = { isCreatingNew = false }) {
-                                Text(stringResource(R.string.cancel), color = AuroColor.TextSecondary, fontSize = 12.sp)
+                                Text(
+                                    text = stringResource(R.string.cancel),
+                                    style = AuroType.Label.copy(color = AuroColor.TextSecondary)
+                                )
                             }
                             Spacer(modifier = Modifier.width(6.dp))
                             AuroGlass(
@@ -410,7 +429,13 @@ fun AuroAddToPlaylistDialog(
                                 modifier = Modifier.height(36.dp)
                             ) {
                                 Box(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
-                                    Text(stringResource(R.string.create_and_add), color = AuroColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        text = stringResource(R.string.create_and_add),
+                                        style = AuroType.Label.copy(
+                                            color = AuroColor.TextPrimary,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
                                 }
                             }
                         }
@@ -426,7 +451,13 @@ fun AuroAddToPlaylistDialog(
                     ) {
                         Icon(Icons.Rounded.Add, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text(stringResource(R.string.new_playlist_button), color = accent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = stringResource(R.string.new_playlist_button),
+                            style = AuroType.Label.copy(
+                                color = accent,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
                     }
                     HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
                 }
@@ -443,7 +474,10 @@ fun AuroAddToPlaylistDialog(
                                     .padding(vertical = 24.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(stringResource(R.string.no_playlists_yet), color = AuroColor.TextSecondary, fontSize = 12.sp)
+                                Text(
+                                    text = stringResource(R.string.no_playlists_yet),
+                                    style = AuroType.Label.copy(color = AuroColor.TextSecondary)
+                                )
                             }
                         }
                     } else {
@@ -458,8 +492,14 @@ fun AuroAddToPlaylistDialog(
                                 Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, tint = AuroColor.TextSecondary, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(text = pl.name, color = AuroColor.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                                    Text(text = pluralStringResource(R.plurals.tracks_count, pl.trackCount, pl.trackCount), color = AuroColor.TextSecondary, fontSize = 11.5.sp)
+                                    Text(
+                                        text = pl.name,
+                                        style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
+                                    )
+                                    Text(
+                                        text = pluralStringResource(R.plurals.tracks_count, pl.trackCount, pl.trackCount),
+                                        style = AuroType.Caption.copy(color = AuroColor.TextSecondary)
+                                    )
                                 }
                             }
                             HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
@@ -505,10 +545,11 @@ fun AuroSleepTimerDialog(
                 ) {
                     Text(
                         text = stringResource(R.string.sleep_timer_title),
-                        color = AuroColor.TextPrimary,
-                        fontSize = 14.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
+                        style = AuroType.SectionHeader.copy(
+                            color = AuroColor.TextPrimary,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
                         Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_close), tint = AuroColor.TextSecondary, modifier = Modifier.size(18.dp))
@@ -519,10 +560,11 @@ fun AuroSleepTimerDialog(
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = stringResource(R.string.sleep_timer_active_desc, remainingSeconds / 60, remainingSeconds % 60),
-                        color = accent,
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
+                        style = AuroType.Label.copy(
+                            color = accent,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
                 }
 
@@ -546,8 +588,7 @@ fun AuroSleepTimerDialog(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = stringResource(R.string.sleep_timer_stop_at_end),
-                        color = AuroColor.TextPrimary,
-                        fontSize = 13.sp
+                        style = AuroType.Body
                     )
                 }
 
@@ -625,10 +666,11 @@ fun AuroPowerampMenuSheet(
                 ) {
                     Text(
                         text = stringResource(R.string.menu_sheet_title),
-                        color = AuroColor.TextPrimary,
-                        fontSize = 14.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
+                        style = AuroType.SectionHeader.copy(
+                            color = AuroColor.TextPrimary,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
                         Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_close), tint = AuroColor.TextSecondary, modifier = Modifier.size(16.dp))
@@ -724,10 +766,11 @@ fun AuroAudioEngineDialog(
                 ) {
                     Text(
                         text = stringResource(R.string.audio_engine_title),
-                        color = AuroColor.TextPrimary,
-                        fontSize = 13.sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold
+                        style = AuroType.SectionHeader.copy(
+                            color = AuroColor.TextPrimary,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
                     IconButton(onClick = onDismiss, modifier = Modifier.size(30.dp)) {
                         Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.cd_close), tint = AuroColor.TextSecondary, modifier = Modifier.size(16.dp))
@@ -750,7 +793,13 @@ fun AuroAudioEngineDialog(
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.ok), color = AuroColor.TextPrimary, fontSize = 14.sp)
+                        Text(
+                            text = stringResource(R.string.ok),
+                            style = AuroType.Label.copy(
+                                color = AuroColor.TextPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
                     }
                 }
             }
@@ -831,15 +880,15 @@ fun AuroLyricsSheet(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = stringResource(R.string.lyrics_sheet_title),
-                            color = AuroColor.TextPrimary,
-                            fontSize = 14.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
+                            style = AuroType.SectionHeader.copy(
+                                color = AuroColor.TextPrimary,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
                         )
                         Text(
                             text = "${track.title} • ${lyrics?.source ?: stringResource(R.string.lyrics_no_local)}",
-                            color = AuroColor.TextTertiary,
-                            fontSize = 11.5.sp,
+                            style = AuroType.Caption.copy(color = AuroColor.TextTertiary),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -861,16 +910,15 @@ fun AuroLyricsSheet(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
                                 text = stringResource(R.string.lyrics_none_found),
-                                color = AuroColor.TextPrimary,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
+                                style = AuroType.Subtitle.copy(fontWeight = FontWeight.Medium)
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
                                 text = stringResource(R.string.lyrics_lrc_hint),
-                                color = AuroColor.TextSecondary,
-                                fontSize = 12.sp,
-                                textAlign = TextAlign.Center,
+                                style = AuroType.Label.copy(
+                                    color = AuroColor.TextSecondary,
+                                    textAlign = TextAlign.Center
+                                ),
                                 modifier = Modifier.padding(horizontal = 24.dp)
                             )
                         }
@@ -888,9 +936,10 @@ fun AuroLyricsSheet(
                             val isCurrent = index == activeLineIndex
                             Text(
                                 text = line.text,
-                                color = if (isCurrent) accent else AuroColor.TextTertiary,
-                                fontSize = if (isCurrent) 18.sp else 14.sp,
-                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                style = (if (isCurrent) AuroType.Subtitle else AuroType.Body).copy(
+                                    color = if (isCurrent) accent else AuroColor.TextTertiary,
+                                    fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
+                                ),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clickable {
@@ -934,16 +983,22 @@ fun AuroSavePresetDialog(
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
                     text = stringResource(R.string.save_preset_title),
-                    color = AuroColor.TextPrimary,
-                    fontSize = 13.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
+                    style = AuroType.SectionHeader.copy(
+                        color = AuroColor.TextPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
                 )
                 Spacer(modifier = Modifier.height(14.dp))
                 OutlinedTextField(
                     value = presetName,
                     onValueChange = { presetName = it },
-                    placeholder = { Text(stringResource(R.string.preset_name_hint), color = AuroColor.TextTertiary, fontSize = 13.sp) },
+                    placeholder = {
+                        Text(
+                            text = stringResource(R.string.preset_name_hint),
+                            style = AuroType.Body.copy(color = AuroColor.TextTertiary)
+                        )
+                    },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -959,7 +1014,10 @@ fun AuroSavePresetDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.cancel), color = AuroColor.TextSecondary, fontSize = 13.sp)
+                        Text(
+                            text = stringResource(R.string.cancel),
+                            style = AuroType.Label.copy(color = AuroColor.TextSecondary)
+                        )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     AuroGlass(
@@ -973,7 +1031,13 @@ fun AuroSavePresetDialog(
                         modifier = Modifier.height(38.dp)
                     ) {
                         Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
-                            Text(stringResource(R.string.save), color = AuroColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = stringResource(R.string.save),
+                                style = AuroType.Label.copy(
+                                    color = AuroColor.TextPrimary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
                         }
                     }
                 }
@@ -1008,16 +1072,22 @@ fun AuroCreatePlaylistDialog(
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
                     text = stringResource(R.string.create_playlist_title),
-                    color = AuroColor.TextPrimary,
-                    fontSize = 13.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
+                    style = AuroType.SectionHeader.copy(
+                        color = AuroColor.TextPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
                 )
                 Spacer(modifier = Modifier.height(14.dp))
                 OutlinedTextField(
                     value = playlistName,
                     onValueChange = { playlistName = it },
-                    placeholder = { Text(stringResource(R.string.new_playlist_hint), color = AuroColor.TextTertiary, fontSize = 13.sp) },
+                    placeholder = {
+                        Text(
+                            text = stringResource(R.string.new_playlist_hint),
+                            style = AuroType.Body.copy(color = AuroColor.TextTertiary)
+                        )
+                    },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -1033,7 +1103,13 @@ fun AuroCreatePlaylistDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.cancel), color = AuroColor.TextSecondary, fontSize = 12.sp, fontFamily = FontFamily.Monospace)
+                        Text(
+                            text = stringResource(R.string.cancel),
+                            style = AuroType.Label.copy(
+                                color = AuroColor.TextSecondary,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
@@ -1045,7 +1121,14 @@ fun AuroCreatePlaylistDialog(
                         colors = ButtonDefaults.buttonColors(containerColor = accent),
                         shape = RoundedCornerShape(AuroRadius.chip)
                     ) {
-                        Text(stringResource(R.string.create), color = AuroColor.Black, fontSize = 12.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = stringResource(R.string.create),
+                            style = AuroType.Label.copy(
+                                color = AuroColor.Black,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
                     }
                 }
             }
@@ -1078,16 +1161,16 @@ fun AuroConfirmDeleteDialog(
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
                     text = title.uppercase(),
-                    color = AuroColor.TextPrimary,
-                    fontSize = 13.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold
+                    style = AuroType.SectionHeader.copy(
+                        color = AuroColor.TextPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = message,
-                    color = AuroColor.TextSecondary,
-                    fontSize = 13.sp
+                    style = AuroType.Body.copy(color = AuroColor.TextSecondary)
                 )
                 Spacer(modifier = Modifier.height(18.dp))
                 Row(
@@ -1095,7 +1178,10 @@ fun AuroConfirmDeleteDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.cancel), color = AuroColor.TextSecondary, fontSize = 13.sp)
+                        Text(
+                            text = stringResource(R.string.cancel),
+                            style = AuroType.Label.copy(color = AuroColor.TextSecondary)
+                        )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     AuroGlass(
@@ -1107,7 +1193,13 @@ fun AuroConfirmDeleteDialog(
                         modifier = Modifier.height(38.dp)
                     ) {
                         Box(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), contentAlignment = Alignment.Center) {
-                            Text(stringResource(R.string.delete), color = AuroColor.TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = stringResource(R.string.delete),
+                                style = AuroType.Label.copy(
+                                    color = AuroColor.Danger,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
                         }
                     }
                 }
@@ -1138,31 +1230,34 @@ fun AuroAboutDialog(
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
                     text = stringResource(R.string.about_app_title),
-                    color = AuroColor.TextPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
+                    style = AuroType.Subtitle.copy(fontWeight = FontWeight.Bold)
                 )
                 Text(
                     text = stringResource(R.string.about_app_version_format, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
-                    color = AuroColor.TextSecondary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
+                    style = AuroType.Label.copy(
+                        color = AuroColor.TextSecondary,
+                        fontWeight = FontWeight.Medium
+                    )
                 )
 
                 HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp, modifier = Modifier.padding(vertical = 12.dp))
 
                 Text(
                     text = stringResource(R.string.about_app_specs),
-                    color = AuroColor.TextSecondary,
-                    fontSize = 12.5.sp,
-                    lineHeight = 20.sp
+                    style = AuroType.Body.copy(color = AuroColor.TextSecondary)
                 )
 
                 Spacer(modifier = Modifier.height(18.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) {
-                        Text(stringResource(R.string.close), color = AuroColor.TextPrimary, fontSize = 14.sp)
+                        Text(
+                            text = stringResource(R.string.close),
+                            style = AuroType.Label.copy(
+                                color = AuroColor.TextPrimary,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
                     }
                 }
             }
@@ -1185,7 +1280,7 @@ fun AuroDialogOption(
     ) {
         Icon(imageVector = icon, contentDescription = null, tint = AuroColor.TextSecondary, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(14.dp))
-        Text(text = title, color = AuroColor.TextPrimary, fontSize = 14.sp)
+        Text(text = title, style = AuroType.Body)
     }
 }
 
@@ -1198,13 +1293,13 @@ private fun AuroInfoRow(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top
     ) {
-        Text(text = label, color = AuroColor.TextSecondary, fontSize = 12.sp, modifier = Modifier.width(130.dp))
+        Text(text = label, style = AuroType.Label.copy(color = AuroColor.TextSecondary), modifier = Modifier.width(130.dp))
         Text(
             text = value,
-            color = AuroColor.TextPrimary,
-            fontSize = 12.sp,
-            fontFamily = FontFamily.Monospace,
-            textAlign = TextAlign.End,
+            style = AuroType.Label.copy(
+                fontFamily = FontFamily.Monospace,
+                textAlign = TextAlign.End
+            ),
             modifier = Modifier.weight(1f)
         )
     }

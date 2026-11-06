@@ -32,6 +32,7 @@ import com.lucas.player.ui.components.AuroBreadcrumbItem
 import com.lucas.player.ui.components.AuroEmptyState
 import com.lucas.player.ui.components.AuroLoadingBar
 import com.lucas.player.ui.theme.AuroColor
+import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.LocalAuroAccent
 import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlinx.coroutines.delay
@@ -112,17 +113,17 @@ fun AuroLibraryRootScreen(
             AuroLoadingBar()
             Text(
                 text = stringResource(R.string.library_loading_count, if (loadingCount > 0) loadingCount else totalTracksCount),
-                color = LocalAuroAccent.current.a.value,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
+                style = AuroType.Label.copy(
+                    color = LocalAuroAccent.current.a.value,
+                    fontWeight = FontWeight.Medium
+                ),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
             )
         } else {
             // Resumo
             Text(
                 text = pluralStringResource(R.plurals.tracks_indexed_count, totalTracksCount, totalTracksCount),
-                color = AuroColor.TextSecondary,
-                fontSize = 12.sp,
+                style = AuroType.Label.copy(color = AuroColor.TextSecondary),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
@@ -163,9 +164,7 @@ fun AuroLibraryRootScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = stringResource(cat.getTitleRes()),
-                                color = AuroColor.TextPrimary,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium
+                                style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
                             )
                         }
                         Icon(

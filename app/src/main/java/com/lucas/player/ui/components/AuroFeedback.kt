@@ -259,8 +259,7 @@ fun AuroSnackbarHost(
                 ) {
                     Text(
                         text = current.text,
-                        color = AuroColor.TextPrimary,
-                        fontSize = 14.sp,
+                        style = AuroType.Body,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false)
@@ -270,9 +269,10 @@ fun AuroSnackbarHost(
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = current.action,
-                            color = LocalAuroAccent.current.a.value,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold,
+                            style = AuroType.Label.copy(
+                                color = LocalAuroAccent.current.a.value,
+                                fontWeight = FontWeight.Bold
+                            ),
                             modifier = Modifier
                                 .clickable {
                                     AuroHaptics.click(view)
@@ -317,19 +317,12 @@ fun AuroEmptyState(
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = title,
-            color = AuroColor.TextPrimary,
-            fontSize = 21.sp,
-            lineHeight = 28.sp,
-            fontWeight = FontWeight.Medium,
-            textAlign = TextAlign.Center
+            style = AuroType.Title.copy(textAlign = TextAlign.Center)
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = message,
-            color = AuroColor.TextSecondary,
-            fontSize = 14.sp,
-            lineHeight = 20.sp,
-            textAlign = TextAlign.Center
+            style = AuroType.Body.copy(color = AuroColor.TextSecondary, textAlign = TextAlign.Center)
         )
         if (!actionLabel.isNullOrBlank() && onAction != null) {
             Spacer(modifier = Modifier.height(24.dp))
@@ -348,9 +341,10 @@ fun AuroEmptyState(
                 ) {
                     Text(
                         text = actionLabel,
-                        color = LocalAuroAccent.current.a.value,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium
+                        style = AuroType.Label.copy(
+                            color = LocalAuroAccent.current.a.value,
+                            fontWeight = FontWeight.Medium
+                        )
                     )
                 }
             }

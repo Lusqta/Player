@@ -28,6 +28,7 @@ import com.lucas.player.R
 import com.lucas.player.data.PreferencesManager
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.AuroColor
+import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
 import com.lucas.player.ui.theme.AuroRadius
@@ -131,9 +132,7 @@ fun AuroSettingsScreen(
                     ) {
                         Text(
                             text = stringResource(R.string.settings_ignore_shorter_than),
-                            color = AuroColor.TextPrimary,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium
+                            style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
                         )
                         Text(
                             text = if (ignoreShorterThanSec == 0) {
@@ -141,10 +140,11 @@ fun AuroSettingsScreen(
                             } else {
                                 stringResource(R.string.settings_ignore_shorter_than_sec, ignoreShorterThanSec)
                             },
-                            color = accent,
-                            fontSize = 13.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
+                            style = AuroType.Label.copy(
+                                color = accent,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
@@ -231,9 +231,7 @@ fun AuroSettingsScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = stringResource(R.string.settings_crossfade),
-                                color = AuroColor.TextPrimary,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium
+                                style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
@@ -242,16 +240,16 @@ fun AuroSettingsScreen(
                                 } else {
                                     stringResource(R.string.settings_crossfade_desc, crossfadeSeconds)
                                 },
-                                color = AuroColor.TextSecondary,
-                                fontSize = 12.sp
+                                style = AuroType.Label.copy(color = AuroColor.TextSecondary)
                             )
                         }
                         Text(
                             text = "${crossfadeSeconds}s",
-                            color = accent,
-                            fontSize = 13.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
+                            style = AuroType.Label.copy(
+                                color = accent,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
@@ -306,16 +304,15 @@ fun AuroSettingsScreen(
                         ) {
                             Text(
                                 text = stringResource(R.string.settings_rg_preamp_with),
-                                color = AuroColor.TextPrimary,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium
+                                style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
                             )
                             Text(
                                 text = String.format("%.1f dB", rgPreampWith),
-                                color = accent,
-                                fontSize = 13.sp,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
+                                style = AuroType.Label.copy(
+                                    color = accent,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                )
                             )
                         }
                         Spacer(modifier = Modifier.height(4.dp))
@@ -347,16 +344,15 @@ fun AuroSettingsScreen(
                     ) {
                         Text(
                             text = stringResource(R.string.settings_rg_preamp_without),
-                            color = AuroColor.TextPrimary,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium
+                            style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
                         )
                         Text(
                             text = String.format("%.1f dB", rgPreampWithout),
-                            color = accent,
-                            fontSize = 13.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
+                            style = AuroType.Label.copy(
+                                color = accent,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
@@ -423,23 +419,21 @@ fun AuroSettingsScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = stringResource(R.string.settings_reflection_softness),
-                                color = AuroColor.TextPrimary,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium
+                                style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = stringResource(R.string.settings_reflection_softness_desc),
-                                color = AuroColor.TextSecondary,
-                                fontSize = 12.sp
+                                style = AuroType.Label.copy(color = AuroColor.TextSecondary)
                             )
                         }
                         Text(
                             text = String.format("%.2f", reflectionSoftness),
-                            color = accent,
-                            fontSize = 13.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
+                            style = AuroType.Label.copy(
+                                color = accent,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold
+                            )
                         )
                     }
 
@@ -471,8 +465,7 @@ fun AuroSettingsScreen(
                     ) {
                         Text(
                             text = stringResource(R.string.settings_reflection_preview),
-                            color = AuroColor.TextSecondary,
-                            fontSize = 13.sp
+                            style = AuroType.Label.copy(color = AuroColor.TextSecondary)
                         )
 
                         AuroGlass(
@@ -595,9 +588,7 @@ fun AuroSettingsScreen(
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
                         text = stringResource(R.string.settings_replaygain),
-                        color = AuroColor.TextPrimary,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        style = AuroType.Subtitle.copy(fontWeight = FontWeight.Bold)
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     AuroDialogOption(
@@ -653,9 +644,7 @@ fun AuroSettingsScreen(
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
                         text = stringResource(R.string.settings_reduce_motion),
-                        color = AuroColor.TextPrimary,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                        style = AuroType.Subtitle.copy(fontWeight = FontWeight.Bold)
                     )
                     Spacer(modifier = Modifier.height(14.dp))
                     AuroDialogOption(
@@ -710,24 +699,18 @@ fun AuroSettingsScreen(
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
                         text = stringResource(R.string.settings_licenses),
-                        color = AuroColor.TextPrimary,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold
+                        style = AuroType.Subtitle.copy(fontWeight = FontWeight.Bold)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
                         text = stringResource(R.string.settings_licenses_text),
-                        color = AuroColor.TextSecondary,
-                        fontSize = 13.sp,
-                        lineHeight = 20.sp
+                        style = AuroType.Body.copy(color = AuroColor.TextSecondary)
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
                         Text(
                             text = stringResource(R.string.close),
-                            color = accent,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
+                            style = AuroType.Label.copy(color = accent, fontWeight = FontWeight.Bold),
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable { showLicensesDialog = false }
@@ -744,11 +727,11 @@ fun AuroSettingsScreen(
 private fun SettingsSectionHeader(title: String) {
     Text(
         text = title,
-        color = LocalAuroAccent.current.a.value,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 0.8.sp,
-        fontFamily = FontFamily.Monospace,
+        style = AuroType.SectionHeader.copy(
+            color = LocalAuroAccent.current.a.value,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace
+        ),
         modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 8.dp)
     )
 }
@@ -772,15 +755,12 @@ private fun SettingsSwitchRow(
         Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
             Text(
                 text = title,
-                color = AuroColor.TextPrimary,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
+                style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
-                color = AuroColor.TextSecondary,
-                fontSize = 12.sp
+                style = AuroType.Label.copy(color = AuroColor.TextSecondary)
             )
         }
         AuroSwitch(
@@ -811,15 +791,12 @@ private fun SettingsClickableRow(
         Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
             Text(
                 text = title,
-                color = AuroColor.TextPrimary,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
+                style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = subtitle,
-                color = AuroColor.TextSecondary,
-                fontSize = 12.sp
+                style = AuroType.Label.copy(color = AuroColor.TextSecondary)
             )
         }
         trailingContent?.invoke()

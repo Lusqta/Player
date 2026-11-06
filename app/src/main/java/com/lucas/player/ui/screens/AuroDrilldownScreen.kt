@@ -29,6 +29,7 @@ import com.lucas.player.model.Track
 import com.lucas.player.model.getTitleRes
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.AuroColor
+import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
 import com.lucas.player.ui.theme.LocalAuroBottomInset
@@ -89,17 +90,14 @@ fun AuroDrilldownScreen(
         ) {
             Text(
                 text = groupTitle,
-                color = AuroColor.TextPrimary,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                style = AuroType.Title.copy(fontWeight = FontWeight.Bold),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = "${pluralStringResource(R.plurals.tracks_count, tracks.size, tracks.size)} • ${formatTimeMs(totalDurationMs)}",
-                color = AuroColor.TextSecondary,
-                fontSize = 12.sp
+                style = AuroType.Label.copy(color = AuroColor.TextSecondary)
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -129,9 +127,7 @@ fun AuroDrilldownScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = stringResource(R.string.play_all),
-                            color = AuroColor.TextPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                            style = AuroType.Label
                         )
                     }
                 }
@@ -157,9 +153,7 @@ fun AuroDrilldownScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = stringResource(R.string.shuffle_all),
-                            color = AuroColor.TextPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                            style = AuroType.Label
                         )
                     }
                 }
