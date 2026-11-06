@@ -241,6 +241,7 @@
     <!-- Biblioteca & Navegação (Fase 5.3) -->
     <string name="play_all">Tocar Todas</string>
     <string name="shuffle_all">Aleatório</string>
+    <string name="action_resume">Continuar</string>
     <string name="library_breadcrumb">Biblioteca</string>
     <string name="queue_breadcrumb">Fila de Reprodução</string>
     <string name="equalizer_breadcrumb">Equalizador</string>

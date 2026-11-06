@@ -510,6 +510,7 @@ fun AuroGlass(
     haptic: ((View) -> Unit)? = { AuroHaptics.click(it) },
     soft: Float = LocalAuroSoft.current, // 0 = reflexo agudo, 1 = bem borrado
     cornerRadius: androidx.compose.ui.unit.Dp? = null,
+    specMultiplier: Float = 1f,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val density = LocalDensity.current.density
@@ -557,7 +558,7 @@ fun AuroGlass(
                     shader.setFloatUniform("uAccent2", b.red, b.green, b.blue)
                     shader.setFloatUniform("uBevel", bevel)
                     shader.setFloatUniform("uSoft", soft)
-                    shader.setFloatUniform("uSpec", (if (isButton) 1.5f else 1.3f) * l.gain)
+                    shader.setFloatUniform("uSpec", (if (isButton) 1.5f else 1.3f) * l.gain * specMultiplier)
                     shader.setFloatUniform("uBody", 0f) // 0 = corpo de vidro preto total
                     shader.setFloatUniform("uTime", clock())
                     shader.setFloatUniform("uPx", density)

@@ -14,8 +14,9 @@ import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.outlined.*
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.MusicOff
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -27,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.lucas.player.R
@@ -49,12 +51,16 @@ import kotlinx.coroutines.delay
 
 /**
  * AURŌ DESIGN SYSTEM v2 - TELA RAIZ DA BIBLIOTECA (AURŌ LIBRARY ROOT)
+ * 7.4: Dois atalhos de vidro (Aleatório e Continuar) e linhas de categoria de 50dp com contagens.
  */
 @Composable
 fun AuroLibraryRootScreen(
     totalTracksCount: Int,
     isLoading: Boolean = false,
     loadingCount: Int = 0,
+    categoryCounts: Map<LibraryCategory, Int> = emptyMap(),
+    onShuffleAll: () -> Unit = {},
+    onResumePlayback: () -> Unit = {},
     onSelectCategory: (LibraryCategory) -> Unit,
     onSortClick: () -> Unit,
     onRescanClick: () -> Unit,
@@ -173,12 +179,82 @@ fun AuroLibraryRootScreen(
             )
         } else {
             Box(modifier = Modifier.weight(1f)) {
-                // Linhas de categoria (sem vidro, texto e fio Hairline direto no preto)
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp)
                 ) {
+                    // Dois cards de vidro lado a lado: Aleatório e Continuar (154x64dp, raio 24)
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = AuroSpace.ScreenMargin, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            AuroGlass(
+                                kind = AuroGlassKind.Card,
+                                cornerRadius = 24.dp,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(64.dp),
+                                onClick = {
+                                    AuroHaptics.click(view)
+                                    onShuffleAll()
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Shuffle,
+                                        contentDescription = null,
+                                        tint = AuroColor.TextPrimary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = stringResource(R.string.shuffle_all),
+                                        style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
+                                    )
+                                }
+                            }
+
+                            AuroGlass(
+                                kind = AuroGlassKind.Card,
+                                cornerRadius = 24.dp,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(64.dp),
+                                onClick = {
+                                    AuroHaptics.click(view)
+                                    onResumePlayback()
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxSize(),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PlayArrow,
+                                        contentDescription = null,
+                                        tint = AuroColor.TextPrimary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = stringResource(R.string.action_resume),
+                                        style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Linhas de categoria (sem vidro, texto, contagem à direita e fio Hairline direto no preto)
                     items(categories, key = { it.first.name }) { (cat, icon) ->
                         Row(
                             modifier = Modifier
@@ -198,18 +274,22 @@ fun AuroLibraryRootScreen(
                                 modifier = Modifier.size(24.dp)
                             )
                             Spacer(modifier = Modifier.width(16.dp))
-                            Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(cat.getTitleRes()),
+                                style = AuroType.Body.copy(fontWeight = FontWeight.Medium),
+                                modifier = Modifier.weight(1f)
+                            )
+                            val count = categoryCounts[cat] ?: if (cat == LibraryCategory.ALL_SONGS) totalTracksCount else null
+                            if (count != null && count > 0) {
                                 Text(
-                                    text = stringResource(cat.getTitleRes()),
-                                    style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
+                                    text = count.toString(),
+                                    style = AuroType.Caption.copy(
+                                        color = AuroColor.TextSecondary,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontFeatureSettings = "tnum"
+                                    )
                                 )
                             }
-                            Icon(
-                                imageVector = Icons.Rounded.ChevronRight,
-                                contentDescription = null,
-                                tint = AuroColor.TextTertiary,
-                                modifier = Modifier.size(18.dp)
-                            )
                         }
                         HorizontalDivider(
                             modifier = Modifier.padding(start = 66.dp),

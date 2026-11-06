@@ -592,6 +592,21 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     isLoading = isLoadingLibrary,
                                     loadingCount = loadingTracksCount,
                                     listState = getScrollState("library_root"),
+                                    onShuffleAll = {
+                                        val all = libraryRepo.getAllTracks()
+                                        if (all.isNotEmpty()) {
+                                            shuffleModeState.value = ShuffleMode.ALL_TRACKS
+                                            playbackService?.playQueue(all.shuffled(), 0)
+                                        }
+                                    },
+                                    onResumePlayback = {
+                                        if (currentTrack != null) {
+                                            if (!isPlaying) playbackService?.play()
+                                        } else {
+                                            val all = libraryRepo.getAllTracks()
+                                            if (all.isNotEmpty()) playbackService?.playQueue(all, 0)
+                                        }
+                                    },
                                     onSelectCategory = { cat ->
                                         selectCategory(cat)
                                         navController.navigateTo(NavScreen.CategoryList(cat))
