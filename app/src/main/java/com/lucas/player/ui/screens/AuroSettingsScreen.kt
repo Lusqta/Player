@@ -579,51 +579,40 @@ fun AuroSettingsScreen(
             onDismiss = { showReplayGainPicker = false },
             type = AuroOverlayType.BottomSheet
         ) {
-            Surface(
-                color = AuroColor.Black,
-                shape = RoundedCornerShape(topStart = AuroRadius.card, topEnd = AuroRadius.card),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, AuroColor.Hairline, RoundedCornerShape(topStart = AuroRadius.card, topEnd = AuroRadius.card))
-                    .navigationBarsPadding()
+            AuroSheetContainer(
+                title = stringResource(R.string.settings_replaygain),
+                onDismiss = { showReplayGainPicker = false }
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = stringResource(R.string.settings_replaygain),
-                        style = AuroType.Subtitle.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Spacer(modifier = Modifier.height(14.dp))
-                    AuroDialogOption(
-                        icon = if (replayGainMode == 0) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                        title = stringResource(R.string.settings_replaygain_off),
-                        onClick = {
-                            replayGainMode = 0
-                            preferencesManager.saveReplayGainMode(0)
-                            showReplayGainPicker = false
-                            onSettingsChanged()
-                        }
-                    )
-                    AuroDialogOption(
-                        icon = if (replayGainMode == 1) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                        title = stringResource(R.string.settings_replaygain_track),
-                        onClick = {
-                            replayGainMode = 1
-                            preferencesManager.saveReplayGainMode(1)
-                            showReplayGainPicker = false
-                            onSettingsChanged()
-                        }
-                    )
-                    AuroDialogOption(
-                        icon = if (replayGainMode == 2) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                        title = stringResource(R.string.settings_replaygain_album),
-                        onClick = {
-                            replayGainMode = 2
-                            preferencesManager.saveReplayGainMode(2)
-                            showReplayGainPicker = false
-                            onSettingsChanged()
-                        }
-                    )
-                }
+                AuroDialogOption(
+                    icon = if (replayGainMode == 0) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
+                    title = stringResource(R.string.settings_replaygain_off),
+                    onClick = {
+                        replayGainMode = 0
+                        preferencesManager.saveReplayGainMode(0)
+                        showReplayGainPicker = false
+                        onSettingsChanged()
+                    }
+                )
+                AuroDialogOption(
+                    icon = if (replayGainMode == 1) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
+                    title = stringResource(R.string.settings_replaygain_track),
+                    onClick = {
+                        replayGainMode = 1
+                        preferencesManager.saveReplayGainMode(1)
+                        showReplayGainPicker = false
+                        onSettingsChanged()
+                    }
+                )
+                AuroDialogOption(
+                    icon = if (replayGainMode == 2) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
+                    title = stringResource(R.string.settings_replaygain_album),
+                    onClick = {
+                        replayGainMode = 2
+                        preferencesManager.saveReplayGainMode(2)
+                        showReplayGainPicker = false
+                        onSettingsChanged()
+                    }
+                )
             }
         }
     }
@@ -635,51 +624,40 @@ fun AuroSettingsScreen(
             onDismiss = { showReduceMotionPicker = false },
             type = AuroOverlayType.BottomSheet
         ) {
-            Surface(
-                color = AuroColor.Black,
-                shape = RoundedCornerShape(topStart = AuroRadius.card, topEnd = AuroRadius.card),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, AuroColor.Hairline, RoundedCornerShape(topStart = AuroRadius.card, topEnd = AuroRadius.card))
-                    .navigationBarsPadding()
+            AuroSheetContainer(
+                title = stringResource(R.string.settings_reduce_motion),
+                onDismiss = { showReduceMotionPicker = false }
             ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = stringResource(R.string.settings_reduce_motion),
-                        style = AuroType.Subtitle.copy(fontWeight = FontWeight.Bold)
-                    )
-                    Spacer(modifier = Modifier.height(14.dp))
-                    AuroDialogOption(
-                        icon = if (reduceMotionMode == 0) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                        title = stringResource(R.string.settings_reduce_motion_system),
-                        onClick = {
-                            reduceMotionMode = 0
-                            preferencesManager.setReduceMotionMode(0)
-                            showReduceMotionPicker = false
-                            onSettingsChanged()
-                        }
-                    )
-                    AuroDialogOption(
-                        icon = if (reduceMotionMode == 1) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                        title = stringResource(R.string.settings_reduce_motion_always),
-                        onClick = {
-                            reduceMotionMode = 1
-                            preferencesManager.setReduceMotionMode(1)
-                            showReduceMotionPicker = false
-                            onSettingsChanged()
-                        }
-                    )
-                    AuroDialogOption(
-                        icon = if (reduceMotionMode == 2) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
-                        title = stringResource(R.string.settings_reduce_motion_never),
-                        onClick = {
-                            reduceMotionMode = 2
-                            preferencesManager.setReduceMotionMode(2)
-                            showReduceMotionPicker = false
-                            onSettingsChanged()
-                        }
-                    )
-                }
+                AuroDialogOption(
+                    icon = if (reduceMotionMode == 0) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
+                    title = stringResource(R.string.settings_reduce_motion_system),
+                    onClick = {
+                        reduceMotionMode = 0
+                        preferencesManager.setReduceMotionMode(0)
+                        showReduceMotionPicker = false
+                        onSettingsChanged()
+                    }
+                )
+                AuroDialogOption(
+                    icon = if (reduceMotionMode == 1) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
+                    title = stringResource(R.string.settings_reduce_motion_always),
+                    onClick = {
+                        reduceMotionMode = 1
+                        preferencesManager.setReduceMotionMode(1)
+                        showReduceMotionPicker = false
+                        onSettingsChanged()
+                    }
+                )
+                AuroDialogOption(
+                    icon = if (reduceMotionMode == 2) Icons.Rounded.RadioButtonChecked else Icons.Rounded.RadioButtonUnchecked,
+                    title = stringResource(R.string.settings_reduce_motion_never),
+                    onClick = {
+                        reduceMotionMode = 2
+                        preferencesManager.setReduceMotionMode(2)
+                        showReduceMotionPicker = false
+                        onSettingsChanged()
+                    }
+                )
             }
         }
     }
@@ -691,35 +669,20 @@ fun AuroSettingsScreen(
             onDismiss = { showLicensesDialog = false },
             type = AuroOverlayType.Dialog
         ) {
-            Surface(
-                color = AuroColor.Black,
-                shape = RoundedCornerShape(AuroRadius.card),
-                modifier = Modifier
-                    .fillMaxWidth(0.92f)
-                    .border(1.dp, AuroColor.Hairline, RoundedCornerShape(AuroRadius.card))
-            ) {
-                Column(modifier = Modifier.padding(20.dp)) {
-                    Text(
-                        text = stringResource(R.string.settings_licenses),
-                        style = AuroType.Subtitle.copy(fontWeight = FontWeight.Bold)
+            AuroDialogContainer(
+                title = stringResource(R.string.settings_licenses),
+                onDismiss = { showLicensesDialog = false },
+                actions = {
+                    AuroDialogTextButton(
+                        text = stringResource(R.string.close),
+                        onClick = { showLicensesDialog = false }
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = stringResource(R.string.settings_licenses_text),
-                        style = AuroType.Body.copy(color = AuroColor.TextSecondary)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
-                        Text(
-                            text = stringResource(R.string.close),
-                            style = AuroType.Label.copy(color = accent, fontWeight = FontWeight.Bold),
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { showLicensesDialog = false }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
-                    }
                 }
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_licenses_text),
+                    style = AuroType.Body.copy(color = AuroColor.TextSecondary)
+                )
             }
         }
     }

@@ -1,22 +1,34 @@
 package com.lucas.player.ui.screens
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BookmarkAdd
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -29,9 +41,11 @@ import com.lucas.player.R
 import com.lucas.player.data.MusicDatabase
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.AuroColor
-import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
+import com.lucas.player.ui.theme.AuroHeight
+import com.lucas.player.ui.theme.AuroSpace
+import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.LocalAuroAccent
 import com.lucas.player.ui.theme.LocalAuroBottomInset
 import java.util.Locale
@@ -70,7 +84,6 @@ fun AuroEqualizerScreen(
     modifier: Modifier = Modifier
 ) {
     val accent = LocalAuroAccent.current.a.value
-    val view = LocalView.current
     val bandFreqs = remember {
         listOf("31Hz", "62Hz", "125Hz", "250Hz", "500Hz", "1kHz", "2kHz", "4kHz", "8kHz", "16kHz")
     }
@@ -97,7 +110,7 @@ fun AuroEqualizerScreen(
                 state = listState,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = AuroSpace.ScreenMargin),
                 contentPadding = PaddingValues(top = 12.dp, bottom = LocalAuroBottomInset.current + 24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -105,7 +118,7 @@ fun AuroEqualizerScreen(
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -113,66 +126,103 @@ fun AuroEqualizerScreen(
                         style = AuroType.Caption.copy(
                             color = AuroColor.TextTertiary,
                             fontFamily = FontFamily.Monospace
-                        )
+                        ),
+                        modifier = Modifier.weight(1f)
                     )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(R.string.eq_reset),
-                            style = AuroType.Label.copy(color = AuroColor.TextSecondary),
+                    AuroGlass(
+                        kind = AuroGlassKind.Card,
+                        cornerRadius = 20.dp,
+                        onClick = onResetEq,
+                        modifier = Modifier.height(AuroHeight.GlassButton)
+                    ) {
+                        Row(
                             modifier = Modifier
-                                .clickable { onResetEq() }
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.eq_save),
-                            style = AuroType.Label.copy(
-                                color = accent,
-                                fontWeight = FontWeight.Bold
-                            ),
+                                .padding(horizontal = 12.dp)
+                                .fillMaxHeight(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.RestartAlt,
+                                contentDescription = null,
+                                tint = AuroColor.TextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(R.string.eq_reset),
+                                style = AuroType.Label.copy(color = AuroColor.TextSecondary)
+                            )
+                        }
+                    }
+                    AuroGlass(
+                        kind = AuroGlassKind.Card,
+                        cornerRadius = 20.dp,
+                        onClick = onSavePreset,
+                        modifier = Modifier.height(AuroHeight.GlassButton)
+                    ) {
+                        Row(
                             modifier = Modifier
-                                .clickable { onSavePreset() }
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
+                                .padding(horizontal = 12.dp)
+                                .fillMaxHeight(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.BookmarkAdd,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(R.string.eq_save),
+                                style = AuroType.Label.copy(
+                                    color = accent,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(presets, key = { it.id }) { p ->
                         val isSelected = p.name.equals(activePresetName, ignoreCase = true)
-                        AuroGlass(
-                            kind = AuroGlassKind.Card,
-                            onClick = { onSelectPreset(p) },
-                            modifier = Modifier.height(38.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .padding(horizontal = 14.dp)
-                                    .fillMaxHeight()
-                            ) {
-                                Text(
-                                    text = p.name,
-                                    style = AuroType.Body.copy(
-                                        color = if (isSelected) accent else AuroColor.TextPrimary,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    )
+                        Row(
+                            modifier = Modifier
+                                .height(32.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isSelected) accent.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.18f),
+                                    shape = RoundedCornerShape(16.dp)
                                 )
-                                if (!p.isBuiltin) {
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .size(36.dp)
-                                            .clickable { onDeletePreset(p) },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Close,
-                                            contentDescription = stringResource(R.string.cd_delete_preset),
-                                            tint = AuroColor.TextTertiary,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
+                                .clickable { onSelectPreset(p) }
+                                .padding(horizontal = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = p.name,
+                                style = AuroType.Body.copy(
+                                    color = if (isSelected) Color.White else AuroColor.TextSecondary,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                )
+                            )
+                            if (!p.isBuiltin) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable { onDeletePreset(p) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = stringResource(R.string.cd_delete_preset),
+                                        tint = AuroColor.TextTertiary,
+                                        modifier = Modifier.size(14.dp)
+                                    )
                                 }
                             }
                         }
@@ -244,7 +294,59 @@ fun AuroEqualizerScreen(
                                 fontFamily = FontFamily.Monospace
                             )
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Curva de resposta gráfica de 2dp interpolada das 10 bandas
+                        Canvas(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                        ) {
+                            val w = size.width
+                            val h = size.height
+                            val midY = h / 2f
+
+                            // Linha de referência central 0 dB
+                            drawLine(
+                                color = Color.White.copy(alpha = 0.10f),
+                                start = androidx.compose.ui.geometry.Offset(0f, midY),
+                                end = androidx.compose.ui.geometry.Offset(w, midY),
+                                strokeWidth = 1.dp.toPx()
+                            )
+
+                            if (bandGains.isNotEmpty()) {
+                                val path = Path()
+                                val stepX = if (bandGains.size > 1) w / (bandGains.size - 1) else w
+
+                                val points = bandGains.mapIndexed { index, gain ->
+                                    val clamped = gain.coerceIn(-12f, 12f)
+                                    val x = index * stepX
+                                    val y = midY - (clamped / 12f) * (h * 0.40f)
+                                    androidx.compose.ui.geometry.Offset(x, y)
+                                }
+
+                                path.moveTo(points.first().x, points.first().y)
+                                for (i in 0 until points.size - 1) {
+                                    val p0 = points[i]
+                                    val p1 = points[i + 1]
+                                    val cx = (p0.x + p1.x) / 2f
+                                    path.cubicTo(cx, p0.y, cx, p1.y, p1.x, p1.y)
+                                }
+
+                                drawPath(
+                                    path = path,
+                                    color = accent,
+                                    style = Stroke(
+                                        width = 2.dp.toPx(),
+                                        cap = StrokeCap.Round,
+                                        join = StrokeJoin.Round
+                                    )
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         bandFreqs.forEachIndexed { bandIndex, freqLabel ->
                             val gain = bandGains.getOrElse(bandIndex) { 0f }

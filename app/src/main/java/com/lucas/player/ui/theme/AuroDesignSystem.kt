@@ -170,6 +170,7 @@ object AuroHeight {
     val CategoryRow = 50.dp
     val TrackRow = 58.dp
     val DialogOption = 48.dp
+    val DialogInputField = 44.dp
     val Chip = 32.dp
     val GlassButton = 40.dp
     val SearchField = 52.dp
