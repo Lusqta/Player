@@ -20,8 +20,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.activity.BackEventCompat
 import androidx.activity.compose.PredictiveBackHandler
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.CancellationException
@@ -190,11 +193,21 @@ fun AuroNowPlayingScreen(
 
         Spacer(modifier = Modifier.height(4.dp))
 
+        val coverScale by animateFloatAsState(
+            targetValue = if (isPlaying) 1.0f else 0.93f,
+            animationSpec = spring(dampingRatio = 0.68f, stiffness = 240f),
+            label = "coverScale"
+        )
+
         // Capa com cantos arredondados de 22dp (sem vidro: fonte da cor)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(1f)
+                .graphicsLayer {
+                    scaleX = coverScale
+                    scaleY = coverScale
+                }
                 .clip(RoundedCornerShape(AuroRadius.cover))
                 .semantics {
                     isTraversalGroup = true
@@ -227,18 +240,24 @@ fun AuroNowPlayingScreen(
                 },
             contentAlignment = Alignment.Center
         ) {
-            if (coverBitmap != null) {
-                Image(
-                    bitmap = coverBitmap.asImageBitmap(),
-                    contentDescription = stringResource(R.string.cd_album_cover),
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                AuroCoverPlaceholder(
-                    modifier = Modifier.fillMaxSize(),
-                    glass = true
-                )
+            Crossfade(
+                targetState = coverBitmap,
+                animationSpec = tween(300),
+                label = "coverCrossfade"
+            ) { bmp ->
+                if (bmp != null) {
+                    Image(
+                        bitmap = bmp.asImageBitmap(),
+                        contentDescription = stringResource(R.string.cd_album_cover),
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    AuroCoverPlaceholder(
+                        modifier = Modifier.fillMaxSize(),
+                        glass = true
+                    )
+                }
             }
         }
 

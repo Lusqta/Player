@@ -34,6 +34,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -78,11 +79,15 @@ fun formatTimeMs(ms: Long): String {
 @Composable
 fun rememberTrackCover(track: Track?, size: Int = 300): Bitmap? {
     val context = LocalContext.current
-    var bitmap by remember(track?.id) { mutableStateOf<Bitmap?>(null) }
-    LaunchedEffect(track?.id) {
+    var bitmap by remember(track?.id, size) {
+        mutableStateOf(track?.let { CoverArtLoader.getCachedCover(it, size) })
+    }
+    LaunchedEffect(track?.id, size) {
         if (track != null) {
-            CoverArtLoader.loadCover(context, track, size) { bmp ->
-                bitmap = bmp
+            if (bitmap == null) {
+                CoverArtLoader.loadCover(context, track, size) { bmp ->
+                    bitmap = bmp
+                }
             }
         } else {
             bitmap = null
@@ -902,12 +907,25 @@ fun AuroTrackRow(
 ) {
     val accent = LocalAuroAccent.current.a.value
     val view = LocalView.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = AuroMotion.press(),
+        label = "track_press_scale"
+    )
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(AuroHeight.TrackRow)
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
             .combinedClickable(
+                interactionSource = interactionSource,
+                indication = null,
                 onClick = {
                     AuroHaptics.click(view)
                     onClick()

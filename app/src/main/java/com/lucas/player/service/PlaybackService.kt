@@ -129,7 +129,8 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
                     }
                 }
 
-                handler.postDelayed(this, 250)
+                val delayMs = if (listeners.isNotEmpty()) 64L else 250L
+                handler.postDelayed(this, delayMs)
             } else if (wasPlaying) {
                 wasPlaying = false
                 val current = audioEngine.getPositionMs()

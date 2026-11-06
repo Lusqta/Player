@@ -1,9 +1,12 @@
 package com.lucas.player.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,10 +22,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
+import com.lucas.player.ui.theme.AuroMotion
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -211,6 +218,7 @@ fun AuroCategoryListScreen(
                     ) {
                         itemsIndexed(displayedTracks, key = { _, t -> t.id }) { index, track ->
                             AuroTrackRow(
+                                modifier = Modifier.animateItem(),
                                 track = track,
                                 trackIndex = index,
                                 isPlayingThis = track.id == currentPlayingId,
@@ -280,10 +288,25 @@ fun AuroCategoryListScreen(
                         contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp, end = if (displayedGroups.size > 15) 28.dp else 0.dp)
                     ) {
                         items(displayedGroups, key = { it.title }) { group ->
+                            val groupInteraction = remember { MutableInteractionSource() }
+                            val isGroupPressed by groupInteraction.collectIsPressedAsState()
+                            val groupScale by animateFloatAsState(
+                                targetValue = if (isGroupPressed) 0.98f else 1f,
+                                animationSpec = AuroMotion.press(),
+                                label = "group_press_scale"
+                            )
+
                             Row(
                                 modifier = Modifier
+                                    .animateItem()
                                     .fillMaxWidth()
+                                    .graphicsLayer {
+                                        scaleX = groupScale
+                                        scaleY = groupScale
+                                    }
                                     .combinedClickable(
+                                        interactionSource = groupInteraction,
+                                        indication = null,
                                         onClick = { onGroupClick(group) },
                                         onLongClick = { onGroupLongClick(group) }
                                     )

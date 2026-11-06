@@ -10,6 +10,7 @@ import android.hardware.SensorManager
 import android.os.Build
 import android.provider.Settings
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloat
@@ -21,6 +22,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
@@ -32,12 +35,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
@@ -48,6 +54,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
@@ -72,6 +80,8 @@ import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /*
@@ -308,12 +318,12 @@ object AuroTilt {
      * (x pra direita, y pra baixo) e intensidade 0,6..1 (celular deitado = reflexo um pouco mais fraco).
      */
     fun light(gx: Float, gy: Float, sideGain: Float = 1.6f, bias: Float = 0.25f): FloatArray {
-        val x = gx / 9.81f * sideGain
-        val y = gy / 9.81f + bias
+        val x = (gx / 9.81f) * sideGain
+        val y = -(gy / 9.81f) - bias
         val len = sqrt(x * x + y * y)
         val inPlane = sqrt(gx * gx + gy * gy) / 9.81f
         val gain = 0.6f + 0.4f * inPlane.coerceIn(0f, 1f)
-        return if (len < 1e-4f) floatArrayOf(0f, 1f, gain) else floatArrayOf(x / len, y / len, gain)
+        return if (len < 1e-4f) floatArrayOf(0f, -1f, gain) else floatArrayOf(x / len, y / len, gain)
     }
 }
 
@@ -386,23 +396,23 @@ fun rememberReduceMotion(): Boolean {
 fun rememberListenerLight(playing: Boolean, tilt: Boolean = true): () -> AuroLight {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val sensed = remember { mutableStateOf(AuroLight()) } // lido só na fase de desenho: não recompõe
+    val rawTarget = remember { FloatArray(3) { if (it == 1) -1f else if (it == 2) 1f else 0f } }
+    val currentLightRef = remember { arrayOf(AuroLight()) }
+    var drawTrigger by remember { mutableIntStateOf(0) }
+
     DisposableEffect(tilt, lifecycleOwner) {
         val sm = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val sensor = sm.getDefaultSensor(Sensor.TYPE_GRAVITY) ?: sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         if (!tilt || sensor == null) {
-            sensed.value = AuroLight()
+            currentLightRef[0] = AuroLight()
             return@DisposableEffect onDispose {}
         }
-        val smoother = TiltSmoother()
         val listener = object : SensorEventListener {
             override fun onSensorChanged(event: SensorEvent) {
                 val l = AuroTilt.light(event.values[0], event.values[1])
-                smoother.step(l[0], l[1], l[2], event.timestamp)
-                val len = sqrt(smoother.x * smoother.x + smoother.y * smoother.y).coerceAtLeast(1e-4f)
-                val next = AuroLight(smoother.x / len, smoother.y / len, smoother.gain)
-                val cur = sensed.value
-                if (abs(next.dx - cur.dx) + abs(next.dy - cur.dy) + abs(next.gain - cur.gain) > 0.002f) sensed.value = next
+                rawTarget[0] = l[0]
+                rawTarget[1] = l[1]
+                rawTarget[2] = l[2]
             }
 
             override fun onAccuracyChanged(s: Sensor?, accuracy: Int) {}
@@ -443,6 +453,28 @@ fun rememberListenerLight(playing: Boolean, tilt: Boolean = true): () -> AuroLig
         }
     }
 
+    LaunchedEffect(tilt, lifecycleOwner) {
+        if (!tilt) return@LaunchedEffect
+        val smoother = TiltSmoother()
+        while (isActive) {
+            withFrameNanos { nanos ->
+                if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                    val tx = rawTarget[0]
+                    val ty = rawTarget[1]
+                    val tg = rawTarget[2]
+                    smoother.step(tx, ty, tg, nanos)
+                    val len = sqrt(smoother.x * smoother.x + smoother.y * smoother.y).coerceAtLeast(1e-4f)
+                    val next = AuroLight(smoother.x / len, smoother.y / len, smoother.gain)
+                    val cur = currentLightRef[0]
+                    if (abs(next.dx - cur.dx) + abs(next.dy - cur.dy) + abs(next.gain - cur.gain) > 0.0005f) {
+                        currentLightRef[0] = next
+                        drawTrigger++
+                    }
+                }
+            }
+        }
+    }
+
     val transition = rememberInfiniteTransition(label = "light")
     val phase = transition.animateFloat(
         initialValue = 0f,
@@ -452,7 +484,9 @@ fun rememberListenerLight(playing: Boolean, tilt: Boolean = true): () -> AuroLig
     )
     val amount = animateFloatAsState(if (playing && tilt) 1f else 0f, AuroMotion.liquid(), label = "breath")
     return {
-        val s = sensed.value
+        @Suppress("UNUSED_VARIABLE")
+        val v = drawTrigger
+        val s = currentLightRef[0]
         val th = 0.07f * amount.value * sin((phase.value * 2f * PI).toFloat()) // ±4°
         val c = cos(th)
         val sn = sin(th)
@@ -518,10 +552,22 @@ fun AuroGlass(
     val cfg = LocalConfiguration.current
     val view = LocalView.current
     val screenH = cfg.screenHeightDp * density
-    var center by remember { mutableStateOf(Offset.Zero) } // centro do objeto na janela, px
+    val centerRef = remember { FloatArray(2) } // centro do objeto na janela, px (sem State para zero recomposição)
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    val press by animateFloatAsState(if (pressed) 1f else 0f, AuroMotion.press(), label = "press")
+
+    var isTouchPressed by remember { mutableStateOf(false) }
+    val touchPos = remember { FloatArray(2) }
+    val ripple = remember { Animatable(0f) }
+    val coroutineScope = rememberCoroutineScope()
+
+    val isPressed = pressed || isTouchPressed
+    val press by animateFloatAsState(
+        targetValue = if (isPressed) 1f else 0f,
+        animationSpec = spring(dampingRatio = 0.52f, stiffness = 380f),
+        label = "liquidPress"
+    )
+
     val isButton = kind == AuroGlassKind.Button
     val cardRadius = cornerRadius ?: AuroRadius.card
     val shape = if (isButton) CircleShape else RoundedCornerShape(cardRadius)
@@ -533,6 +579,27 @@ fun AuroGlass(
         }
     } else Modifier
 
+    val touchModifier = Modifier.pointerInput(Unit) {
+        awaitEachGesture {
+            val down = awaitFirstDown(pass = PointerEventPass.Initial, requireUnconsumed = false)
+            touchPos[0] = down.position.x
+            touchPos[1] = down.position.y
+            isTouchPressed = true
+            coroutineScope.launch {
+                ripple.snapTo(0f)
+                ripple.animateTo(1f, tween(650, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)))
+            }
+            while (true) {
+                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) break
+                touchPos[0] = change.position.x
+                touchPos[1] = change.position.y
+            }
+            isTouchPressed = false
+        }
+    }
+
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
         val shader = remember { RuntimeShader(AURO_GLASS_AGSL) }
         val brush = remember(shader) { ShaderBrush(shader) }
@@ -542,8 +609,24 @@ fun AuroGlass(
 
         Box(
             modifier
-                .onGloballyPositioned { center = it.boundsInWindow().center }
-                .graphicsLayer { val s = 1f - 0.04f * press; scaleX = s; scaleY = s }
+                .then(touchModifier)
+                .onGloballyPositioned { coordinates ->
+                    val c = coordinates.boundsInWindow().center
+                    centerRef[0] = c.x
+                    centerRef[1] = c.y
+                }
+                .graphicsLayer {
+                    val s = 1f - 0.045f * press
+                    scaleX = s
+                    scaleY = s
+                    val tX = touchPos[0]
+                    val tY = touchPos[1]
+                    val halfW = (size.width / 2f).coerceAtLeast(1f)
+                    val halfH = (size.height / 2f).coerceAtLeast(1f)
+                    rotationX = ((tY - halfH) / halfH).coerceIn(-1f, 1f) * -3.5f * press
+                    rotationY = ((tX - halfW) / halfW).coerceIn(-1f, 1f) * 3.5f * press
+                    cameraDistance = 12f * density
+                }
                 .drawBehind {
                     val l = light()
                     val radius = if (isButton) min(size.width, size.height) / 2f else cardRadius.toPx()
@@ -552,7 +635,7 @@ fun AuroGlass(
                     val b = accent.b.value
                     shader.setFloatUniform("uSize", size.width, size.height)
                     shader.setFloatUniform("uRadius", radius)
-                    shader.setFloatUniform("uCenter", center.x, center.y)
+                    shader.setFloatUniform("uCenter", centerRef[0], centerRef[1])
                     shader.setFloatUniform("uScreenH", screenH)
                     shader.setFloatUniform("uLightDir", l.dx, l.dy)
                     shader.setFloatUniform("uAccent", a.red, a.green, a.blue)
@@ -564,6 +647,8 @@ fun AuroGlass(
                     shader.setFloatUniform("uTime", clock())
                     shader.setFloatUniform("uPx", density)
                     shader.setFloatUniform("uPress", press)
+                    shader.setFloatUniform("uTouch", touchPos[0], touchPos[1])
+                    shader.setFloatUniform("uRipple", ripple.value)
                     drawRect(brush)
                 }
                 .clip(shape)
@@ -574,7 +659,19 @@ fun AuroGlass(
         // Fallback robusto para Android < 13: Objeto preto com aro branco sutil de 10%
         Box(
             modifier = modifier
-                .graphicsLayer { val s = 1f - 0.04f * press; scaleX = s; scaleY = s }
+                .then(touchModifier)
+                .graphicsLayer {
+                    val s = 1f - 0.045f * press
+                    scaleX = s
+                    scaleY = s
+                    val tX = touchPos[0]
+                    val tY = touchPos[1]
+                    val halfW = (size.width / 2f).coerceAtLeast(1f)
+                    val halfH = (size.height / 2f).coerceAtLeast(1f)
+                    rotationX = ((tY - halfH) / halfH).coerceIn(-1f, 1f) * -3.5f * press
+                    rotationY = ((tX - halfW) / halfW).coerceIn(-1f, 1f) * 3.5f * press
+                    cameraDistance = 12f * density
+                }
                 .background(AuroColor.Black, shape)
                 .border(1.dp, Color.White.copy(alpha = 0.10f), shape)
                 .clip(shape)
@@ -604,6 +701,8 @@ uniform float  uBody;      // luz no miolo (0 = preto total)
 uniform float  uTime;      // s
 uniform float  uPx;        // 1dp em px
 uniform float  uPress;     // 0..1 (toque)
+uniform float2 uTouch;     // coordenada local do toque em px
+uniform float  uRipple;    // progresso da onda 0..1
 
 float sdRound(float2 p) {
     float2 q = abs(p) - 0.5 * uSize + uRadius;
@@ -629,18 +728,39 @@ float lightI(float2 g) {
 half4 main(float2 fragCoord) {
     float2 p = fragCoord - 0.5 * uSize;
     float d = sdRound(p);
+
+    // Deformação de Menisco Líquido na SDF
+    float distTouch = length(fragCoord - uTouch);
+    float touchInf = exp(-distTouch / (42.0 * uPx)) * uPress;
+    d = d - touchInf * 3.0 * uPx;
+
     float a = 1.0 - smoothstep(-0.7, 0.7, d);
     if (a <= 0.0) return half4(0.0);
     float depth = max(-d, 0.0);
-    float dd = depth / uPx;                                 // profundidade em dp: a espessura das linhas é igual em todos os objetos
-    float2 n = normalize(float2(sdRound(p + float2(1.0, 0.0)) - sdRound(p - float2(1.0, 0.0)),
-                                sdRound(p + float2(0.0, 1.0)) - sdRound(p - float2(0.0, 1.0))) + float2(1e-5));
+    float dd = depth / uPx;                                 // profundidade em dp
+
+    // Normal da borda perturbada organicamente perto do ponto de contato
+    float2 baseN = float2(sdRound(p + float2(1.0, 0.0)) - sdRound(p - float2(1.0, 0.0)),
+                          sdRound(p + float2(0.0, 1.0)) - sdRound(p - float2(0.0, 1.0)));
+    float2 toTouch = (fragCoord - uTouch) / max(distTouch, 1.0);
+    float2 n = normalize(baseN + toTouch * touchInf * 1.5 + float2(1e-5));
+
     float2 g = uCenter + p;
     float I = lightI(g);
     float press = 1.0 + 0.6 * uPress;
 
-    // luz paralela: a MESMA direção em todos os objetos. Dispersão por canal: a direção gira ±2°.
-    float2 L = normalize(uLightDir);
+    // Onda de Refração (Caustic Ripple)
+    float waveRadius = uRipple * max(uSize.x, uSize.y) * 1.1;
+    float ring = exp(-pow((distTouch - waveRadius) / (18.0 * uPx), 2.0)) * (1.0 - uRipple) * clamp(uPress + (1.0 - uRipple), 0.0, 1.0);
+
+    // Vetor de luz com orientação física correta (vem de baixo por padrão)
+    float2 baseL = normalize(float2(uLightDir.x, -uLightDir.y));
+
+    // Convergência de Luz no Dedo: atração do vetor de luz e foco cáustico
+    float2 touchDir = normalize(uTouch - fragCoord + float2(1e-4));
+    float blendTouch = clamp(touchInf * 0.7 + ring * 0.4, 0.0, 0.85);
+    float2 L = normalize(mix(baseL, touchDir, blendTouch));
+
     float2 Lp = float2(-L.y, L.x);
     float3 ndl = float3(max(dot(n, L * 0.99939 + Lp * 0.03490), 0.0),
                         max(dot(n, L), 0.0),
@@ -672,9 +792,12 @@ half4 main(float2 fragCoord) {
     float band = exp(-pow((depth - 0.5 * uBevel) / (0.3 * uBevel), 2.0));
     float3 inner = mix(uAccent2, hot, 0.35) * opp * band * 0.09 * I;
 
+    // Brilho cáustico cromático nos pontos de contato e onda anelar
+    float3 causticGlow = mix(uAccent, float3(1.0), 0.65) * (touchInf * 0.45 + ring * 0.55) * I;
+
     float3 body = lightColor * uBody * I * exp(-dd / 5.0);     // 0 = corpo preto
 
-    float3 c = body + (refl + sparkCol) * uSpec * press + rimCol * press + inner;
+    float3 c = body + (refl + sparkCol) * uSpec * press + rimCol * press + inner + causticGlow;
     float mx = max(c.r, max(c.g, c.b));
     c = max(c + (hash2(fragCoord) - 0.5) * (1.6 / 255.0) * smoothstep(0.0, 0.03, mx), 0.0);   // dither só onde há luz
     return half4(half3(clamp(c, 0.0, 1.0) * a), half(a));

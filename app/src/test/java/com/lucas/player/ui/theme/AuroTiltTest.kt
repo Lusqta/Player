@@ -14,7 +14,6 @@ class AuroTiltTest {
     @Test
     fun testTiltRight_movesLightToRight() {
         // Celular inclinado para a direita (gx > 0)
-        // Convenção Android: ao inclinar o lado direito para baixo, gx é positivo.
         // O reflexo da luz deve se mover para a direita (dx > 0).
         val result = AuroTilt.light(gx = 5.0f, gy = 8.5f)
         val dx = result[0]
@@ -22,7 +21,7 @@ class AuroTiltTest {
         val gain = result[2]
 
         assertTrue("dx deve ser positivo quando gx > 0 (inclinado para a direita)", dx > 0f)
-        assertTrue("dy deve ser positivo quando celular em pé (gy > 0)", dy > 0f)
+        assertTrue("dy deve ser negativo quando celular em pé (gy > 0 com vetor de luz corrigido)", dy < 0f)
         assertTrue("gain deve estar entre 0.6 e 1.0", gain in 0.6f..1.0f)
     }
 
@@ -36,7 +35,7 @@ class AuroTiltTest {
         val gain = result[2]
 
         assertTrue("dx deve ser negativo quando gx < 0 (inclinado para a esquerda)", dx < 0f)
-        assertTrue("dy deve ser positivo quando celular em pé (gy > 0)", dy > 0f)
+        assertTrue("dy deve ser negativo quando celular em pé (gy > 0 com vetor de luz corrigido)", dy < 0f)
         assertTrue("gain deve estar entre 0.6 e 1.0", gain in 0.6f..1.0f)
     }
 
@@ -49,7 +48,7 @@ class AuroTiltTest {
         val gain = result[2]
 
         assertEquals(0f, dx, 1e-4f)
-        assertTrue("dy deve apontar para baixo (> 0)", dy > 0f)
+        assertTrue("dy deve apontar para o topo com sinal invertido (< 0)", dy < 0f)
         assertEquals(1.0f, gain, 0.05f)
     }
 

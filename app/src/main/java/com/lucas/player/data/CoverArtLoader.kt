@@ -33,6 +33,11 @@ object CoverArtLoader {
     private val executor = Executors.newFixedThreadPool(3)
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    fun getCachedCover(track: Track, targetSizeDp: Int = 300): Bitmap? {
+        val cacheKey = "${track.id}_$targetSizeDp"
+        return memoryCache.get(cacheKey)
+    }
+
     fun loadCover(
         context: Context,
         track: Track,

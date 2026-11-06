@@ -258,8 +258,35 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         }
     }
 
+    private fun enableHighRefreshRate() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val currentDisplay = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                display
+            } else {
+                @Suppress("DEPRECATION")
+                windowManager.defaultDisplay
+            }
+            val modes = currentDisplay?.supportedModes ?: emptyArray()
+            if (modes.isNotEmpty()) {
+                val maxResolution = modes.maxOfOrNull { it.physicalWidth * it.physicalHeight } ?: 0
+                val bestMode = modes
+                    .filter { (it.physicalWidth * it.physicalHeight) == maxResolution }
+                    .maxByOrNull { it.refreshRate }
+                bestMode?.let { mode ->
+                    window.attributes = window.attributes.apply {
+                        preferredDisplayModeId = mode.modeId
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                            preferredRefreshRate = mode.refreshRate
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableHighRefreshRate()
         AuroHaptics.init(this)
         LibraryRepository.init(this)
 
@@ -277,12 +304,10 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             val loadingTracksCount by loadingTracksCountState
             val errorTrackIds = remember { errorTrackIdsState }
             val currentScreen = navController.currentScreen
-            val reduceMotion = rememberReduceMotion()
             val scrollStates = remember { mutableMapOf<String, LazyListState>() }
             fun getScrollState(key: String): LazyListState = scrollStates.getOrPut(key) { LazyListState() }
             val currentTrack by currentTrackState
             val isPlaying by isPlayingState
-            val progressMs by progressMsState
             val durationMs by durationMsState
             val shuffleMode by shuffleModeState
             val repeatMode by repeatModeState
@@ -417,6 +442,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         else -> null
                     }
                 ) {
+                    val reduceMotion = rememberReduceMotion()
                     val navBarBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
                     val dockHeight = if (currentTrack != null) AuroHeight.Dock else AuroHeight.DockCollapsed
                     val activeBottomInset = if (currentScreen is NavScreen.NowPlaying) 0.dp else (dockHeight + AuroSpace.EdgeMargin + navBarBottomInset)
@@ -563,20 +589,41 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 if (reduceMotion) {
                                     EnterTransition.None togetherWith ExitTransition.None
                                 } else if (targetState is NavScreen.NowPlaying) {
-                                    (slideInVertically(spring(dampingRatio = 0.85f, stiffness = 250f)) { it } + fadeIn(spring(0.85f, 250f)))
-                                        .togetherWith(fadeOut(tween(160, easing = LinearEasing)))
+                                    (slideInVertically(spring(dampingRatio = 0.80f, stiffness = 280f)) { it } +
+                                            scaleIn(initialScale = 0.92f, animationSpec = spring(0.80f, 280f)) +
+                                            fadeIn(spring(0.80f, 280f)))
+                                        .togetherWith(
+                                            scaleOut(targetScale = 0.92f, animationSpec = spring(0.80f, 280f)) +
+                                                    fadeOut(tween(180))
+                                        )
                                 } else if (initialState is NavScreen.NowPlaying) {
-                                    fadeIn(tween(220))
-                                        .togetherWith(slideOutVertically(spring(dampingRatio = 0.85f, stiffness = 250f)) { it } + fadeOut(spring(0.85f, 250f)))
+                                    (fadeIn(tween(220, easing = FastOutSlowInEasing)) +
+                                            scaleIn(initialScale = 0.92f, animationSpec = spring(0.80f, 280f)))
+                                        .togetherWith(
+                                            slideOutVertically(spring(dampingRatio = 0.80f, stiffness = 280f)) { it } +
+                                                    scaleOut(targetScale = 0.92f, animationSpec = spring(0.80f, 280f)) +
+                                                    fadeOut(spring(0.80f, 280f))
+                                        )
                                 } else {
                                     val initialDepth = screenDepth(initialState)
                                     val targetDepth = screenDepth(targetState)
                                     if (targetDepth > initialDepth) {
-                                        (slideInHorizontally(spring(dampingRatio = 0.85f, stiffness = 300f)) { it / 10 } + fadeIn(spring(0.85f, 300f)))
-                                            .togetherWith(slideOutHorizontally(spring(dampingRatio = 0.85f, stiffness = 300f)) { -it / 14 } + fadeOut(tween(160, easing = LinearEasing)))
+                                        (slideInHorizontally(spring(dampingRatio = 0.82f, stiffness = 320f)) { (it * 0.28f).toInt() } +
+                                                fadeIn(tween(220, easing = FastOutSlowInEasing)))
+                                            .togetherWith(
+                                                slideOutHorizontally(spring(dampingRatio = 0.82f, stiffness = 320f)) { -(it * 0.12f).toInt() } +
+                                                        scaleOut(targetScale = 0.96f, animationSpec = spring(0.82f, 320f)) +
+                                                        fadeOut(tween(180))
+                                            )
                                     } else if (targetDepth < initialDepth) {
-                                        (slideInHorizontally(spring(dampingRatio = 0.85f, stiffness = 300f)) { -it / 14 } + fadeIn(spring(0.85f, 300f)))
-                                            .togetherWith(slideOutHorizontally(spring(dampingRatio = 0.85f, stiffness = 300f)) { it / 10 } + fadeOut(tween(160, easing = LinearEasing)))
+                                        (slideInHorizontally(spring(dampingRatio = 0.82f, stiffness = 320f)) { -(it * 0.12f).toInt() } +
+                                                scaleIn(initialScale = 0.96f, animationSpec = spring(0.82f, 320f)) +
+                                                fadeIn(tween(220, easing = FastOutSlowInEasing)))
+                                            .togetherWith(
+                                                slideOutHorizontally(spring(dampingRatio = 0.82f, stiffness = 320f)) { (it * 0.28f).toInt() } +
+                                                        scaleOut(targetScale = 0.96f, animationSpec = spring(0.82f, 320f)) +
+                                                        fadeOut(tween(180))
+                                            )
                                     } else {
                                         fadeIn(tween(220)).togetherWith(fadeOut(tween(140)))
                                     }
@@ -795,7 +842,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 AuroNowPlayingScreen(
                                     track = currentTrack,
                                     isPlaying = isPlaying,
-                                    progressMs = progressMs,
+                                    progressMs = progressMsState.longValue,
                                     durationMs = durationMs,
                                     coverBitmap = currentCover,
                                     shuffleMode = shuffleMode,
@@ -1059,7 +1106,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             currentScreen = currentScreen,
                             currentTrack = currentTrack,
                             isPlaying = isPlaying,
-                            progressMs = progressMs,
+                            progressMs = progressMsState.longValue,
                             durationMs = durationMs,
                             coverBitmap = miniPlayerCover,
                             onOpenNowPlaying = { navController.openNowPlaying() },
@@ -1243,7 +1290,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         AuroLyricsSheet(
                             track = currentTrack!!,
                             lyrics = lyrics,
-                            currentProgressMs = progressMs,
+                            currentProgressMs = progressMsState.longValue,
                             onSeekToMs = { ms ->
                                 playbackService?.seekTo(ms)
                                 progressMsState.longValue = ms

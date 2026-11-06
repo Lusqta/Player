@@ -158,6 +158,7 @@ fun AuroDrilldownScreen(
                 ) {
                     itemsIndexed(tracks, key = { _, t -> t.id }) { index, track ->
                         AuroTrackRow(
+                            modifier = Modifier.animateItem(),
                             track = track,
                             trackIndex = index,
                             isPlayingThis = track.id == currentPlayingId,
