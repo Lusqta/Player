@@ -508,6 +508,7 @@ fun AuroGlass(
     onClick: (() -> Unit)? = null,
     haptic: ((View) -> Unit)? = { AuroHaptics.click(it) },
     soft: Float = LocalAuroSoft.current, // 0 = reflexo agudo, 1 = bem borrado
+    cornerRadius: androidx.compose.ui.unit.Dp? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val density = LocalDensity.current.density
@@ -519,7 +520,8 @@ fun AuroGlass(
     val pressed by interaction.collectIsPressedAsState()
     val press by animateFloatAsState(if (pressed) 1f else 0f, AuroMotion.press(), label = "press")
     val isButton = kind == AuroGlassKind.Button
-    val shape = if (isButton) CircleShape else RoundedCornerShape(AuroRadius.card)
+    val cardRadius = cornerRadius ?: AuroRadius.card
+    val shape = if (isButton) CircleShape else RoundedCornerShape(cardRadius)
 
     val clickModifier = if (onClick != null) {
         Modifier.clickable(interaction, indication = null) {
@@ -541,7 +543,7 @@ fun AuroGlass(
                 .graphicsLayer { val s = 1f - 0.04f * press; scaleX = s; scaleY = s }
                 .drawBehind {
                     val l = light()
-                    val radius = if (isButton) min(size.width, size.height) / 2f else AuroRadius.card.toPx()
+                    val radius = if (isButton) min(size.width, size.height) / 2f else cardRadius.toPx()
                     val bevel = if (isButton) 0.34f * radius else 13.dp.toPx()
                     val a = accent.a.value
                     val b = accent.b.value

@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -241,6 +243,314 @@ fun AuroProgressBar(
                 modifier = Modifier.clickable { showRemainingTime = !showRemainingTime }
             )
         }
+    }
+}
+
+/**
+ * AURO DOCK (Dock único de vidro preto para o Moto Edge 60 Fusion)
+ * Substitui AuroNavbar e AuroMiniPlayer: mini player, linha de progresso e navegação em 1 card flutuante de vidro.
+ * Raio 28dp, margem de 12dp nas laterais e embaixo.
+ * Altura 122dp: mini player 66 + progresso 6 + navegação 50.
+ * Sem nada tocando: só a navegação (62dp), animado com AuroMotion.liquid().
+ */
+@Composable
+fun AuroDock(
+    currentScreen: NavScreen,
+    currentTrack: Track?,
+    isPlaying: Boolean,
+    progressMs: Long,
+    durationMs: Long,
+    coverBitmap: Bitmap?,
+    onOpenNowPlaying: () -> Unit,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    onEqClick: () -> Unit,
+    onLibraryClick: () -> Unit,
+    onSearchClick: () -> Unit,
+    onMenuClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val hasTrack = currentTrack != null
+    val targetHeight = if (hasTrack) AuroHeight.Dock else AuroHeight.DockCollapsed
+    val dockHeight by animateDpAsState(
+        targetValue = targetHeight,
+        animationSpec = AuroMotion.liquid(),
+        label = "dockHeight"
+    )
+    val view = LocalView.current
+
+    AuroGlass(
+        kind = AuroGlassKind.Card,
+        cornerRadius = AuroRadius.dock,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(dockHeight)
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (hasTrack && currentTrack != null) {
+                // Linha do mini player (66dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(66.dp)
+                        .pointerInput(Unit) {
+                            detectDragGestures { change, dragAmount ->
+                                if (dragAmount.y < -15f) {
+                                    change.consume()
+                                    onOpenNowPlaying()
+                                }
+                            }
+                        }
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onOpenNowPlaying
+                        )
+                        .padding(horizontal = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Miniatura 44dp (raio 10)
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(RoundedCornerShape(AuroRadius.thumbnail)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (coverBitmap != null) {
+                            Image(
+                                bitmap = coverBitmap.asImageBitmap(),
+                                contentDescription = stringResource(R.string.cd_album_cover),
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            AuroCoverPlaceholder(
+                                modifier = Modifier.fillMaxSize(),
+                                glass = false,
+                                shape = RoundedCornerShape(AuroRadius.thumbnail)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    // Título Body em negrito, Artista Label
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp)
+                    ) {
+                        Text(
+                            text = currentTrack.title,
+                            style = AuroType.Body.copy(fontWeight = FontWeight.Bold),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = currentTrack.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                            style = AuroType.Label.copy(color = AuroColor.TextSecondary),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    // Botões de transporte: anterior (20dp), play/pause círculo branco 34dp com triângulo preto, próximo (20dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        IconButton(
+                            onClick = {
+                                AuroHaptics.click(view)
+                                onPrevious()
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.SkipPrevious,
+                                contentDescription = stringResource(R.string.cd_previous),
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        // Play/Pause em círculo branco sólido de 34dp com ícone preto
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(Color.White, CircleShape)
+                                .clickable {
+                                    AuroHaptics.click(view)
+                                    onPlayPause()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                contentDescription = if (isPlaying) stringResource(R.string.cd_pause) else stringResource(R.string.cd_play),
+                                tint = Color.Black,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                AuroHaptics.click(view)
+                                onNext()
+                            },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.SkipNext,
+                                contentDescription = stringResource(R.string.cd_next),
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Progresso: linha de 2dp em accent A sobre trilho branco a 14%, sem toque (6dp)
+                val progressFraction = if (durationMs > 0) {
+                    (progressMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+                } else 0f
+                val accent = LocalAuroAccent.current
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .padding(horizontal = 14.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(2.dp)
+                            .clip(RoundedCornerShape(1.dp))
+                            .background(Color.White.copy(alpha = 0.14f))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(progressFraction)
+                            .height(2.dp)
+                            .clip(RoundedCornerShape(1.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(accent.a.value, accent.b.value)
+                                )
+                            )
+                    )
+                }
+            }
+
+            // Navegação: 4 abas (Equalizador, Biblioteca, Buscar, Menu) (50dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AuroDockTab(
+                    filledIcon = Icons.Rounded.GraphicEq,
+                    outlinedIcon = Icons.Outlined.GraphicEq,
+                    label = stringResource(R.string.tab_equalizer),
+                    isActive = currentScreen is NavScreen.Equalizer,
+                    onClick = onEqClick
+                )
+
+                AuroDockTab(
+                    filledIcon = Icons.Rounded.LibraryMusic,
+                    outlinedIcon = Icons.Outlined.LibraryMusic,
+                    label = stringResource(R.string.tab_library),
+                    isActive = currentScreen is NavScreen.LibraryRoot || currentScreen is NavScreen.CategoryList || currentScreen is NavScreen.Drilldown,
+                    onClick = onLibraryClick
+                )
+
+                AuroDockTab(
+                    filledIcon = Icons.Rounded.Search,
+                    outlinedIcon = Icons.Outlined.Search,
+                    label = stringResource(R.string.tab_search),
+                    isActive = currentScreen is NavScreen.Search,
+                    onClick = onSearchClick
+                )
+
+                AuroDockTab(
+                    filledIcon = Icons.Rounded.Menu,
+                    outlinedIcon = Icons.Outlined.Menu,
+                    label = stringResource(R.string.tab_menu),
+                    isActive = false,
+                    onClick = onMenuClick
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AuroDockTab(
+    filledIcon: ImageVector,
+    outlinedIcon: ImageVector,
+    label: String,
+    isActive: Boolean,
+    onClick: () -> Unit
+) {
+    val accent = LocalAuroAccent.current.a.value
+    val tint = if (isActive) Color.White else AuroColor.TextSecondary
+    val view = LocalView.current
+
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.94f else 1f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 500f),
+        label = "tabScale"
+    )
+
+    Column(
+        modifier = Modifier
+            .scale(scale)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {
+                    AuroHaptics.tick(view)
+                    onClick()
+                }
+            )
+            .padding(horizontal = 8.dp, vertical = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Ponto de 4dp em accent A acima do ícone na aba ativa
+        Box(
+            modifier = Modifier
+                .size(4.dp)
+                .then(
+                    if (isActive) Modifier.background(accent, CircleShape)
+                    else Modifier
+                )
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Icon(
+            imageVector = if (isActive) filledIcon else outlinedIcon,
+            contentDescription = label,
+            tint = tint,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = label,
+            style = AuroType.NavLabel.copy(
+                color = tint,
+                fontWeight = if (isActive) FontWeight.Medium else FontWeight.Normal
+            )
+        )
     }
 }
 

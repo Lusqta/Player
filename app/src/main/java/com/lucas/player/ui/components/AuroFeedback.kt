@@ -147,6 +147,10 @@ object AuroHaptics {
         view?.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HAPTIC_FLAGS)
     }
 
+    fun tick(view: View? = null) {
+        sliderTick(view)
+    }
+
     fun sliderTick(view: View? = null) {
         val vib = getVibrator(view)
         if (vib != null && vib.hasVibrator()) {

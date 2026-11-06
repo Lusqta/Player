@@ -417,10 +417,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         else -> null
                     }
                 ) {
-                    var bottomBarHeightPx by remember { mutableIntStateOf(0) }
-                    val density = LocalDensity.current
-                    val bottomBarInsetDp = with(density) { bottomBarHeightPx.toDp() }
-                    val activeBottomInset = if (currentScreen is NavScreen.NowPlaying) 0.dp else bottomBarInsetDp
+                    val navBarBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+                    val dockHeight = if (currentTrack != null) AuroHeight.Dock else AuroHeight.DockCollapsed
+                    val activeBottomInset = if (currentScreen is NavScreen.NowPlaying) 0.dp else (dockHeight + AuroSpace.EdgeMargin + navBarBottomInset)
 
                     CompositionLocalProvider(LocalAuroBottomInset provides activeBottomInset) {
                         Box(
@@ -1036,39 +1035,28 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             .padding(bottom = snackbarBottomPadding)
                     )
 
-                    // Mini Player e Navbar Inferior Persistente (Estilo Poweramp presente em todas as telas)
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .onSizeChanged { size -> bottomBarHeightPx = size.height }
-                    ) {
-                        AnimatedVisibility(
-                            visible = currentScreen !is NavScreen.NowPlaying && currentTrack != null,
-                            enter = if (reduceMotion) EnterTransition.None else fadeIn(tween(220)),
-                            exit = if (reduceMotion) ExitTransition.None else fadeOut(tween(160))
-                        ) {
-                            if (currentTrack != null) {
-                            AuroMiniPlayer(
-                                track = currentTrack,
-                                isPlaying = isPlaying,
-                                progressMs = progressMs,
-                                durationMs = durationMs,
-                                coverBitmap = miniPlayerCover,
-                                onOpenNowPlaying = { navController.openNowPlaying() },
-                                onPlayPause = { playbackService?.togglePlayPause() },
-                                onNext = { playbackService?.playNext() },
-                                onPrevious = { playbackService?.playPrevious() }
-                            )
-                            }
-                        }
-
-                        AuroNavbar(
+                    // Dock Único de Vidro (AuroDock - Substitui AuroNavbar e AuroMiniPlayer)
+                    if (currentScreen !is NavScreen.NowPlaying) {
+                        AuroDock(
                             currentScreen = currentScreen,
+                            currentTrack = currentTrack,
+                            isPlaying = isPlaying,
+                            progressMs = progressMs,
+                            durationMs = durationMs,
+                            coverBitmap = miniPlayerCover,
+                            onOpenNowPlaying = { navController.openNowPlaying() },
+                            onPlayPause = { playbackService?.togglePlayPause() },
+                            onNext = { playbackService?.playNext() },
+                            onPrevious = { playbackService?.playPrevious() },
                             onEqClick = { navController.toggleEqualizer() },
                             onLibraryClick = { navController.toggleLibrary() },
                             onSearchClick = { navController.toggleSearch() },
-                            onMenuClick = { showMenuSheetState.value = true }
+                            onMenuClick = { showMenuSheetState.value = true },
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(horizontal = AuroSpace.EdgeMargin)
+                                .padding(bottom = AuroSpace.EdgeMargin)
+                                .navigationBarsPadding()
                         )
                     }
 
