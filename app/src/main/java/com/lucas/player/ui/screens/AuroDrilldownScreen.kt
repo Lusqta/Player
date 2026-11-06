@@ -32,6 +32,7 @@ import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
+import com.lucas.player.ui.theme.AuroSpace
 import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlinx.coroutines.launch
 
@@ -79,7 +80,7 @@ fun AuroDrilldownScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                    .padding(horizontal = AuroSpace.ScreenMargin, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 AuroGlass(

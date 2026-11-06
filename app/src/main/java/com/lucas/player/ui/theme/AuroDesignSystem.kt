@@ -148,7 +148,7 @@ object AuroType {
         fontSize = 8.5.sp,
         lineHeight = 10.sp,
         fontWeight = FontWeight.Normal,
-        color = Color(0x66FFFFFF)
+        color = Color.White.copy(alpha = 0.40f)
     )
 }
 
@@ -576,7 +576,7 @@ fun AuroGlass(
             modifier = modifier
                 .graphicsLayer { val s = 1f - 0.04f * press; scaleX = s; scaleY = s }
                 .background(AuroColor.Black, shape)
-                .border(1.dp, Color(0x1AFFFFFF), shape)
+                .border(1.dp, Color.White.copy(alpha = 0.10f), shape)
                 .clip(shape)
                 .then(clickModifier),
             content = content,

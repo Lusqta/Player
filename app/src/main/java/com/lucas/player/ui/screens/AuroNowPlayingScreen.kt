@@ -150,7 +150,7 @@ fun AuroNowPlayingScreen(
             .semantics { isTraversalGroup = true }
             .statusBarsPadding()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp)
+            .padding(horizontal = AuroSpace.ScreenMargin)
     ) {
         // Barra superior discreta para recolher
         Row(

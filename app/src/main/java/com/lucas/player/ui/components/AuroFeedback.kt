@@ -449,7 +449,7 @@ fun AuroCoverPlaceholder(
         Box(
             modifier = modifier
                 .background(AuroColor.Black, shape)
-                .border(1.dp, Color(0x1AFFFFFF), shape), // 10% branco contorno
+                .border(1.dp, Color.White.copy(alpha = 0.10f), shape), // 10% branco contorno
             contentAlignment = Alignment.Center
         ) {
             BoxWithConstraints(

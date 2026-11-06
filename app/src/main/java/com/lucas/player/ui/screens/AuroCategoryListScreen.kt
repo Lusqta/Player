@@ -37,6 +37,7 @@ import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
+import com.lucas.player.ui.theme.AuroSpace
 import com.lucas.player.ui.theme.LocalAuroAccent
 import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlinx.coroutines.launch
@@ -103,7 +104,7 @@ fun AuroCategoryListScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                    .padding(horizontal = AuroSpace.ScreenMargin, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -168,7 +169,7 @@ fun AuroCategoryListScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onCreatePlaylist() }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -286,7 +287,7 @@ fun AuroCategoryListScreen(
                                         onClick = { onGroupClick(group) },
                                         onLongClick = { onGroupLongClick(group) }
                                     )
-                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    .padding(horizontal = AuroSpace.ScreenMargin, vertical = 14.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {

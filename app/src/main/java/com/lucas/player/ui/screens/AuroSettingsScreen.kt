@@ -33,6 +33,7 @@ import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
 import com.lucas.player.ui.theme.AuroRadius
+import com.lucas.player.ui.theme.AuroSpace
 import com.lucas.player.ui.theme.LocalAuroAccent
 import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlin.math.roundToInt
@@ -121,7 +122,7 @@ fun AuroSettingsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -219,7 +220,7 @@ fun AuroSettingsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -293,7 +294,7 @@ fun AuroSettingsScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -333,7 +334,7 @@ fun AuroSettingsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -407,7 +408,7 @@ fun AuroSettingsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -457,7 +458,7 @@ fun AuroSettingsScreen(
                             .clip(RoundedCornerShape(AuroRadius.card))
                             .background(Color.White.copy(alpha = 0.04f))
                             .border(1.dp, AuroColor.Hairline, RoundedCornerShape(AuroRadius.card))
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -713,7 +714,7 @@ private fun SettingsSwitchRow(
             .fillMaxWidth()
             .defaultMinSize(minHeight = 56.dp)
             .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -749,7 +750,7 @@ private fun SettingsClickableRow(
             .fillMaxWidth()
             .defaultMinSize(minHeight = 56.dp)
             .then(clickMod)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

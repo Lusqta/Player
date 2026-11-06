@@ -52,8 +52,9 @@ import com.lucas.player.model.Track
 import com.lucas.player.queue.QueueSection
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.AuroColor
-import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.AuroMotion
+import com.lucas.player.ui.theme.AuroSpace
+import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.LocalAuroAccent
 import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlinx.coroutines.delay
@@ -181,7 +182,7 @@ fun AuroQueueScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -229,7 +230,7 @@ fun AuroQueueScreen(
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             ),
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            modifier = Modifier.padding(horizontal = AuroSpace.ScreenMargin, vertical = 8.dp)
                         )
                     }
 
@@ -337,7 +338,7 @@ fun AuroQueueScreen(
                                 color = AuroColor.TextTertiary,
                                 fontFamily = FontFamily.Monospace
                             ),
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            modifier = Modifier.padding(horizontal = AuroSpace.ScreenMargin, vertical = 8.dp)
                         )
                     }
 
@@ -468,7 +469,7 @@ private fun AuroQueueTrackRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
             .semantics {
                 if (index > 0) {
                     customActions = customActions + CustomAccessibilityAction(moveUpText) {
