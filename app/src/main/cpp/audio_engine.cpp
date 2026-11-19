@@ -326,8 +326,8 @@ void AudioEngine::setSpatialPreset(int preset, float intensity) {
     mSpatialProcessor.setStandardPreset(preset, intensity);
 }
 
-void AudioEngine::setSpatialProParams(float subCutoffHz, float midGainDb, float sideWidth, float surroundAmbience, float speakerAngle) {
-    mSpatialProcessor.setProParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle);
+void AudioEngine::setSpatialProParams(float subCutoffHz, float midGainDb, float sideWidth, float surroundAmbience, float speakerAngle, float elevation) {
+    mSpatialProcessor.setProParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle, elevation);
 }
 
 std::vector<float> AudioEngine::scanWaveform(int fd, int numPoints) {

@@ -6221,6 +6221,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
@@ -6265,6 +6266,27 @@ fun AuroEqualizerScreen(
     onResetEq: () -> Unit = {},
     onSavePreset: () -> Unit = {},
     onDeletePreset: (MusicDatabase.EqPreset) -> Unit = {},
+    spatialMode: Int = 0,
+    onSpatialModeChange: (Int) -> Unit = {},
+    spatialPreset: Int = 0,
+    onSpatialPresetChange: (Int) -> Unit = {},
+    spatialIntensity: Float = 0.75f,
+    onSpatialIntensityChange: (Float) -> Unit = {},
+    spatialSubCutoff: Float = 120f,
+    onSpatialSubCutoffChange: (Float) -> Unit = {},
+    spatialMidGain: Float = 0f,
+    onSpatialMidGainChange: (Float) -> Unit = {},
+    spatialSideWidth: Float = 1.3f,
+    onSpatialSideWidthChange: (Float) -> Unit = {},
+    spatialSurround: Float = 0.35f,
+    onSpatialSurroundChange: (Float) -> Unit = {},
+    spatialAngle: Float = 0.4f,
+    onSpatialAngleChange: (Float) -> Unit = {},
+    spatialElevation: Float = 0f,
+    onSpatialElevationChange: (Float) -> Unit = {},
+    spatialProPreset: Int = 0,
+    onSpatialProPresetChange: (Int) -> Unit = {},
+    onResetSpatialPro: () -> Unit = {},
     onClose: () -> Unit,
     listState: LazyListState = rememberLazyListState(),
     modifier: Modifier = Modifier
@@ -6411,6 +6433,305 @@ fun AuroEqualizerScreen(
                                     )
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            // Áudio Espacial (HRTF + Sala FDN 4x4 + LR4)
+            item {
+                AuroGlass(
+                    kind = AuroGlassKind.Card,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.spatial_header),
+                                style = AuroType.Caption.copy(
+                                    color = AuroColor.TextTertiary,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // 1. Seletor de 3 estados (Segmented Pill): Desativado (0) | Dolby Padrão (1) | Espacial Pro (2)
+                        val view = LocalView.current
+                        val modeLabels = listOf(
+                            stringResource(R.string.spatial_mode_off),
+                            stringResource(R.string.spatial_mode_standard),
+                            stringResource(R.string.spatial_mode_pro)
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(38.dp)
+                                .clip(RoundedCornerShape(19.dp))
+                                .background(Color.White.copy(alpha = 0.06f))
+                                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(19.dp))
+                                .padding(3.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            modeLabels.forEachIndexed { index, label ->
+                                val isSelected = spatialMode == index
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(if (isSelected) accent.copy(alpha = 0.25f) else Color.Transparent)
+                                        .border(
+                                            width = if (isSelected) 1.dp else 0.dp,
+                                            color = if (isSelected) accent.copy(alpha = 0.70f) else Color.Transparent,
+                                            shape = RoundedCornerShape(16.dp)
+                                        )
+                                        .clickable {
+                                            AuroHaptics.tick(view)
+                                            onSpatialModeChange(index)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = AuroType.Caption.copy(
+                                            color = if (isSelected) Color.White else AuroColor.TextSecondary,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+
+                        // Modo 0: Desativado
+                        if (spatialMode == 0) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(R.string.spatial_off_desc),
+                                style = AuroType.Caption.copy(color = AuroColor.TextTertiary)
+                            )
+                        }
+
+                        // Modo 1: Dolby Padrão
+                        if (spatialMode == 1) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            // 3 Chips selecionáveis: Música (0), Cinema (1), Palco (2)
+                            val presetLabels = listOf(
+                                stringResource(R.string.spatial_preset_music),
+                                stringResource(R.string.spatial_preset_cinema),
+                                stringResource(R.string.spatial_preset_stage)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                presetLabels.forEachIndexed { index, label ->
+                                    val isSelected = spatialPreset == index
+                                    Row(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(34.dp)
+                                            .clip(RoundedCornerShape(17.dp))
+                                            .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                            .border(
+                                                width = 1.dp,
+                                                color = if (isSelected) accent.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.18f),
+                                                shape = RoundedCornerShape(17.dp)
+                                            )
+                                            .clickable {
+                                                AuroHaptics.tick(view)
+                                                onSpatialPresetChange(index)
+                                            }
+                                            .padding(horizontal = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            style = AuroType.Body.copy(
+                                                color = if (isSelected) Color.White else AuroColor.TextSecondary,
+                                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                                fontSize = 13.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // 1 slider de Intensidade (0% a 100%)
+                            val formattedIntensity = "${(spatialIntensity * 100).roundToInt()}%"
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_intensity_label),
+                                value = spatialIntensity,
+                                range = 0f..1f,
+                                formattedValue = formattedIntensity,
+                                onValueChange = onSpatialIntensityChange
+                            )
+                        }
+
+                        // Modo 2: Espacial Pro
+                        if (spatialMode == 2) {
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // 5 Presets Waves Nx + Personalizado
+                            val proPresetLabels = listOf(
+                                "Estúdio Nx",
+                                "Abbey Road",
+                                "Cinema 360°",
+                                "Arena 3D",
+                                "Personalizado"
+                            )
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(proPresetLabels.size) { index ->
+                                    val label = proPresetLabels[index]
+                                    val isSelected = spatialProPreset == index
+                                    Row(
+                                        modifier = Modifier
+                                            .height(34.dp)
+                                            .clip(RoundedCornerShape(17.dp))
+                                            .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                            .border(
+                                                width = 1.dp,
+                                                color = if (isSelected) accent.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.18f),
+                                                shape = RoundedCornerShape(17.dp)
+                                            )
+                                            .clickable {
+                                                AuroHaptics.tick(view)
+                                                onSpatialProPresetChange(index)
+                                            }
+                                            .padding(horizontal = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            style = AuroType.Body.copy(
+                                                color = if (isSelected) Color.White else AuroColor.TextSecondary,
+                                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                                fontSize = 13.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "PARÂMETROS ACÚSTICOS 3D",
+                                    style = AuroType.Caption.copy(
+                                        color = AuroColor.TextTertiary,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 11.sp
+                                    )
+                                )
+                                AuroGlass(
+                                    kind = AuroGlassKind.Card,
+                                    cornerRadius = 16.dp,
+                                    onClick = onResetSpatialPro,
+                                    modifier = Modifier.height(30.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .padding(horizontal = 10.dp)
+                                            .fillMaxHeight(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.RestartAlt,
+                                            contentDescription = null,
+                                            tint = AuroColor.TextSecondary,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = stringResource(R.string.spatial_reset_pro),
+                                            style = AuroType.Label.copy(
+                                                color = AuroColor.TextSecondary,
+                                                fontSize = 11.sp
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // 1. Corte Sub-Grave: 60 Hz – 250 Hz (controla o crossover LR4)
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_sub_cutoff_label),
+                                value = spatialSubCutoff,
+                                range = 60f..250f,
+                                formattedValue = "${spatialSubCutoff.roundToInt()} Hz",
+                                onValueChange = onSpatialSubCutoffChange
+                            )
+
+                            // 2. Foco Vocal (Mid): -6.0 dB – +6.0 dB (projeção da caixa central)
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_mid_gain_label),
+                                value = spatialMidGain,
+                                range = -6f..6f,
+                                formattedValue = String.format(Locale.getDefault(), "%+.1f dB", spatialMidGain),
+                                onValueChange = onSpatialMidGainChange
+                            )
+
+                            // 3. Largura de Palco: 50% – 220% (abertura L/R)
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_side_width_label),
+                                value = spatialSideWidth,
+                                range = 0.5f..2.2f,
+                                formattedValue = "${(spatialSideWidth * 100).roundToInt()}%",
+                                onValueChange = onSpatialSideWidthChange
+                            )
+
+                            // 4. Acústica da Sala: 0% – 100% (Early Reflections + Matriz FDN Hadamard 4x4)
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_surround_label),
+                                value = spatialSurround,
+                                range = 0f..1f,
+                                formattedValue = "${(spatialSurround * 100).roundToInt()}%",
+                                onValueChange = onSpatialSurroundChange
+                            )
+
+                            // 5. Ângulo Binaural: 15° – 65° (Steam Audio HRTF)
+                            val degrees = (15f + spatialAngle * 50f).roundToInt()
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_angle_label),
+                                value = spatialAngle,
+                                range = 0f..1f,
+                                formattedValue = "$degrees°",
+                                onValueChange = onSpatialAngleChange
+                            )
+
+                            // 6. Altura 3D (Elevação): -35° – +35° (Steam Audio HRTF)
+                            val elevDegrees = (spatialElevation * 35).toInt()
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_elevation_label),
+                                value = spatialElevation,
+                                range = -1f..1f,
+                                formattedValue = "$elevDegrees°",
+                                onValueChange = onSpatialElevationChange
+                            )
                         }
                     }
                 }
@@ -6638,6 +6959,54 @@ private fun AuroToneRow(
             ),
             textAlign = TextAlign.End,
             modifier = Modifier.width(54.dp)
+        )
+    }
+}
+
+@Composable
+private fun AuroSpatialSliderRow(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    formattedValue: String,
+    onValueChange: (Float) -> Unit,
+    enabled: Boolean = true
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = AuroType.Label.copy(
+                color = if (enabled) AuroColor.TextSecondary else AuroColor.TextTertiary
+            ),
+            modifier = Modifier.width(136.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        AuroSlider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = range,
+            contentDescription = label,
+            stateDescription = formattedValue,
+            enabled = enabled,
+            modifier = Modifier
+                .weight(1f)
+                .height(36.dp)
+        )
+        Text(
+            text = formattedValue,
+            style = AuroType.Caption.copy(
+                color = if (enabled) AuroColor.TextPrimary else AuroColor.TextTertiary,
+                fontFamily = FontFamily.Monospace,
+                fontFeatureSettings = "tnum"
+            ),
+            textAlign = TextAlign.End,
+            modifier = Modifier.width(64.dp)
         )
     }
 }
@@ -8699,6 +9068,18 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     private val activePresetNameState = mutableStateOf("Flat")
     private val presetsListState = mutableStateOf<List<MusicDatabase.EqPreset>>(emptyList())
 
+    // Áudio Espacial (DSP Binaural)
+    private val spatialModeState = mutableIntStateOf(0)
+    private val spatialPresetState = mutableIntStateOf(0)
+    private val spatialIntensityState = mutableFloatStateOf(0.85f)
+    private val spatialProPresetState = mutableIntStateOf(0)
+    private val spatialSubCutoffState = mutableFloatStateOf(110f)
+    private val spatialMidGainState = mutableFloatStateOf(0.5f)
+    private val spatialSideWidthState = mutableFloatStateOf(1.25f)
+    private val spatialSurroundState = mutableFloatStateOf(0.28f)
+    private val spatialAngleState = mutableFloatStateOf(0.30f)
+    private val spatialElevationState = mutableFloatStateOf(0.0f)
+
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as PlaybackService.LocalBinder
@@ -9516,6 +9897,206 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onResetEq = { resetEqualizerToFlat() },
                                     onSavePreset = { showSavePresetDialogState.value = true },
                                     onDeletePreset = { preset -> deletePresetTargetState.value = preset },
+                                    spatialMode = spatialModeState.intValue,
+                                    onSpatialModeChange = { mode ->
+                                        spatialModeState.intValue = mode
+                                        playbackService?.setSpatialMode(mode)
+                                        preferencesManager.spatialMode = mode
+                                    },
+                                    spatialPreset = spatialPresetState.intValue,
+                                    onSpatialPresetChange = { preset ->
+                                        spatialPresetState.intValue = preset
+                                        playbackService?.setSpatialPreset(preset, spatialIntensityState.floatValue)
+                                        preferencesManager.spatialPreset = preset
+                                    },
+                                    spatialIntensity = spatialIntensityState.floatValue,
+                                    onSpatialIntensityChange = { intensity ->
+                                        spatialIntensityState.floatValue = intensity
+                                        playbackService?.setSpatialPreset(spatialPresetState.intValue, intensity)
+                                        preferencesManager.spatialIntensity = intensity
+                                    },
+                                    spatialSubCutoff = spatialSubCutoffState.floatValue,
+                                    onSpatialSubCutoffChange = { cutoff ->
+                                        spatialSubCutoffState.floatValue = cutoff
+                                        spatialProPresetState.intValue = 4
+                                        preferencesManager.spatialProPreset = 4
+                                        preferencesManager.spatialSubCutoff = cutoff
+                                        playbackService?.setSpatialProParams(
+                                            cutoff,
+                                            spatialMidGainState.floatValue,
+                                            spatialSideWidthState.floatValue,
+                                            spatialSurroundState.floatValue,
+                                            spatialAngleState.floatValue,
+                                            spatialElevationState.floatValue
+                                        )
+                                    },
+                                    spatialMidGain = spatialMidGainState.floatValue,
+                                    onSpatialMidGainChange = { gain ->
+                                        spatialMidGainState.floatValue = gain
+                                        spatialProPresetState.intValue = 4
+                                        preferencesManager.spatialProPreset = 4
+                                        preferencesManager.spatialMidGain = gain
+                                        playbackService?.setSpatialProParams(
+                                            spatialSubCutoffState.floatValue,
+                                            gain,
+                                            spatialSideWidthState.floatValue,
+                                            spatialSurroundState.floatValue,
+                                            spatialAngleState.floatValue,
+                                            spatialElevationState.floatValue
+                                        )
+                                    },
+                                    spatialSideWidth = spatialSideWidthState.floatValue,
+                                    onSpatialSideWidthChange = { width ->
+                                        spatialSideWidthState.floatValue = width
+                                        spatialProPresetState.intValue = 4
+                                        preferencesManager.spatialProPreset = 4
+                                        preferencesManager.spatialSideWidth = width
+                                        playbackService?.setSpatialProParams(
+                                            spatialSubCutoffState.floatValue,
+                                            spatialMidGainState.floatValue,
+                                            width,
+                                            spatialSurroundState.floatValue,
+                                            spatialAngleState.floatValue,
+                                            spatialElevationState.floatValue
+                                        )
+                                    },
+                                    spatialSurround = spatialSurroundState.floatValue,
+                                    onSpatialSurroundChange = { surround ->
+                                        spatialSurroundState.floatValue = surround
+                                        spatialProPresetState.intValue = 4
+                                        preferencesManager.spatialProPreset = 4
+                                        preferencesManager.spatialSurround = surround
+                                        playbackService?.setSpatialProParams(
+                                            spatialSubCutoffState.floatValue,
+                                            spatialMidGainState.floatValue,
+                                            spatialSideWidthState.floatValue,
+                                            surround,
+                                            spatialAngleState.floatValue,
+                                            spatialElevationState.floatValue
+                                        )
+                                    },
+                                    spatialAngle = spatialAngleState.floatValue,
+                                    onSpatialAngleChange = { angle ->
+                                        spatialAngleState.floatValue = angle
+                                        spatialProPresetState.intValue = 4
+                                        preferencesManager.spatialProPreset = 4
+                                        preferencesManager.spatialAngle = angle
+                                        playbackService?.setSpatialProParams(
+                                            spatialSubCutoffState.floatValue,
+                                            spatialMidGainState.floatValue,
+                                            spatialSideWidthState.floatValue,
+                                            spatialSurroundState.floatValue,
+                                            angle,
+                                            spatialElevationState.floatValue
+                                        )
+                                    },
+                                    spatialElevation = spatialElevationState.floatValue,
+                                    onSpatialElevationChange = { elevation ->
+                                        spatialElevationState.floatValue = elevation
+                                        spatialProPresetState.intValue = 4
+                                        preferencesManager.spatialProPreset = 4
+                                        preferencesManager.spatialElevation = elevation
+                                        playbackService?.setSpatialProParams(
+                                            spatialSubCutoffState.floatValue,
+                                            spatialMidGainState.floatValue,
+                                            spatialSideWidthState.floatValue,
+                                            spatialSurroundState.floatValue,
+                                            spatialAngleState.floatValue,
+                                            elevation
+                                        )
+                                    },
+                                    spatialProPreset = spatialProPresetState.intValue,
+                                    onSpatialProPresetChange = { presetIndex ->
+                                        spatialProPresetState.intValue = presetIndex
+                                        preferencesManager.spatialProPreset = presetIndex
+                                        when (presetIndex) {
+                                            0 -> { // Estúdio Nx (Waves Nx Nearfield)
+                                                val sub = 110f; val mid = 0.5f; val width = 1.25f; val room = 0.28f; val angle = 0.30f; val elev = 0.0f
+                                                spatialSubCutoffState.floatValue = sub
+                                                spatialMidGainState.floatValue = mid
+                                                spatialSideWidthState.floatValue = width
+                                                spatialSurroundState.floatValue = room
+                                                spatialAngleState.floatValue = angle
+                                                spatialElevationState.floatValue = elev
+                                                preferencesManager.spatialSubCutoff = sub
+                                                preferencesManager.spatialMidGain = mid
+                                                preferencesManager.spatialSideWidth = width
+                                                preferencesManager.spatialSurround = room
+                                                preferencesManager.spatialAngle = angle
+                                                preferencesManager.spatialElevation = elev
+                                                playbackService?.setSpatialProParams(sub, mid, width, room, angle, elev)
+                                            }
+                                            1 -> { // Abbey Road (Sala Grande de Estúdio)
+                                                val sub = 105f; val mid = 0.2f; val width = 1.50f; val room = 0.55f; val angle = 0.55f; val elev = 0.22f
+                                                spatialSubCutoffState.floatValue = sub
+                                                spatialMidGainState.floatValue = mid
+                                                spatialSideWidthState.floatValue = width
+                                                spatialSurroundState.floatValue = room
+                                                spatialAngleState.floatValue = angle
+                                                spatialElevationState.floatValue = elev
+                                                preferencesManager.spatialSubCutoff = sub
+                                                preferencesManager.spatialMidGain = mid
+                                                preferencesManager.spatialSideWidth = width
+                                                preferencesManager.spatialSurround = room
+                                                preferencesManager.spatialAngle = angle
+                                                preferencesManager.spatialElevation = elev
+                                                playbackService?.setSpatialProParams(sub, mid, width, room, angle, elev)
+                                            }
+                                            2 -> { // Cinema 360° (Cúpula Atmos 360°)
+                                                val sub = 130f; val mid = 2.0f; val width = 1.70f; val room = 0.68f; val angle = 0.72f; val elev = 0.48f
+                                                spatialSubCutoffState.floatValue = sub
+                                                spatialMidGainState.floatValue = mid
+                                                spatialSideWidthState.floatValue = width
+                                                spatialSurroundState.floatValue = room
+                                                spatialAngleState.floatValue = angle
+                                                spatialElevationState.floatValue = elev
+                                                preferencesManager.spatialSubCutoff = sub
+                                                preferencesManager.spatialMidGain = mid
+                                                preferencesManager.spatialSideWidth = width
+                                                preferencesManager.spatialSurround = room
+                                                preferencesManager.spatialAngle = angle
+                                                preferencesManager.spatialElevation = elev
+                                                playbackService?.setSpatialProParams(sub, mid, width, room, angle, elev)
+                                            }
+                                            3 -> { // Arena 3D (Palco Máximo)
+                                                val sub = 95f; val mid = -0.5f; val width = 1.95f; val room = 0.85f; val angle = 0.90f; val elev = 0.35f
+                                                spatialSubCutoffState.floatValue = sub
+                                                spatialMidGainState.floatValue = mid
+                                                spatialSideWidthState.floatValue = width
+                                                spatialSurroundState.floatValue = room
+                                                spatialAngleState.floatValue = angle
+                                                spatialElevationState.floatValue = elev
+                                                preferencesManager.spatialSubCutoff = sub
+                                                preferencesManager.spatialMidGain = mid
+                                                preferencesManager.spatialSideWidth = width
+                                                preferencesManager.spatialSurround = room
+                                                preferencesManager.spatialAngle = angle
+                                                preferencesManager.spatialElevation = elev
+                                                playbackService?.setSpatialProParams(sub, mid, width, room, angle, elev)
+                                            }
+                                            else -> {
+                                                // Personalizado (4): preserva valores atuais
+                                            }
+                                        }
+                                    },
+                                    onResetSpatialPro = {
+                                        spatialProPresetState.intValue = 0
+                                        preferencesManager.spatialProPreset = 0
+                                        val sub = 110f; val mid = 0.5f; val width = 1.25f; val room = 0.28f; val angle = 0.30f; val elev = 0.0f
+                                        spatialSubCutoffState.floatValue = sub
+                                        spatialMidGainState.floatValue = mid
+                                        spatialSideWidthState.floatValue = width
+                                        spatialSurroundState.floatValue = room
+                                        spatialAngleState.floatValue = angle
+                                        spatialElevationState.floatValue = elev
+                                        playbackService?.setSpatialProParams(sub, mid, width, room, angle, elev)
+                                        preferencesManager.spatialSubCutoff = sub
+                                        preferencesManager.spatialMidGain = mid
+                                        preferencesManager.spatialSideWidth = width
+                                        preferencesManager.spatialSurround = room
+                                        preferencesManager.spatialAngle = angle
+                                        preferencesManager.spatialElevation = elev
+                                    },
                                     onClose = { navController.navigateUp() },
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -10105,6 +10686,17 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         for (i in 0 until 10) {
             bandGainsState.add(service.getEqualizerBand(i))
         }
+
+        spatialModeState.intValue = preferencesManager.spatialMode
+        spatialPresetState.intValue = preferencesManager.spatialPreset
+        spatialIntensityState.floatValue = preferencesManager.spatialIntensity
+        spatialProPresetState.intValue = preferencesManager.spatialProPreset
+        spatialSubCutoffState.floatValue = preferencesManager.spatialSubCutoff
+        spatialMidGainState.floatValue = preferencesManager.spatialMidGain
+        spatialSideWidthState.floatValue = preferencesManager.spatialSideWidth
+        spatialSurroundState.floatValue = preferencesManager.spatialSurround
+        spatialAngleState.floatValue = preferencesManager.spatialAngle
+        spatialElevationState.floatValue = preferencesManager.spatialElevation
     }
 
     private fun applyFullPreset(preset: MusicDatabase.EqPreset) {
@@ -10516,6 +11108,24 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     <string name="eq_balance_label">Balanço</string>
     <string name="eq_balance_center">Centro</string>
 
+    <!-- Áudio Espacial DSP -->
+    <string name="spatial_header">ÁUDIO ESPACIAL</string>
+    <string name="spatial_mode_off">Desativado</string>
+    <string name="spatial_mode_standard">Dolby Padrão</string>
+    <string name="spatial_mode_pro">Espacial Pro</string>
+    <string name="spatial_preset_music">Música</string>
+    <string name="spatial_preset_cinema">Cinema</string>
+    <string name="spatial_preset_stage">Palco</string>
+    <string name="spatial_intensity_label">Intensidade</string>
+    <string name="spatial_sub_cutoff_label">Corte Sub-Grave</string>
+    <string name="spatial_mid_gain_label">Foco Vocal (Mid)</string>
+    <string name="spatial_side_width_label">Largura de Palco</string>
+    <string name="spatial_surround_label">Acústica da Sala</string>
+    <string name="spatial_angle_label">Ângulo Binaural</string>
+    <string name="spatial_elevation_label">Altura 3D (Elevação)</string>
+    <string name="spatial_reset_pro">Resetar Padrão</string>
+    <string name="spatial_off_desc">Processamento binaural desativado (saída estéreo pura)</string>
+
     <!-- Snackbars & Avisos (Fase 5.3) -->
     <string name="snackbar_queue_cleared">Fila limpa</string>
     <string name="snackbar_queue_shuffled">Fila aleatória</string>
@@ -10847,6 +11457,24 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     <string name="eq_treble_label">Treble</string>
     <string name="eq_balance_label">Balance</string>
     <string name="eq_balance_center">Center</string>
+
+    <!-- Spatial Audio DSP -->
+    <string name="spatial_header">SPATIAL AUDIO</string>
+    <string name="spatial_mode_off">Off</string>
+    <string name="spatial_mode_standard">Dolby Standard</string>
+    <string name="spatial_mode_pro">Spatial Pro</string>
+    <string name="spatial_preset_music">Music</string>
+    <string name="spatial_preset_cinema">Cinema</string>
+    <string name="spatial_preset_stage">Stage</string>
+    <string name="spatial_intensity_label">Intensity</string>
+    <string name="spatial_sub_cutoff_label">Sub-Bass Cutoff</string>
+    <string name="spatial_mid_gain_label">Vocal Focus (Mid)</string>
+    <string name="spatial_side_width_label">Stage Width</string>
+    <string name="spatial_surround_label">Room Acoustics</string>
+    <string name="spatial_angle_label">Binaural Angle</string>
+    <string name="spatial_elevation_label">3D Height (Elevation)</string>
+    <string name="spatial_reset_pro">Reset to Default</string>
+    <string name="spatial_off_desc">Binaural processing disabled (pure stereo output)</string>
 
     <!-- Snackbars & Feedback (Phase 5.3) -->
     <string name="snackbar_queue_cleared">Queue cleared</string>

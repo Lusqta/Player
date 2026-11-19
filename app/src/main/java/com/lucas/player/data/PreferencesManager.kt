@@ -280,24 +280,32 @@ class PreferencesManager(context: Context) {
         set(value) = prefs.edit().putFloat(KEY_SPATIAL_INTENSITY, value).apply()
 
     var spatialSubCutoff: Float
-        get() = prefs.getFloat(KEY_SPATIAL_SUB_CUTOFF, 120f)
+        get() = prefs.getFloat(KEY_SPATIAL_SUB_CUTOFF, 110f)
         set(value) = prefs.edit().putFloat(KEY_SPATIAL_SUB_CUTOFF, value).apply()
 
     var spatialMidGain: Float
-        get() = prefs.getFloat(KEY_SPATIAL_MID_GAIN, 1.2f)
+        get() = prefs.getFloat(KEY_SPATIAL_MID_GAIN, 0.5f)
         set(value) = prefs.edit().putFloat(KEY_SPATIAL_MID_GAIN, value).apply()
 
     var spatialSideWidth: Float
-        get() = prefs.getFloat(KEY_SPATIAL_SIDE_WIDTH, 1.45f)
+        get() = prefs.getFloat(KEY_SPATIAL_SIDE_WIDTH, 1.25f)
         set(value) = prefs.edit().putFloat(KEY_SPATIAL_SIDE_WIDTH, value).apply()
 
     var spatialSurround: Float
-        get() = prefs.getFloat(KEY_SPATIAL_SURROUND, 0.45f)
+        get() = prefs.getFloat(KEY_SPATIAL_SURROUND, 0.28f)
         set(value) = prefs.edit().putFloat(KEY_SPATIAL_SURROUND, value).apply()
 
     var spatialAngle: Float
-        get() = prefs.getFloat(KEY_SPATIAL_ANGLE, 0.45f)
+        get() = prefs.getFloat(KEY_SPATIAL_ANGLE, 0.30f)
         set(value) = prefs.edit().putFloat(KEY_SPATIAL_ANGLE, value).apply()
+
+    var spatialElevation: Float
+        get() = prefs.getFloat(KEY_SPATIAL_ELEVATION, 0f)
+        set(value) = prefs.edit().putFloat(KEY_SPATIAL_ELEVATION, value).apply()
+
+    var spatialProPreset: Int
+        get() = prefs.getInt(KEY_SPATIAL_PRO_PRESET, 0)
+        set(value) = prefs.edit().putInt(KEY_SPATIAL_PRO_PRESET, value).apply()
 
     companion object {
         private const val SEARCH_DELIMITER = "\u001F"
@@ -338,5 +346,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_SPATIAL_SIDE_WIDTH = "spatial_side_width"
         private const val KEY_SPATIAL_SURROUND = "spatial_surround"
         private const val KEY_SPATIAL_ANGLE = "spatial_angle"
+        private const val KEY_SPATIAL_ELEVATION = "spatial_elevation"
+        private const val KEY_SPATIAL_PRO_PRESET = "spatial_pro_preset"
     }
 }

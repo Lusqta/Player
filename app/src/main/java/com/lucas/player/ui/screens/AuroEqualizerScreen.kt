@@ -96,6 +96,10 @@ fun AuroEqualizerScreen(
     onSpatialSurroundChange: (Float) -> Unit = {},
     spatialAngle: Float = 0.4f,
     onSpatialAngleChange: (Float) -> Unit = {},
+    spatialElevation: Float = 0f,
+    onSpatialElevationChange: (Float) -> Unit = {},
+    spatialProPreset: Int = 0,
+    onSpatialProPresetChange: (Int) -> Unit = {},
     onResetSpatialPro: () -> Unit = {},
     onClose: () -> Unit,
     listState: LazyListState = rememberLazyListState(),
@@ -393,13 +397,62 @@ fun AuroEqualizerScreen(
                         // Modo 2: Espacial Pro
                         if (spatialMode == 2) {
                             Spacer(modifier = Modifier.height(14.dp))
+
+                            // 5 Presets Waves Nx + Personalizado
+                            val proPresetLabels = listOf(
+                                "Estúdio Nx",
+                                "Abbey Road",
+                                "Cinema 360°",
+                                "Arena 3D",
+                                "Personalizado"
+                            )
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(proPresetLabels.size) { index ->
+                                    val label = proPresetLabels[index]
+                                    val isSelected = spatialProPreset == index
+                                    Row(
+                                        modifier = Modifier
+                                            .height(34.dp)
+                                            .clip(RoundedCornerShape(17.dp))
+                                            .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                            .border(
+                                                width = 1.dp,
+                                                color = if (isSelected) accent.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.18f),
+                                                shape = RoundedCornerShape(17.dp)
+                                            )
+                                            .clickable {
+                                                AuroHaptics.tick(view)
+                                                onSpatialProPresetChange(index)
+                                            }
+                                            .padding(horizontal = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            style = AuroType.Body.copy(
+                                                color = if (isSelected) Color.White else AuroColor.TextSecondary,
+                                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                                fontSize = 13.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "PARÂMETROS ACÚSTICOS",
+                                    text = "PARÂMETROS ACÚSTICOS 3D",
                                     style = AuroType.Caption.copy(
                                         color = AuroColor.TextTertiary,
                                         fontFamily = FontFamily.Monospace,
@@ -474,14 +527,24 @@ fun AuroEqualizerScreen(
                                 onValueChange = onSpatialSurroundChange
                             )
 
-                            // 5. Ângulo Binaural: 15° – 60° (Woodworth + Pinna HRTF)
-                            val degrees = (15f + spatialAngle * 45f).roundToInt()
+                            // 5. Ângulo Binaural: 15° – 65° (Steam Audio HRTF)
+                            val degrees = (15f + spatialAngle * 50f).roundToInt()
                             AuroSpatialSliderRow(
                                 label = stringResource(R.string.spatial_angle_label),
                                 value = spatialAngle,
                                 range = 0f..1f,
                                 formattedValue = "$degrees°",
                                 onValueChange = onSpatialAngleChange
+                            )
+
+                            // 6. Altura 3D (Elevação): -35° – +35° (Steam Audio HRTF)
+                            val elevDegrees = (spatialElevation * 35).toInt()
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_elevation_label),
+                                value = spatialElevation,
+                                range = -1f..1f,
+                                formattedValue = "$elevDegrees°",
+                                onValueChange = onSpatialElevationChange
                             )
                         }
                     }

@@ -203,10 +203,11 @@ class AudioEngine {
         midGainDb: Float,
         sideWidth: Float,
         surroundAmbience: Float,
-        speakerAngle: Float
+        speakerAngle: Float,
+        elevation: Float = 0f
     ) {
         if (nativeHandle == 0L) return
-        nativeSetSpatialProParams(nativeHandle, subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle)
+        nativeSetSpatialProParams(nativeHandle, subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle, elevation)
     }
 
     /**
@@ -230,6 +231,7 @@ class AudioEngine {
 
     companion object {
         init {
+            System.loadLibrary("phonon")
             System.loadLibrary("audio_engine")
         }
     }
@@ -276,6 +278,7 @@ class AudioEngine {
         midGainDb: Float,
         sideWidth: Float,
         surroundAmbience: Float,
-        speakerAngle: Float
+        speakerAngle: Float,
+        elevation: Float
     )
 }

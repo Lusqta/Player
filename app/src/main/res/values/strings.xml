@@ -277,6 +277,7 @@
     <string name="spatial_side_width_label">Largura de Palco</string>
     <string name="spatial_surround_label">Acústica da Sala</string>
     <string name="spatial_angle_label">Ângulo Binaural</string>
+    <string name="spatial_elevation_label">Altura 3D (Elevação)</string>
     <string name="spatial_reset_pro">Resetar Padrão</string>
     <string name="spatial_off_desc">Processamento binaural desativado (saída estéreo pura)</string>
 

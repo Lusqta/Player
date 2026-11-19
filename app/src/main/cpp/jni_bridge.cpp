@@ -350,10 +350,10 @@ Java_com_lucas_player_AudioEngine_nativeSetSpatialPreset(JNIEnv* /*env*/, jobjec
 JNIEXPORT void JNICALL
 Java_com_lucas_player_AudioEngine_nativeSetSpatialProParams(
         JNIEnv* /*env*/, jobject /*thiz*/, jlong handle,
-        jfloat subCutoffHz, jfloat midGainDb, jfloat sideWidth, jfloat surroundAmbience, jfloat speakerAngle) {
+        jfloat subCutoffHz, jfloat midGainDb, jfloat sideWidth, jfloat surroundAmbience, jfloat speakerAngle, jfloat elevation) {
     try {
         auto* engine = getEngine(handle);
-        if (engine) engine->setSpatialProParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle);
+        if (engine) engine->setSpatialProParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle, elevation);
     } catch (...) {}
 }
 

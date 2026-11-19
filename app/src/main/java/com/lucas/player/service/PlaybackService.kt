@@ -203,7 +203,8 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
             preferencesManager.spatialMidGain,
             preferencesManager.spatialSideWidth,
             preferencesManager.spatialSurround,
-            preferencesManager.spatialAngle
+            preferencesManager.spatialAngle,
+            preferencesManager.spatialElevation
         )
 
         initMediaSession()
@@ -825,14 +826,16 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
         midGainDb: Float,
         sideWidth: Float,
         surroundAmbience: Float,
-        speakerAngle: Float
+        speakerAngle: Float,
+        elevation: Float = 0f
     ) {
-        audioEngine.setSpatialProParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle)
+        audioEngine.setSpatialProParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle, elevation)
         preferencesManager.spatialSubCutoff = subCutoffHz
         preferencesManager.spatialMidGain = midGainDb
         preferencesManager.spatialSideWidth = sideWidth
         preferencesManager.spatialSurround = surroundAmbience
         preferencesManager.spatialAngle = speakerAngle
+        preferencesManager.spatialElevation = elevation
     }
 
     fun setCrossfadeDurationMs(ms: Int) {

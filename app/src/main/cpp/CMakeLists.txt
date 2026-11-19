@@ -11,6 +11,12 @@ include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/decoders
     ${CMAKE_CURRENT_SOURCE_DIR}/jamesdsp
+    ${CMAKE_CURRENT_SOURCE_DIR}/steamaudio/include
+)
+
+add_library(phonon SHARED IMPORTED)
+set_target_properties(phonon PROPERTIES
+    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}/libphonon.so"
 )
 
 add_library(audio_engine SHARED
@@ -33,6 +39,7 @@ target_link_libraries(audio_engine PRIVATE
     oboe::oboe
     log
     mediandk
+    phonon
 )
 
 target_compile_options(audio_engine PRIVATE

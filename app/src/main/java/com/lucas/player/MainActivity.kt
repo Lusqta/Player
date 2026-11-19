@@ -145,11 +145,13 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     private val spatialModeState = mutableIntStateOf(0)
     private val spatialPresetState = mutableIntStateOf(0)
     private val spatialIntensityState = mutableFloatStateOf(0.85f)
-    private val spatialSubCutoffState = mutableFloatStateOf(120f)
-    private val spatialMidGainState = mutableFloatStateOf(1.2f)
-    private val spatialSideWidthState = mutableFloatStateOf(1.45f)
-    private val spatialSurroundState = mutableFloatStateOf(0.45f)
-    private val spatialAngleState = mutableFloatStateOf(0.45f)
+    private val spatialProPresetState = mutableIntStateOf(0)
+    private val spatialSubCutoffState = mutableFloatStateOf(110f)
+    private val spatialMidGainState = mutableFloatStateOf(0.5f)
+    private val spatialSideWidthState = mutableFloatStateOf(1.25f)
+    private val spatialSurroundState = mutableFloatStateOf(0.28f)
+    private val spatialAngleState = mutableFloatStateOf(0.30f)
+    private val spatialElevationState = mutableFloatStateOf(0.0f)
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -989,75 +991,184 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     spatialSubCutoff = spatialSubCutoffState.floatValue,
                                     onSpatialSubCutoffChange = { cutoff ->
                                         spatialSubCutoffState.floatValue = cutoff
+                                        spatialProPresetState.intValue = 4
+                                        preferencesManager.spatialProPreset = 4
+                                        preferencesManager.spatialSubCutoff = cutoff
                                         playbackService?.setSpatialProParams(
                                             cutoff,
                                             spatialMidGainState.floatValue,
                                             spatialSideWidthState.floatValue,
                                             spatialSurroundState.floatValue,
-                                            spatialAngleState.floatValue
+                                            spatialAngleState.floatValue,
+                                            spatialElevationState.floatValue
                                         )
-                                        preferencesManager.spatialSubCutoff = cutoff
                                     },
                                     spatialMidGain = spatialMidGainState.floatValue,
                                     onSpatialMidGainChange = { gain ->
                                         spatialMidGainState.floatValue = gain
+                                        spatialProPresetState.intValue = 4
+                                        preferencesManager.spatialProPreset = 4
+                                        preferencesManager.spatialMidGain = gain
                                         playbackService?.setSpatialProParams(
                                             spatialSubCutoffState.floatValue,
                                             gain,
                                             spatialSideWidthState.floatValue,
                                             spatialSurroundState.floatValue,
-                                            spatialAngleState.floatValue
+                                            spatialAngleState.floatValue,
+                                            spatialElevationState.floatValue
                                         )
-                                        preferencesManager.spatialMidGain = gain
                                     },
                                     spatialSideWidth = spatialSideWidthState.floatValue,
                                     onSpatialSideWidthChange = { width ->
                                         spatialSideWidthState.floatValue = width
+                                        spatialProPresetState.intValue = 4
+                                        preferencesManager.spatialProPreset = 4
+                                        preferencesManager.spatialSideWidth = width
                                         playbackService?.setSpatialProParams(
                                             spatialSubCutoffState.floatValue,
                                             spatialMidGainState.floatValue,
                                             width,
                                             spatialSurroundState.floatValue,
-                                            spatialAngleState.floatValue
+                                            spatialAngleState.floatValue,
+                                            spatialElevationState.floatValue
                                         )
-                                        preferencesManager.spatialSideWidth = width
                                     },
                                     spatialSurround = spatialSurroundState.floatValue,
                                     onSpatialSurroundChange = { surround ->
                                         spatialSurroundState.floatValue = surround
+                                        spatialProPresetState.intValue = 4
+                                        preferencesManager.spatialProPreset = 4
+                                        preferencesManager.spatialSurround = surround
                                         playbackService?.setSpatialProParams(
                                             spatialSubCutoffState.floatValue,
                                             spatialMidGainState.floatValue,
                                             spatialSideWidthState.floatValue,
                                             surround,
-                                            spatialAngleState.floatValue
+                                            spatialAngleState.floatValue,
+                                            spatialElevationState.floatValue
                                         )
-                                        preferencesManager.spatialSurround = surround
                                     },
                                     spatialAngle = spatialAngleState.floatValue,
                                     onSpatialAngleChange = { angle ->
                                         spatialAngleState.floatValue = angle
+                                        spatialProPresetState.intValue = 4
+                                        preferencesManager.spatialProPreset = 4
+                                        preferencesManager.spatialAngle = angle
                                         playbackService?.setSpatialProParams(
                                             spatialSubCutoffState.floatValue,
                                             spatialMidGainState.floatValue,
                                             spatialSideWidthState.floatValue,
                                             spatialSurroundState.floatValue,
-                                            angle
+                                            angle,
+                                            spatialElevationState.floatValue
                                         )
-                                        preferencesManager.spatialAngle = angle
+                                    },
+                                    spatialElevation = spatialElevationState.floatValue,
+                                    onSpatialElevationChange = { elevation ->
+                                        spatialElevationState.floatValue = elevation
+                                        spatialProPresetState.intValue = 4
+                                        preferencesManager.spatialProPreset = 4
+                                        preferencesManager.spatialElevation = elevation
+                                        playbackService?.setSpatialProParams(
+                                            spatialSubCutoffState.floatValue,
+                                            spatialMidGainState.floatValue,
+                                            spatialSideWidthState.floatValue,
+                                            spatialSurroundState.floatValue,
+                                            spatialAngleState.floatValue,
+                                            elevation
+                                        )
+                                    },
+                                    spatialProPreset = spatialProPresetState.intValue,
+                                    onSpatialProPresetChange = { presetIndex ->
+                                        spatialProPresetState.intValue = presetIndex
+                                        preferencesManager.spatialProPreset = presetIndex
+                                        when (presetIndex) {
+                                            0 -> { // Estúdio Nx (Waves Nx Nearfield)
+                                                val sub = 110f; val mid = 0.5f; val width = 1.25f; val room = 0.28f; val angle = 0.30f; val elev = 0.0f
+                                                spatialSubCutoffState.floatValue = sub
+                                                spatialMidGainState.floatValue = mid
+                                                spatialSideWidthState.floatValue = width
+                                                spatialSurroundState.floatValue = room
+                                                spatialAngleState.floatValue = angle
+                                                spatialElevationState.floatValue = elev
+                                                preferencesManager.spatialSubCutoff = sub
+                                                preferencesManager.spatialMidGain = mid
+                                                preferencesManager.spatialSideWidth = width
+                                                preferencesManager.spatialSurround = room
+                                                preferencesManager.spatialAngle = angle
+                                                preferencesManager.spatialElevation = elev
+                                                playbackService?.setSpatialProParams(sub, mid, width, room, angle, elev)
+                                            }
+                                            1 -> { // Abbey Road (Sala Grande de Estúdio)
+                                                val sub = 105f; val mid = 0.2f; val width = 1.50f; val room = 0.55f; val angle = 0.55f; val elev = 0.22f
+                                                spatialSubCutoffState.floatValue = sub
+                                                spatialMidGainState.floatValue = mid
+                                                spatialSideWidthState.floatValue = width
+                                                spatialSurroundState.floatValue = room
+                                                spatialAngleState.floatValue = angle
+                                                spatialElevationState.floatValue = elev
+                                                preferencesManager.spatialSubCutoff = sub
+                                                preferencesManager.spatialMidGain = mid
+                                                preferencesManager.spatialSideWidth = width
+                                                preferencesManager.spatialSurround = room
+                                                preferencesManager.spatialAngle = angle
+                                                preferencesManager.spatialElevation = elev
+                                                playbackService?.setSpatialProParams(sub, mid, width, room, angle, elev)
+                                            }
+                                            2 -> { // Cinema 360° (Cúpula Atmos 360°)
+                                                val sub = 130f; val mid = 2.0f; val width = 1.70f; val room = 0.68f; val angle = 0.72f; val elev = 0.48f
+                                                spatialSubCutoffState.floatValue = sub
+                                                spatialMidGainState.floatValue = mid
+                                                spatialSideWidthState.floatValue = width
+                                                spatialSurroundState.floatValue = room
+                                                spatialAngleState.floatValue = angle
+                                                spatialElevationState.floatValue = elev
+                                                preferencesManager.spatialSubCutoff = sub
+                                                preferencesManager.spatialMidGain = mid
+                                                preferencesManager.spatialSideWidth = width
+                                                preferencesManager.spatialSurround = room
+                                                preferencesManager.spatialAngle = angle
+                                                preferencesManager.spatialElevation = elev
+                                                playbackService?.setSpatialProParams(sub, mid, width, room, angle, elev)
+                                            }
+                                            3 -> { // Arena 3D (Palco Máximo)
+                                                val sub = 95f; val mid = -0.5f; val width = 1.95f; val room = 0.85f; val angle = 0.90f; val elev = 0.35f
+                                                spatialSubCutoffState.floatValue = sub
+                                                spatialMidGainState.floatValue = mid
+                                                spatialSideWidthState.floatValue = width
+                                                spatialSurroundState.floatValue = room
+                                                spatialAngleState.floatValue = angle
+                                                spatialElevationState.floatValue = elev
+                                                preferencesManager.spatialSubCutoff = sub
+                                                preferencesManager.spatialMidGain = mid
+                                                preferencesManager.spatialSideWidth = width
+                                                preferencesManager.spatialSurround = room
+                                                preferencesManager.spatialAngle = angle
+                                                preferencesManager.spatialElevation = elev
+                                                playbackService?.setSpatialProParams(sub, mid, width, room, angle, elev)
+                                            }
+                                            else -> {
+                                                // Personalizado (4): preserva valores atuais
+                                            }
+                                        }
                                     },
                                     onResetSpatialPro = {
-                                        spatialSubCutoffState.floatValue = 120f
-                                        spatialMidGainState.floatValue = 1.2f
-                                        spatialSideWidthState.floatValue = 1.45f
-                                        spatialSurroundState.floatValue = 0.45f
-                                        spatialAngleState.floatValue = 0.45f
-                                        playbackService?.setSpatialProParams(120f, 1.2f, 1.45f, 0.45f, 0.45f)
-                                        preferencesManager.spatialSubCutoff = 120f
-                                        preferencesManager.spatialMidGain = 1.2f
-                                        preferencesManager.spatialSideWidth = 1.45f
-                                        preferencesManager.spatialSurround = 0.45f
-                                        preferencesManager.spatialAngle = 0.45f
+                                        spatialProPresetState.intValue = 0
+                                        preferencesManager.spatialProPreset = 0
+                                        val sub = 110f; val mid = 0.5f; val width = 1.25f; val room = 0.28f; val angle = 0.30f; val elev = 0.0f
+                                        spatialSubCutoffState.floatValue = sub
+                                        spatialMidGainState.floatValue = mid
+                                        spatialSideWidthState.floatValue = width
+                                        spatialSurroundState.floatValue = room
+                                        spatialAngleState.floatValue = angle
+                                        spatialElevationState.floatValue = elev
+                                        playbackService?.setSpatialProParams(sub, mid, width, room, angle, elev)
+                                        preferencesManager.spatialSubCutoff = sub
+                                        preferencesManager.spatialMidGain = mid
+                                        preferencesManager.spatialSideWidth = width
+                                        preferencesManager.spatialSurround = room
+                                        preferencesManager.spatialAngle = angle
+                                        preferencesManager.spatialElevation = elev
                                     },
                                     onClose = { navController.navigateUp() },
                                     modifier = Modifier.fillMaxSize()
@@ -1652,11 +1763,13 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         spatialModeState.intValue = preferencesManager.spatialMode
         spatialPresetState.intValue = preferencesManager.spatialPreset
         spatialIntensityState.floatValue = preferencesManager.spatialIntensity
+        spatialProPresetState.intValue = preferencesManager.spatialProPreset
         spatialSubCutoffState.floatValue = preferencesManager.spatialSubCutoff
         spatialMidGainState.floatValue = preferencesManager.spatialMidGain
         spatialSideWidthState.floatValue = preferencesManager.spatialSideWidth
         spatialSurroundState.floatValue = preferencesManager.spatialSurround
         spatialAngleState.floatValue = preferencesManager.spatialAngle
+        spatialElevationState.floatValue = preferencesManager.spatialElevation
     }
 
     private fun applyFullPreset(preset: MusicDatabase.EqPreset) {
