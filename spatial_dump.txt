@@ -1,0 +1,3128 @@
+=== app/src/main/cpp/CMakeLists.txt ===
+cmake_minimum_required(VERSION 3.22.1)
+project(player_audio_engine LANGUAGES CXX C)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# Find prefab Oboe package
+find_package(oboe REQUIRED CONFIG)
+
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/decoders
+    ${CMAKE_CURRENT_SOURCE_DIR}/jamesdsp
+    ${CMAKE_CURRENT_SOURCE_DIR}/steamaudio/include
+)
+
+add_library(phonon SHARED IMPORTED)
+set_target_properties(phonon PROPERTIES
+    IMPORTED_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}/libphonon.so"
+)
+
+add_library(audio_engine SHARED
+    jni_bridge.cpp
+    audio_engine.cpp
+    audio_output.cpp
+    decoders/wav_decoder.cpp
+    decoders/flac_decoder.cpp
+    decoders/mp3_decoder.cpp
+    decoders/amedia_decoder.cpp
+    decoders/decoder_factory.cpp
+    jamesdsp/reverb.c
+    jamesdsp/stereoEnhancement.c
+    jamesdsp/polyphaseFilterbank.c
+    jamesdsp/cos_fib_paraunitary.c
+    jamesdsp/qr_fact.c
+)
+
+target_link_libraries(audio_engine PRIVATE
+    oboe::oboe
+    log
+    mediandk
+    phonon
+)
+
+target_compile_options(audio_engine PRIVATE
+    -Wall
+    -Wextra
+    -O3
+    -fvisibility=hidden
+)
+=== app/src/main/cpp/spatial_processor.h ===
+#pragma once
+
+#include <atomic>
+#include <array>
+#include <cmath>
+#include <algorithm>
+#include <cstring>
+#include <memory>
+#include "jamesdsp/jdsp_shim.h"
+#include "steam_spatial_pro.h"
+
+class SpatialProcessor {
+public:
+    enum Mode : int {
+        MODE_OFF = 0,
+        MODE_DOLBY_STANDARD = 1,
+        MODE_SPATIAL_PRO = 2
+    };
+
+    enum StandardPreset : int {
+        PRESET_MUSIC = 0,
+        PRESET_CINEMA = 1,
+        PRESET_STAGE = 2
+    };
+
+    SpatialProcessor() {
+        resetState();
+        updateStdCrossoverCoeffs(110.0f, 48000.0f);
+        initJdsp(48000.0f);
+    }
+
+    void setSampleRate(int sampleRate) {
+        int clampedSr = std::clamp(sampleRate, 8000, 192000);
+        if (mSampleRate.exchange(clampedSr) != clampedSr) {
+            resetState();
+            const float sr = static_cast<float>(clampedSr);
+            updateStdCrossoverCoeffs(110.0f, sr);
+            initJdsp(sr);
+            mSteamPro.setSampleRate(clampedSr);
+        }
+    }
+
+    void setMode(int mode) {
+        int clamped = std::clamp(mode, 0, 2);
+        mMode.store(clamped, std::memory_order_relaxed);
+        if (clamped == MODE_DOLBY_STANDARD) {
+            applyJdspPreset(mPreset.load(std::memory_order_relaxed));
+        } else if (clamped == MODE_SPATIAL_PRO) {
+            mSteamPro.resetState();
+        }
+    }
+
+    void setStandardPreset(int preset, float intensity) {
+        const int p = std::clamp(preset, 0, 2);
+        mPreset.store(p, std::memory_order_relaxed);
+        mStandardIntensity.store(std::clamp(intensity, 0.0f, 1.0f), std::memory_order_relaxed);
+        applyJdspPreset(p);
+    }
+
+    void setProParams(float subCutoffHz, float midGainDb, float sideWidth,
+                      float surroundAmbience, float speakerAngle, float elevationNorm = 0.0f) {
+        mProSubCutoffHz.store(std::clamp(subCutoffHz, 60.0f, 250.0f), std::memory_order_relaxed);
+        mProMidGainDb.store(std::clamp(midGainDb, -6.0f, 6.0f), std::memory_order_relaxed);
+        mProSideWidth.store(std::clamp(sideWidth, 0.5f, 2.2f), std::memory_order_relaxed);
+        mProSurround.store(std::clamp(surroundAmbience, 0.0f, 1.0f), std::memory_order_relaxed);
+        mProAngle.store(std::clamp(speakerAngle, 0.0f, 1.0f), std::memory_order_relaxed);
+        mProElevation.store(std::clamp(elevationNorm, -1.0f, 1.0f), std::memory_order_relaxed);
+        mSteamPro.setParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle, elevationNorm);
+    }
+
+    void resetState() {
+        mStdLp1L.reset(); mStdLp2L.reset();
+        mStdLp1R.reset(); mStdLp2R.reset();
+        mStdHp1L.reset(); mStdHp2L.reset();
+        mStdHp1R.reset(); mStdHp2R.reset();
+        mSteamPro.resetState();
+    }
+
+    // Processa buffer float32 intercalado (L, R, L, R...)
+    void process(float* buffer, int numFrames, int channels = 2) {
+        const int mode = mMode.load(std::memory_order_relaxed);
+        if (mode == MODE_OFF || channels != 2 || buffer == nullptr || numFrames <= 0) {
+            return;
+        }
+
+        // Modo 1: Motor JamesDSP oficial (Stereo Widen + Progenitor 2 Reverb)
+        if (mode == MODE_DOLBY_STANDARD) {
+            processDolbyStandard(buffer, numFrames);
+            return;
+        }
+
+        // Modo 2: Motor Steam Audio Binaural 3D Real (libphonon.so)
+        if (mode == MODE_SPATIAL_PRO) {
+            mSteamPro.process(buffer, numFrames);
+            return;
+        }
+    }
+
+private:
+    static constexpr int kMaxBlockFrames = 2048;
+
+    struct BiquadCoeffs {
+        float b0 = 1.0f, b1 = 0.0f, b2 = 0.0f;
+        float a1 = 0.0f, a2 = 0.0f;
+    };
+
+    struct BiquadState {
+        float z1 = 0.0f, z2 = 0.0f;
+        void reset() { z1 = z2 = 0.0f; }
+        inline float process(float x, const BiquadCoeffs& c) {
+            float y = c.b0 * x + z1;
+            z1 = c.b1 * x - c.a1 * y + z2;
+            z2 = c.b2 * x - c.a2 * y;
+            return y;
+        }
+    };
+
+    static void computeLR4Coeffs(float cutoffHz, float sr, BiquadCoeffs& lp, BiquadCoeffs& hp) {
+        const float w0 = 6.28318530718f * std::clamp(cutoffHz, 40.0f, sr * 0.45f) / sr;
+        const float cosW0 = std::cos(w0);
+        const float sinW0 = std::sin(w0);
+        const float alpha = sinW0 * 0.70710678f;
+        const float a0Inv = 1.0f / (1.0f + alpha);
+
+        // Low-Pass Butterworth 2nd Order
+        const float lpB1 = 1.0f - cosW0;
+        const float lpB0 = lpB1 * 0.5f;
+        lp.b0 = lpB0 * a0Inv;
+        lp.b1 = lpB1 * a0Inv;
+        lp.b2 = lp.b0;
+        lp.a1 = (-2.0f * cosW0) * a0Inv;
+        lp.a2 = (1.0f - alpha) * a0Inv;
+
+        // High-Pass Butterworth 2nd Order (Invertido para soma LR4 em fase 0dB flat)
+        const float hpB1 = -(1.0f + cosW0);
+        const float hpB0 = (1.0f + cosW0) * 0.5f;
+        hp.b0 = hpB0 * a0Inv;
+        hp.b1 = hpB1 * a0Inv;
+        hp.b2 = hp.b0;
+        hp.a1 = lp.a1;
+        hp.a2 = lp.a2;
+    }
+
+    void updateStdCrossoverCoeffs(float cutoffHz, float sr) {
+        mStdLastCalcCutoffHz = cutoffHz;
+        computeLR4Coeffs(cutoffHz, sr, mStdLpCoeffs, mStdHpCoeffs);
+    }
+
+    void initJdsp(float sampleRate) {
+        if (!mJdspLib) {
+            mJdspLib = std::make_unique<JamesDSPLib>();
+        }
+        std::memset(mJdspLib.get(), 0, sizeof(JamesDSPLib));
+        mJdspLib->fs = sampleRate;
+        mJdspLib->tmpBuffer[0] = mJdspBlockL.data();
+        mJdspLib->tmpBuffer[1] = mJdspBlockR.data();
+
+        StereoEnhancementRefresh(mJdspLib.get());
+        StereoEnhancementEnable(mJdspLib.get());
+
+        mCurrentJdspPreset = -1;
+        applyJdspPreset(mPreset.load(std::memory_order_relaxed));
+        mJdspInitialized = true;
+    }
+
+    void applyJdspPreset(int preset) {
+        if (!mJdspLib) return;
+        const int sr = mSampleRate.load(std::memory_order_relaxed);
+
+        float widenMix = 0.40f;
+        float rt60 = 0.6f;
+        float delay = 0.012f;
+        float ertolate = 0.40f;
+        float erefwet = -14.0f;
+        float wet = -13.0f;
+        float ereffactor = 0.9f;
+        float erefwidth = 0.6f;
+        float width = 0.85f;
+        float wander = 0.20f;
+        float bassb = 0.0f;
+        float spin = 0.7f;
+        float inputlpf = 18000.0f;
+        float basslpf = 240.0f;
+        float damplpf = 7500.0f;
+        float outputlpf = 14000.0f;
+
+        if (preset == PRESET_CINEMA) {
+            widenMix = 0.70f;
+            rt60 = 1.1f;
+            delay = 0.020f;
+            ertolate = 0.35f;
+            erefwet = -11.0f;
+            wet = -10.0f;
+            ereffactor = 1.2f;
+            erefwidth = 0.75f;
+            width = 0.95f;
+            wander = 0.25f;
+            bassb = 0.15f;
+            spin = 0.8f;
+            inputlpf = 18000.0f;
+            basslpf = 220.0f;
+            damplpf = 6500.0f;
+            outputlpf = 15000.0f;
+        } else if (preset == PRESET_STAGE) {
+            widenMix = 0.90f;
+            rt60 = 1.5f;
+            delay = 0.028f;
+            ertolate = 0.30f;
+            erefwet = -9.0f;
+            wet = -8.0f;
+            ereffactor = 1.4f;
+            erefwidth = 0.85f;
+            width = 1.0f;
+            wander = 0.30f;
+            bassb = 0.20f;
+            spin = 1.0f;
+            inputlpf = 18000.0f;
+            basslpf = 200.0f;
+            damplpf = 6000.0f;
+            outputlpf = 16000.0f;
+        }
+
+        StereoEnhancementSetParam(mJdspLib.get(), widenMix);
+        sf_advancereverb(&mJdspLib->reverb, sr, 1, ertolate, erefwet, 0.0f,
+                         ereffactor, erefwidth, width, wet, wander, bassb,
+                         spin, inputlpf, basslpf, damplpf, outputlpf, rt60, delay);
+        mCurrentJdspPreset = preset;
+    }
+
+    void processDolbyStandard(float* buffer, int numFrames) {
+        if (!mJdspLib || !mJdspInitialized) {
+            return;
+        }
+
+        const float sr = static_cast<float>(mSampleRate.load(std::memory_order_relaxed));
+        const int targetPreset = mPreset.load(std::memory_order_relaxed);
+        if (targetPreset != mCurrentJdspPreset) {
+            applyJdspPreset(targetPreset);
+        }
+
+        if (std::fabs(110.0f - mStdLastCalcCutoffHz) > 0.5f) {
+            updateStdCrossoverCoeffs(110.0f, sr);
+        }
+
+        const float wetMix = mStandardIntensity.load(std::memory_order_relaxed);
+
+        int framesRemaining = numFrames;
+        int frameOffset = 0;
+
+        while (framesRemaining > 0) {
+            const int blockSize = std::min(framesRemaining, kMaxBlockFrames);
+
+            // 1. Isola o sub-grave abaixo de 110 Hz usando o crossover LR4 (100% seco)
+            for (int j = 0; j < blockSize; ++j) {
+                const float inL = buffer[(frameOffset + j) * 2];
+                const float inR = buffer[(frameOffset + j) * 2 + 1];
+
+                const float lowL = mStdLp2L.process(mStdLp1L.process(inL, mStdLpCoeffs), mStdLpCoeffs);
+                const float lowR = mStdLp2R.process(mStdLp1R.process(inR, mStdLpCoeffs), mStdLpCoeffs);
+                const float highL = mStdHp2L.process(mStdHp1L.process(inL, mStdHpCoeffs), mStdHpCoeffs);
+                const float highR = mStdHp2R.process(mStdHp1R.process(inR, mStdHpCoeffs), mStdHpCoeffs);
+
+                mBlockLowL[j] = lowL;
+                mBlockLowR[j] = lowR;
+                mBlockDryHighL[j] = highL;
+                mBlockDryHighR[j] = highR;
+
+                mJdspBlockL[j] = highL;
+                mJdspBlockR[j] = highR;
+            }
+
+            // 2. Stereo Widen oficial do JamesDSP nos médios/agudos
+            StereoEnhancementProcess(mJdspLib.get(), static_cast<size_t>(blockSize));
+
+            // 3. Progenitor 2 Reverb oficial do JamesDSP
+            for (int j = 0; j < blockSize; ++j) {
+                float outL, outR;
+                sf_reverb_process(&mJdspLib->reverb, mJdspBlockL[j], mJdspBlockR[j], &outL, &outR);
+                mJdspBlockL[j] = outL;
+                mJdspBlockR[j] = outR;
+            }
+
+            // 4. Recombina: out = low + dryHigh * (1 - wetMix) + processedHigh * wetMix
+            // 5. Soft-Limiter para impedir clipping
+            for (int j = 0; j < blockSize; ++j) {
+                const float lowL = mBlockLowL[j];
+                const float lowR = mBlockLowR[j];
+                const float dryHighL = mBlockDryHighL[j];
+                const float dryHighR = mBlockDryHighR[j];
+                const float procL = mJdspBlockL[j];
+                const float procR = mJdspBlockR[j];
+
+                const float outL = lowL + dryHighL * (1.0f - wetMix) + procL * wetMix;
+                const float outR = lowR + dryHighR * (1.0f - wetMix) + procR * wetMix;
+
+                buffer[(frameOffset + j) * 2]     = softLimit(outL);
+                buffer[(frameOffset + j) * 2 + 1] = softLimit(outR);
+            }
+
+            frameOffset += blockSize;
+            framesRemaining -= blockSize;
+        }
+    }
+
+    static inline float softLimit(float x) {
+        const float absX = std::fabs(x);
+        if (absX <= 0.92f) return x;
+        const float sign = (x >= 0.0f) ? 1.0f : -1.0f;
+        const float over = absX - 0.92f;
+        return sign * (0.92f + 0.08f * (over / (over + 0.08f)));
+    }
+
+    std::atomic<int> mSampleRate{48000};
+    std::atomic<int> mMode{MODE_OFF};
+    std::atomic<int> mPreset{PRESET_MUSIC};
+    std::atomic<float> mStandardIntensity{0.75f};
+
+    std::atomic<float> mProSubCutoffHz{115.0f};
+    std::atomic<float> mProMidGainDb{0.0f};
+    std::atomic<float> mProSideWidth{1.35f};
+    std::atomic<float> mProSurround{0.35f};
+    std::atomic<float> mProAngle{0.35f};
+    std::atomic<float> mProElevation{0.0f};
+
+    // Filtros Linkwitz-Riley LR4 fixos em 110Hz para Dolby Standard
+    BiquadCoeffs mStdLpCoeffs, mStdHpCoeffs;
+    BiquadState mStdLp1L, mStdLp2L, mStdLp1R, mStdLp2R;
+    BiquadState mStdHp1L, mStdHp2L, mStdHp1R, mStdHp2R;
+    float mStdLastCalcCutoffHz = -1.0f;
+
+    // JamesDSP Stereo Enhancement & Progenitor 2 Reverb (Modo 1)
+    std::unique_ptr<JamesDSPLib> mJdspLib;
+    bool mJdspInitialized = false;
+    int mCurrentJdspPreset = -1;
+
+    // Buffers pré-alocados para processamento sem malloc no áudio thread
+    alignas(16) std::array<float, kMaxBlockFrames> mJdspBlockL{};
+    alignas(16) std::array<float, kMaxBlockFrames> mJdspBlockR{};
+    alignas(16) std::array<float, kMaxBlockFrames> mBlockLowL{};
+    alignas(16) std::array<float, kMaxBlockFrames> mBlockLowR{};
+    alignas(16) std::array<float, kMaxBlockFrames> mBlockDryHighL{};
+    alignas(16) std::array<float, kMaxBlockFrames> mBlockDryHighR{};
+
+    // Motor Steam Audio (Modo 2)
+    SteamSpatialPro mSteamPro;
+};
+=== app/src/main/cpp/steam_spatial_pro.h ===
+#pragma once
+
+#include "phonon.h"
+#include <atomic>
+#include <array>
+#include <cmath>
+#include <algorithm>
+#include <cstring>
+
+class SteamSpatialPro {
+public:
+    enum ProPreset : int {
+        PRO_PRESET_STUDIO_NX = 0,   // Nearfield fiel (estilo Waves Nx)
+        PRO_PRESET_ABBEY_ROAD = 1,  // Sala grande de estúdio
+        PRO_PRESET_CINEMA_360 = 2,  // Cúpula Atmos 360°
+        PRO_PRESET_ARENA_3D = 3,    // Palco máximo
+        PRO_PRESET_CUSTOM = 4
+    };
+
+    SteamSpatialPro() {
+        initSteam(48000);
+        updateCrossoverCoeffs(115.0f, 48000.0f);
+        updateRoomFilters(48000.0f);
+    }
+
+    ~SteamSpatialPro() {
+        releaseSteam();
+    }
+
+    void setSampleRate(int sampleRate) {
+        int clampedSr = std::clamp(sampleRate, 8000, 192000);
+        if (mSampleRate.load(std::memory_order_relaxed) != clampedSr) {
+            initSteam(clampedSr);
+            updateCrossoverCoeffs(mCurSubCutoffHz, static_cast<float>(clampedSr));
+            updateRoomFilters(static_cast<float>(clampedSr));
+        }
+    }
+
+    void setParams(float subCutoffHz, float midGainDb, float sideWidth,
+                   float roomAmbience, float speakerAngle, float elevationNorm) {
+        mTargetSubCutoffHz.store(std::clamp(subCutoffHz, 60.0f, 250.0f), std::memory_order_relaxed);
+        mTargetMidGainLinear.store(std::pow(10.0f, std::clamp(midGainDb, -6.0f, 6.0f) / 20.0f), std::memory_order_relaxed);
+        mTargetSideWidth.store(std::clamp(sideWidth, 0.5f, 2.2f), std::memory_order_relaxed);
+        mTargetRoom.store(std::clamp(roomAmbience, 0.0f, 1.0f), std::memory_order_relaxed);
+        mTargetAngle.store(std::clamp(speakerAngle, 0.0f, 1.0f), std::memory_order_relaxed);
+        mTargetElevation.store(std::clamp(elevationNorm, -1.0f, 1.0f), std::memory_order_relaxed);
+    }
+
+    void resetState() {
+        mFifoCount = 0;
+        mOutReadPos = kBlockSize;
+        mDelayWriteIdx = 0;
+        mSurDelayL.fill(0.0f);
+        mSurDelayR.fill(0.0f);
+        for (int b = 0; b < 4; ++b) {
+            mFdnBuf[b].fill(0.0f);
+            mFdnLp[b] = 0.0f;
+            mFdnHp[b] = 0.0f;
+        }
+        mLp1L.reset(); mLp2L.reset(); mLp1R.reset(); mLp2R.reset();
+        mHp1L.reset(); mHp2L.reset(); mHp1R.reset(); mHp2R.reset();
+        mApSL.reset(); mApSR.reset();
+    }
+
+    // Processa buffer float32 intercalado (L, R) com bloqueio seguro de 256 frames para Steam Audio
+    void process(float* buffer, int numFrames) {
+        if (!mReady.load(std::memory_order_acquire) || buffer == nullptr || numFrames <= 0) {
+            return;
+        }
+
+        for (int i = 0; i < numFrames; ++i) {
+            mInFifoL[mFifoCount] = buffer[i * 2];
+            mInFifoR[mFifoCount] = buffer[i * 2 + 1];
+
+            // Entrega saída do bloco anterior (latência fixa de 256 frames ~ 5.3ms a 48kHz)
+            if (mOutReadPos < kBlockSize) {
+                buffer[i * 2] = mOutFifoL[mOutReadPos];
+                buffer[i * 2 + 1] = mOutFifoR[mOutReadPos];
+                ++mOutReadPos;
+            }
+
+            ++mFifoCount;
+            if (mFifoCount == kBlockSize) {
+                processBlock256();
+                mFifoCount = 0;
+                mOutReadPos = 0;
+            }
+        }
+    }
+
+private:
+    static constexpr int kBlockSize = 256;
+    static constexpr int kDelaySize = 4096;
+    static constexpr int kDelayMask = kDelaySize - 1;
+    static constexpr float kPi = 3.14159265359f;
+
+    struct BiquadCoeffs { float b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0; };
+    struct BiquadState {
+        float z1 = 0, z2 = 0;
+        void reset() { z1 = z2 = 0; }
+        inline float process(float x, const BiquadCoeffs& c) {
+            float y = c.b0 * x + z1;
+            z1 = c.b1 * x - c.a1 * y + z2;
+            z2 = c.b2 * x - c.a2 * y;
+            return y;
+        }
+    };
+    struct AllPass1 {
+        float a = 0, x1 = 0, y1 = 0;
+        void reset() { x1 = y1 = 0; }
+        void setFreq(float hz, float sr) {
+            float t = std::tan(kPi * hz / sr);
+            a = (t - 1.0f) / (t + 1.0f);
+        }
+        inline float process(float x) {
+            float y = a * x + x1 - a * y1;
+            x1 = x; y1 = y;
+            return y;
+        }
+    };
+
+    static inline IPLVector3 sphericalToDir(float azimuthDeg, float elevationDeg) {
+        const float az = azimuthDeg * (kPi / 180.0f);
+        const float el = elevationDeg * (kPi / 180.0f);
+        const float cosEl = std::cos(el);
+        // Sistema de coordenadas do Steam Audio: +X direita, +Y cima, -Z frente
+        return IPLVector3{
+            cosEl * std::sin(az),
+            std::sin(el),
+            -cosEl * std::cos(az)
+        };
+    }
+
+    static inline float softLimit(float x) {
+        const float ax = std::fabs(x);
+        if (ax <= 0.92f) return x;
+        const float s = (x >= 0.0f) ? 1.0f : -1.0f;
+        const float o = ax - 0.92f;
+        return s * (0.92f + 0.08f * (o / (o + 0.08f)));
+    }
+
+    void initSteam(int sr) {
+        mReady.store(false, std::memory_order_release);
+        releaseSteam();
+
+        mSampleRate.store(sr, std::memory_order_relaxed);
+
+        IPLContextSettings ctxSettings{};
+        ctxSettings.version = STEAMAUDIO_VERSION;
+        if (iplContextCreate(&ctxSettings, &mContext) != IPL_STATUS_SUCCESS) return;
+
+        IPLAudioSettings audioSettings{};
+        audioSettings.samplingRate = sr;
+        audioSettings.frameSize = kBlockSize;
+
+        IPLHRTFSettings hrtfSettings{};
+        hrtfSettings.type = IPL_HRTFTYPE_DEFAULT;
+        hrtfSettings.volume = 1.0f;
+        hrtfSettings.normType = IPL_HRTFNORMTYPE_RMS;
+        if (iplHRTFCreate(mContext, &audioSettings, &hrtfSettings, &mHrtf) != IPL_STATUS_SUCCESS) {
+            releaseSteam();
+            return;
+        }
+
+        IPLBinauralEffectSettings fxSettings{};
+        fxSettings.hrtf = mHrtf;
+        for (int s = 0; s < 5; ++s) {
+            if (iplBinauralEffectCreate(mContext, &audioSettings, &fxSettings, &mSpeakerFx[s]) != IPL_STATUS_SUCCESS) {
+                releaseSteam();
+                return;
+            }
+        }
+
+        // Buffers fixos deinterleaved para os 5 canais virtuais + saída binaural temporária
+        for (int s = 0; s < 5; ++s) {
+            mSpkPtrs[s] = mSpkData[s].data();
+            mInBufDesc[s].numChannels = 1;
+            mInBufDesc[s].numSamples = kBlockSize;
+            mInBufDesc[s].data = &mSpkPtrs[s];
+        }
+        mTmpOutPtrs[0] = mTmpOutL.data();
+        mTmpOutPtrs[1] = mTmpOutR.data();
+        mOutBufDesc.numChannels = 2;
+        mOutBufDesc.numSamples = kBlockSize;
+        mOutBufDesc.data = mTmpOutPtrs;
+
+        resetState();
+        mReady.store(true, std::memory_order_release);
+    }
+
+    void releaseSteam() {
+        for (int s = 0; s < 5; ++s) {
+            if (mSpeakerFx[s]) {
+                iplBinauralEffectRelease(&mSpeakerFx[s]);
+                mSpeakerFx[s] = nullptr;
+            }
+        }
+        if (mHrtf) { iplHRTFRelease(&mHrtf); mHrtf = nullptr; }
+        if (mContext) { iplContextRelease(&mContext); mContext = nullptr; }
+    }
+
+    void updateCrossoverCoeffs(float cutoffHz, float sr) {
+        mLastCalcCutoffHz = cutoffHz;
+        const float w0 = 2.0f * kPi * std::clamp(cutoffHz, 40.0f, sr * 0.45f) / sr;
+        const float c = std::cos(w0);
+        const float alpha = std::sin(w0) * 0.70710678f;
+        const float a0Inv = 1.0f / (1.0f + alpha);
+
+        mLpCoeffs.b0 = (1.0f - c) * 0.5f * a0Inv;
+        mLpCoeffs.b1 = (1.0f - c) * a0Inv;
+        mLpCoeffs.b2 = mLpCoeffs.b0;
+        mLpCoeffs.a1 = (-2.0f * c) * a0Inv;
+        mLpCoeffs.a2 = (1.0f - alpha) * a0Inv;
+
+        mHpCoeffs.b0 = (1.0f + c) * 0.5f * a0Inv;
+        mHpCoeffs.b1 = -(1.0f + c) * a0Inv;
+        mHpCoeffs.b2 = mHpCoeffs.b0;
+        mHpCoeffs.a1 = mLpCoeffs.a1;
+        mHpCoeffs.a2 = mLpCoeffs.a2;
+    }
+
+    void updateRoomFilters(float sr) {
+        const float w = 2.0f * kPi / sr;
+        mFdnLpAlpha = std::clamp(w * 4200.0f / (1.0f + w * 4200.0f), 0.01f, 0.99f);
+        mFdnHpAlpha = std::clamp(w * 190.0f / (1.0f + w * 190.0f), 0.001f, 0.5f);
+        mApSL.setFreq(390.0f, sr);
+        mApSR.setFreq(530.0f, sr);
+    }
+
+    void processBlock256() {
+        const float sr = static_cast<float>(mSampleRate.load(std::memory_order_relaxed));
+
+        const float tCutoff = mTargetSubCutoffHz.load(std::memory_order_relaxed);
+        const float tMid = mTargetMidGainLinear.load(std::memory_order_relaxed);
+        const float tWidth = mTargetSideWidth.load(std::memory_order_relaxed);
+        const float tRoom = mTargetRoom.load(std::memory_order_relaxed);
+        const float tAngle = mTargetAngle.load(std::memory_order_relaxed);
+        const float tElev = mTargetElevation.load(std::memory_order_relaxed);
+
+        // Suavização por bloco (~256 samples) para zero estalos
+        const float blockSmooth = 0.22f;
+        mCurSubCutoffHz += (tCutoff - mCurSubCutoffHz) * blockSmooth;
+        mCurMidGain += (tMid - mCurMidGain) * blockSmooth;
+        mCurSideWidth += (tWidth - mCurSideWidth) * blockSmooth;
+        mCurRoom += (tRoom - mCurRoom) * blockSmooth;
+        mCurAngle += (tAngle - mCurAngle) * blockSmooth;
+        mCurElev += (tElev - mCurElev) * blockSmooth;
+
+        if (std::fabs(mCurSubCutoffHz - mLastCalcCutoffHz) > 0.5f) {
+            updateCrossoverCoeffs(mCurSubCutoffHz, sr);
+        }
+
+        const int surDelayL = std::clamp(static_cast<int>(sr * 0.0137f), 1, kDelayMask - 1);
+        const int surDelayR = std::clamp(static_cast<int>(sr * 0.0193f), 1, kDelayMask - 1);
+        const int fdnDelays[4] = {
+            std::clamp(static_cast<int>(sr * 0.0173f), 1, kDelayMask - 1),
+            std::clamp(static_cast<int>(sr * 0.0241f), 1, kDelayMask - 1),
+            std::clamp(static_cast<int>(sr * 0.0317f), 1, kDelayMask - 1),
+            std::clamp(static_cast<int>(sr * 0.0419f), 1, kDelayMask - 1)
+        };
+
+        // 1. Crossover LR4 + Upmix 2.0 -> 5.0 (FL, FR, C, SL, SR)
+        for (int i = 0; i < kBlockSize; ++i) {
+            const float inL = mInFifoL[i];
+            const float inR = mInFifoR[i];
+
+            // Sub-grave 100% seco (mantém impacto físico)
+            mDryLowL[i] = mLp2L.process(mLp1L.process(inL, mLpCoeffs), mLpCoeffs);
+            mDryLowR[i] = mLp2R.process(mLp1R.process(inR, mLpCoeffs), mLpCoeffs);
+
+            const float highL = mHp2L.process(mHp1L.process(inL, mHpCoeffs), mHpCoeffs);
+            const float highR = mHp2R.process(mHp1R.process(inR, mHpCoeffs), mHpCoeffs);
+
+            const float rawMid = 0.5f * (highL + highR);
+            const float rawSide = 0.5f * (highL - highR);
+
+            // Caixa Central (0°): vocal firme fora da cabeça
+            const float centerSig = rawMid * 0.72f * mCurMidGain;
+
+            // Caixas Frontais L/R: estéreo aberto sem duplicar energia do centro
+            const float frontMid = rawMid * 0.36f;
+            const float frontSide = rawSide * mCurSideWidth;
+            const float flSig = frontMid + frontSide;
+            const float frSig = frontMid - frontSide;
+
+            // Caixas Surround Traseiras (SL / SR): Side descorrelacionado + Haas + All-Pass
+            const float surGain = 0.35f + 0.60f * std::clamp((mCurSideWidth - 0.5f) / 1.7f, 0.0f, 1.0f);
+            mSurDelayL[mDelayWriteIdx] = rawSide + 0.12f * rawMid;
+            mSurDelayR[mDelayWriteIdx] = -rawSide + 0.12f * rawMid;
+
+            float slSig = mApSL.process(mSurDelayL[(mDelayWriteIdx - surDelayL) & kDelayMask]) * surGain;
+            float srSig = mApSR.process(mSurDelayR[(mDelayWriteIdx - surDelayR) & kDelayMask]) * surGain;
+
+            // Sala Acústica FDN 4x4 alimentada nas caixas laterais e traseiras (dá realismo de sala física)
+            float fdnOut[4];
+            for (int b = 0; b < 4; ++b) {
+                float tap = mFdnBuf[b][(mDelayWriteIdx - fdnDelays[b]) & kDelayMask];
+                mFdnLp[b] += mFdnLpAlpha * (tap - mFdnLp[b]);
+                mFdnHp[b] += mFdnHpAlpha * (mFdnLp[b] - mFdnHp[b]);
+                fdnOut[b] = mFdnLp[b] - mFdnHp[b];
+            }
+            const float h0 = 0.5f * (fdnOut[0] + fdnOut[1] + fdnOut[2] + fdnOut[3]);
+            const float h1 = 0.5f * (fdnOut[0] - fdnOut[1] + fdnOut[2] - fdnOut[3]);
+            const float h2 = 0.5f * (fdnOut[0] + fdnOut[1] - fdnOut[2] - fdnOut[3]);
+            const float h3 = 0.5f * (fdnOut[0] - fdnOut[1] - fdnOut[2] + fdnOut[3]);
+
+            const float fb = 0.44f + 0.24f * mCurRoom; // RT60 dinâmico de estúdio seco até sala grande
+            mFdnBuf[0][mDelayWriteIdx] = flSig * 0.45f + h0 * fb;
+            mFdnBuf[1][mDelayWriteIdx] = frSig * 0.45f + h1 * fb;
+            mFdnBuf[2][mDelayWriteIdx] = slSig * 0.50f + h2 * fb;
+            mFdnBuf[3][mDelayWriteIdx] = srSig * 0.50f + h3 * fb;
+
+            const float roomMix = mCurRoom * 0.65f;
+            mSpkData[0][i] = flSig + fdnOut[0] * roomMix * 0.45f; // Front Left
+            mSpkData[1][i] = frSig + fdnOut[1] * roomMix * 0.45f; // Front Right
+            mSpkData[2][i] = centerSig;                           // Center (seco/focado)
+            mSpkData[3][i] = slSig + fdnOut[2] * roomMix;         // Surround Left (traseira)
+            mSpkData[4][i] = srSig + fdnOut[3] * roomMix;         // Surround Right (traseira)
+
+            mDelayWriteIdx = (mDelayWriteIdx + 1) & kDelayMask;
+        }
+
+        // 2. Renderização Binaural 3D Real via Steam Audio HRTF para cada uma das 5 caixas
+        const float frontAz = 15.0f + mCurAngle * 50.0f;         // 15° a 65°
+        const float rearAz  = 110.0f + mCurAngle * 35.0f;        // 110° a 145°
+        const float elevDeg = mCurElev * 35.0f;                  // -35° a +35°
+        const float rearElevDeg = std::clamp(elevDeg + 10.0f, -35.0f, 45.0f);
+
+        const IPLVector3 dirs[5] = {
+            sphericalToDir(-frontAz, elevDeg),      // 0: Front Left
+            sphericalToDir(+frontAz, elevDeg),      // 1: Front Right
+            sphericalToDir(0.0f, elevDeg * 0.4f),   // 2: Center
+            sphericalToDir(-rearAz, rearElevDeg),   // 3: Surround Left (trás/cima)
+            sphericalToDir(+rearAz, rearElevDeg)    // 4: Surround Right (trás/cima)
+        };
+
+        std::fill(mAccumL.begin(), mAccumL.end(), 0.0f);
+        std::fill(mAccumR.begin(), mAccumR.end(), 0.0f);
+
+        for (int s = 0; s < 5; ++s) {
+            IPLBinauralEffectParams params{};
+            params.direction = dirs[s];
+            params.interpolation = IPL_HRTFINTERPOLATION_BILINEAR;
+            params.spatialBlend = 1.0f;
+            params.hrtf = mHrtf;
+            params.peakDelays = nullptr;
+
+            iplBinauralEffectApply(mSpeakerFx[s], &params, &mInBufDesc[s], &mOutBufDesc);
+
+            for (int i = 0; i < kBlockSize; ++i) {
+                mAccumL[i] += mTmpOutL[i];
+                mAccumR[i] += mTmpOutR[i];
+            }
+        }
+
+        // 3. Recombina com Sub-Grave seco + Compensação de Loudness + Limiter
+        const float gainComp = 0.88f / (1.0f + mCurRoom * 0.14f);
+        for (int i = 0; i < kBlockSize; ++i) {
+            mOutFifoL[i] = softLimit(mDryLowL[i] + mAccumL[i] * gainComp);
+            mOutFifoR[i] = softLimit(mDryLowR[i] + mAccumR[i] * gainComp);
+        }
+    }
+
+    std::atomic<bool> mReady{false};
+    std::atomic<int> mSampleRate{48000};
+
+    IPLContext mContext = nullptr;
+    IPLHRTF mHrtf = nullptr;
+    IPLBinauralEffect mSpeakerFx[5]{};
+
+    std::atomic<float> mTargetSubCutoffHz{115.0f};
+    std::atomic<float> mTargetMidGainLinear{1.0f};
+    std::atomic<float> mTargetSideWidth{1.35f};
+    std::atomic<float> mTargetRoom{0.35f};
+    std::atomic<float> mTargetAngle{0.35f};
+    std::atomic<float> mTargetElevation{0.0f};
+
+    float mCurSubCutoffHz = 115.0f;
+    float mLastCalcCutoffHz = -1.0f;
+    float mCurMidGain = 1.0f;
+    float mCurSideWidth = 1.35f;
+    float mCurRoom = 0.35f;
+    float mCurAngle = 0.35f;
+    float mCurElev = 0.0f;
+
+    BiquadCoeffs mLpCoeffs, mHpCoeffs;
+    BiquadState mLp1L, mLp2L, mLp1R, mLp2R;
+    BiquadState mHp1L, mHp2L, mHp1R, mHp2R;
+    AllPass1 mApSL, mApSR;
+
+    float mFdnLpAlpha = 0.35f, mFdnHpAlpha = 0.02f;
+    float mFdnLp[4]{}, mFdnHp[4]{};
+
+    std::array<float, kDelaySize> mSurDelayL{}, mSurDelayR{};
+    std::array<std::array<float, kDelaySize>, 4> mFdnBuf{};
+    int mDelayWriteIdx = 0;
+
+    std::array<float, kBlockSize> mInFifoL{}, mInFifoR{};
+    std::array<float, kBlockSize> mOutFifoL{}, mOutFifoR{};
+    std::array<float, kBlockSize> mDryLowL{}, mDryLowR{};
+    std::array<float, kBlockSize> mAccumL{}, mAccumR{};
+    std::array<float, kBlockSize> mTmpOutL{}, mTmpOutR{};
+    std::array<std::array<float, kBlockSize>, 5> mSpkData{};
+
+    float* mSpkPtrs[5]{};
+    float* mTmpOutPtrs[2]{};
+    IPLAudioBuffer mInBufDesc[5]{};
+    IPLAudioBuffer mOutBufDesc{};
+
+    int mFifoCount = 0;
+    int mOutReadPos = kBlockSize;
+};
+=== app/src/main/cpp/jamesdsp/jdsp_shim.h ===
+#ifndef JDSP_SHIM_H
+#define JDSP_SHIM_H
+
+#include <stdint.h>
+#include <stddef.h>
+#include <math.h>
+#include <float.h>
+#include "polyphaseFilterbank.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifndef __cplusplus
+#ifndef min
+#define min(x,y) ((x)<(y)?(x):(y))
+#endif
+#ifndef max
+#define max(x,y) ((x)<(y)?(y):(x))
+#endif
+#endif
+
+// Reverb constants and structures from Sean Connelly / James34602
+#define SF_REVERB_DS        3000
+typedef struct
+{
+    int pos;
+    int size;
+    float buf[SF_REVERB_DS];
+} sf_rv_delay_st;
+
+typedef struct
+{
+    float a2;
+    float b1;
+    float b2;
+    float y1;
+} sf_rv_iir1_st;
+
+typedef struct
+{
+    float b0;
+    float b1;
+    float b2;
+    float a1;
+    float a2;
+    float xn1;
+    float xn2;
+    float yn1;
+    float yn2;
+} sf_rv_biquad_st;
+
+typedef struct
+{
+    int             delaytblL[18], delaytblR[18];
+    sf_rv_delay_st  delayPWL, delayPWR;
+    sf_rv_delay_st  delayRL, delayLR;
+    sf_rv_biquad_st allpassXL, allpassXR;
+    sf_rv_biquad_st allpassL, allpassR;
+    sf_rv_iir1_st   lpfL, lpfR;
+    sf_rv_iir1_st   hpfL, hpfR;
+    float wet1, wet2;
+} sf_rv_earlyref_st;
+
+#define SF_REVERB_OF        2
+typedef struct
+{
+    int factor;
+    sf_rv_biquad_st lpfU;
+    sf_rv_biquad_st lpfD;
+} sf_rv_oversample_st;
+
+typedef struct
+{
+    float gain;
+    float y1;
+    float y2;
+} sf_rv_dccut_st;
+
+#define SF_REVERB_NS        (1<<11)
+typedef struct
+{
+    int pos;
+    float buf[SF_REVERB_NS];
+} sf_rv_noise_st;
+
+typedef struct
+{
+    float re;
+    float im;
+    float sn;
+    float co;
+    int count;
+} sf_rv_lfo_st;
+
+#define SF_REVERB_APS       3400
+typedef struct
+{
+    int pos;
+    int size;
+    float feedback;
+    float decay;
+    float buf[SF_REVERB_APS];
+} sf_rv_allpass_st;
+
+#define SF_REVERB_AP2S1     4200
+#define SF_REVERB_AP2S2     3000
+typedef struct
+{
+    int   pos1, pos2;
+    int   size1, size2;
+    float feedback1, feedback2;
+    float decay1, decay2;
+    float buf1[SF_REVERB_AP2S1], buf2[SF_REVERB_AP2S2];
+} sf_rv_allpass2_st;
+
+#define SF_REVERB_AP3S1     4000
+#define SF_REVERB_AP3M1     600
+#define SF_REVERB_AP3S2     2000
+#define SF_REVERB_AP3S3     3000
+typedef struct
+{
+    int   rpos1, wpos1, pos2, pos3;
+    int   size1, msize1, size2, size3;
+    float feedback1, feedback2, feedback3;
+    float decay1, decay2, decay3;
+    float buf1[SF_REVERB_AP3S1 + SF_REVERB_AP3M1], buf2[SF_REVERB_AP3S2], buf3[SF_REVERB_AP3S3];
+} sf_rv_allpass3_st;
+
+#define SF_REVERB_APMS      3600
+#define SF_REVERB_APMM      137
+typedef struct
+{
+    int rpos, wpos;
+    int size, msize;
+    float feedback;
+    float decay;
+    float z1;
+    float buf[SF_REVERB_APMS + SF_REVERB_APMM];
+} sf_rv_allpassm_st;
+
+#define SF_REVERB_CS        1500
+typedef struct
+{
+    int pos;
+    int size;
+    float buf[SF_REVERB_CS];
+} sf_rv_comb_st;
+
+typedef struct
+{
+    sf_rv_earlyref_st   earlyref;
+    sf_rv_oversample_st oversampleL, oversampleR;
+    sf_rv_dccut_st      dccutL, dccutR;
+    sf_rv_noise_st      noise;
+    sf_rv_lfo_st        lfo1;
+    sf_rv_iir1_st       lfo1_lpf;
+    sf_rv_allpassm_st   diffL[10], diffR[10];
+    sf_rv_allpass_st    crossL[4], crossR[4];
+    sf_rv_iir1_st       clpfL, clpfR;
+    sf_rv_delay_st      cdelayL, cdelayR;
+    sf_rv_biquad_st     bassapL, bassapR;
+    sf_rv_biquad_st     basslpL, basslpR;
+    sf_rv_iir1_st       damplpL, damplpR;
+    sf_rv_allpassm_st   dampap1L, dampap1R;
+    sf_rv_delay_st      dampdL, dampdR;
+    sf_rv_allpassm_st   dampap2L, dampap2R;
+    sf_rv_delay_st      cbassd1L, cbassd1R;
+    sf_rv_allpass2_st   cbassap1L, cbassap1R;
+    sf_rv_delay_st      cbassd2L, cbassd2R;
+    sf_rv_allpass3_st   cbassap2L, cbassap2R;
+    sf_rv_lfo_st        lfo2;
+    sf_rv_iir1_st       lfo2_lpf;
+    sf_rv_comb_st       combL, combR;
+    sf_rv_biquad_st     lastlpfL, lastlpfR;
+    sf_rv_delay_st      lastdelayL, lastdelayR;
+    sf_rv_delay_st      inpdelayL, inpdelayR;
+    int outco[32];
+    float loopdecay;
+    float wet1, wet2;
+    float wander;
+    float bassb;
+    float ertolate;
+    float erefwet;
+    float dry;
+} sf_reverb_state_st;
+
+typedef enum
+{
+    SF_REVERB_PRESET_DEFAULT,
+    SF_REVERB_PRESET_SMALLHALL1,
+    SF_REVERB_PRESET_SMALLHALL2,
+    SF_REVERB_PRESET_MEDIUMHALL1,
+    SF_REVERB_PRESET_MEDIUMHALL2,
+    SF_REVERB_PRESET_LARGEHALL1,
+    SF_REVERB_PRESET_LARGEHALL2,
+    SF_REVERB_PRESET_SMALLROOM1,
+    SF_REVERB_PRESET_SMALLROOM2,
+    SF_REVERB_PRESET_MEDIUMROOM1,
+    SF_REVERB_PRESET_MEDIUMROOM2,
+    SF_REVERB_PRESET_LARGEROOM1,
+    SF_REVERB_PRESET_LARGEROOM2,
+    SF_REVERB_PRESET_MEDIUMER1,
+    SF_REVERB_PRESET_MEDIUMER2,
+    SF_REVERB_PRESET_PLATEHIGH,
+    SF_REVERB_PRESET_PLATELOW,
+    SF_REVERB_PRESET_LONGREVERB1,
+    SF_REVERB_PRESET_LONGREVERB2
+} sf_reverb_preset;
+
+// Stereo Enhancement struct
+typedef struct
+{
+    char subband[2][getMemSizeWarpedPFB(5, 2)];
+    float emaAlpha[5];
+    float sumStates[5];
+    float diffStates[5];
+    float mix, minusMix, gain;
+} stereoEnhancement;
+
+// Minimal JamesDSPLib shim
+typedef struct JamesDSPLib
+{
+    float fs;
+    int sterEnhEnabled;
+    stereoEnhancement sterEnh;
+    int reverbEnabled;
+    sf_reverb_state_st reverb;
+    float *tmpBuffer[2];
+} JamesDSPLib;
+
+// Reverb functions
+void sf_advancereverb(sf_reverb_state_st *rv, int rate, int oversamplefactor,
+                     float ertolate, float erefwet, float dry,
+                     float ereffactor, float erefwidth, float width,
+                     float wet, float wander, float bassb, float spin,
+                     float inputlpf, float basslpf, float damplpf, float outputlpf,
+                     float rt60, float delay);
+void sf_presetreverb(sf_reverb_state_st *rv, int rate, sf_reverb_preset preset);
+void sf_reverb_process(sf_reverb_state_st *rv, float inputL, float inputR, float *outputL, float *outputR);
+void Reverb_SetParam(JamesDSPLib *jdsp, int presets);
+void ReverbEnable(JamesDSPLib *jdsp);
+void ReverbDisable(JamesDSPLib *jdsp);
+void ReverbProcess(JamesDSPLib *jdsp, size_t n);
+
+// Stereo enhancement functions
+void StereoEnhancementRefresh(JamesDSPLib *jdsp);
+void StereoEnhancementSetParam(JamesDSPLib *jdsp, float mix);
+void StereoEnhancementConstructor(JamesDSPLib *jdsp);
+void StereoEnhancementDestructor(JamesDSPLib *jdsp);
+void StereoEnhancementEnable(JamesDSPLib *jdsp);
+void StereoEnhancementDisable(JamesDSPLib *jdsp);
+void StereoEnhancementProcess(JamesDSPLib *jdsp, size_t n);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif // JDSP_SHIM_H
+=== app/src/main/cpp/audio_engine.cpp ===
+#include "audio_engine.h"
+#include "decoders/decoder_factory.h"
+#include <chrono>
+
+AudioEngine::AudioEngine()
+    : ringBuffer_(131072),
+      audioOutput_(std::make_unique<AudioOutput>(&ringBuffer_, &mSpatialProcessor)) {
+    isRunning_.store(true, std::memory_order_relaxed);
+    decodeThread_ = std::thread(&AudioEngine::decodeLoop, this);
+}
+
+AudioEngine::~AudioEngine() {
+    stop();
+    isRunning_.store(false, std::memory_order_relaxed);
+    wakeDecoderThread();
+    if (decodeThread_.joinable()) {
+        decodeThread_.join();
+    }
+    audioOutput_->closeStream();
+}
+
+void AudioEngine::wakeDecoderThread() {
+    std::unique_lock<std::mutex> lock(decodeMutex_);
+    decodeCv_.notify_all();
+}
+
+void AudioEngine::stopInternal() {
+    state_.store(PlaybackState::Stopped, std::memory_order_release);
+    audioOutput_->stop();
+    ringBuffer_.reset();
+    audioOutput_->resetPlayedFrames(0);
+
+    if (decoder_) {
+        decoder_->seek(0);
+    }
+    isEos_.store(false, std::memory_order_relaxed);
+    trackCompleted_.store(false, std::memory_order_relaxed);
+    wakeDecoderThread();
+}
+
+bool AudioEngine::openFile(int fd) {
+    std::lock_guard<std::recursive_mutex> lock(controlMutex_);
+
+    // Stop current playback safely without deadlock
+    stopInternal();
+    trackCompleted_.store(false, std::memory_order_relaxed);
+
+    auto newDecoder = DecoderFactory::createDecoder(fd);
+    if (!newDecoder) {
+        sampleRate_.store(0, std::memory_order_release);
+        channelCount_.store(0, std::memory_order_release);
+        durationFrames_.store(0, std::memory_order_release);
+        return false;
+    }
+
+    decoder_ = std::move(newDecoder);
+
+    const int32_t sampleRate = decoder_->getSampleRate();
+    mSpatialProcessor.setSampleRate(sampleRate);
+    if (!audioOutput_->openStream(sampleRate)) {
+        decoder_.reset();
+        sampleRate_.store(0, std::memory_order_release);
+        channelCount_.store(0, std::memory_order_release);
+        durationFrames_.store(0, std::memory_order_release);
+        return false;
+    }
+
+    sampleRate_.store(sampleRate, std::memory_order_release);
+    channelCount_.store(decoder_->getChannelCount(), std::memory_order_release);
+    durationFrames_.store(decoder_->getTotalFrames(), std::memory_order_release);
+
+    ringBuffer_.reset();
+    audioOutput_->resetPlayedFrames(0);
+    isEos_.store(false, std::memory_order_relaxed);
+    state_.store(PlaybackState::Stopped, std::memory_order_release);
+
+    return true;
+}
+
+bool AudioEngine::play() {
+    std::lock_guard<std::recursive_mutex> lock(controlMutex_);
+    if (!decoder_) return false;
+
+    PlaybackState current = state_.load(std::memory_order_acquire);
+    if (current == PlaybackState::Playing) return true;
+
+    trackCompleted_.store(false, std::memory_order_relaxed);
+
+    // If stream was closed or at EOF, seek to start
+    if (isEos_.load(std::memory_order_relaxed)) {
+        decoder_->seek(0);
+        ringBuffer_.reset();
+        audioOutput_->resetPlayedFrames(0);
+        isEos_.store(false, std::memory_order_relaxed);
+    }
+
+    if (!audioOutput_->start()) {
+        return false;
+    }
+
+    state_.store(PlaybackState::Playing, std::memory_order_release);
+    wakeDecoderThread();
+    return true;
+}
+
+bool AudioEngine::pause() {
+    std::lock_guard<std::recursive_mutex> lock(controlMutex_);
+    PlaybackState current = state_.load(std::memory_order_acquire);
+    if (current != PlaybackState::Playing) return true;
+
+    state_.store(PlaybackState::Paused, std::memory_order_release);
+    audioOutput_->pause();
+    wakeDecoderThread();
+    return true;
+}
+
+bool AudioEngine::stop() {
+    std::lock_guard<std::recursive_mutex> lock(controlMutex_);
+    stopInternal();
+    return true;
+}
+
+bool AudioEngine::seekTo(int64_t frameIndex) {
+    std::lock_guard<std::recursive_mutex> lock(controlMutex_);
+    if (!decoder_) return false;
+
+    int64_t total = decoder_->getTotalFrames();
+    if (frameIndex < 0) frameIndex = 0;
+    if (total > 0 && frameIndex > total) frameIndex = total;
+
+    seekTargetFrame_.store(frameIndex, std::memory_order_relaxed);
+    seekRequested_.store(true, std::memory_order_release);
+    wakeDecoderThread();
+    return true;
+}
+
+void AudioEngine::setVolume(float volume) {
+    audioOutput_->setVolume(volume);
+}
+
+float AudioEngine::getVolume() const {
+    return audioOutput_->getVolume();
+}
+
+int64_t AudioEngine::getPositionFrames() const {
+    int64_t pos = audioOutput_->getPlayedFrames();
+    int64_t total = getDurationFrames();
+    if (total > 0 && pos > total) pos = total;
+    return pos;
+}
+
+int64_t AudioEngine::getDurationFrames() const {
+    return durationFrames_.load(std::memory_order_acquire);
+}
+
+int32_t AudioEngine::getSampleRate() const {
+    return sampleRate_.load(std::memory_order_acquire);
+}
+
+int32_t AudioEngine::getChannelCount() const {
+    return channelCount_.load(std::memory_order_acquire);
+}
+
+bool AudioEngine::consumeTrackCompleted() {
+    return trackCompleted_.exchange(false, std::memory_order_acq_rel);
+}
+
+bool AudioEngine::isPlaying() const {
+    return state_.load(std::memory_order_acquire) == PlaybackState::Playing;
+}
+
+bool AudioEngine::isPaused() const {
+    return state_.load(std::memory_order_acquire) == PlaybackState::Paused;
+}
+
+void AudioEngine::decodeLoop() {
+    constexpr size_t kChunkFrames = 2048;
+    std::vector<float> chunk(kChunkFrames * 2);
+
+    while (isRunning_.load(std::memory_order_relaxed)) {
+        // Handle pending seek request
+        if (seekRequested_.load(std::memory_order_acquire)) {
+            int64_t target = seekTargetFrame_.load(std::memory_order_relaxed);
+            if (decoder_) {
+                decoder_->seek(target);
+            }
+            ringBuffer_.reset();
+            audioOutput_->resetPlayedFrames(target);
+            isEos_.store(false, std::memory_order_relaxed);
+            seekRequested_.store(false, std::memory_order_release);
+        }
+
+        PlaybackState currentState = state_.load(std::memory_order_acquire);
+
+        // When paused or stopped: sleep on condition variable (0% CPU)
+        if (currentState != PlaybackState::Playing) {
+            std::unique_lock<std::mutex> lock(decodeMutex_);
+            decodeCv_.wait(lock, [this]() {
+                return !isRunning_.load(std::memory_order_relaxed) ||
+                       seekRequested_.load(std::memory_order_relaxed) ||
+                       state_.load(std::memory_order_relaxed) == PlaybackState::Playing;
+            });
+            continue;
+        }
+
+        // When reached End of Stream (EOF)
+        if (isEos_.load(std::memory_order_relaxed)) {
+            if (ringBuffer_.availableRead() == 0) {
+                // All audio in ring buffer has been played out by Oboe callback
+                trackCompleted_.store(true, std::memory_order_release);
+                state_.store(PlaybackState::Stopped, std::memory_order_release);
+                audioOutput_->stop();
+                ringBuffer_.reset();
+                if (decoder_) {
+                    decoder_->seek(0);
+                }
+                isEos_.store(false, std::memory_order_relaxed);
+            } else {
+                // Wait for the consumer to finish playing
+                std::unique_lock<std::mutex> lock(decodeMutex_);
+                decodeCv_.wait_for(lock, std::chrono::milliseconds(50), [this]() {
+                    return !isRunning_.load(std::memory_order_relaxed) ||
+                           seekRequested_.load(std::memory_order_relaxed) ||
+                           state_.load(std::memory_order_relaxed) != PlaybackState::Playing;
+                });
+            }
+            continue;
+        }
+
+        // If ring buffer is nearly full, sleep briefly to avoid burning CPU
+        if (ringBuffer_.availableWrite() < kChunkFrames) {
+            std::unique_lock<std::mutex> lock(decodeMutex_);
+            decodeCv_.wait_for(lock, std::chrono::milliseconds(20), [this]() {
+                return !isRunning_.load(std::memory_order_relaxed) ||
+                       seekRequested_.load(std::memory_order_relaxed) ||
+                       state_.load(std::memory_order_relaxed) != PlaybackState::Playing ||
+                       ringBuffer_.availableWrite() >= kChunkFrames;
+            });
+            continue;
+        }
+
+        if (!decoder_) {
+            state_.store(PlaybackState::Stopped, std::memory_order_release);
+            continue;
+        }
+
+        size_t framesRead = decoder_->read(chunk.data(), kChunkFrames);
+        if (framesRead == 0) {
+            isEos_.store(true, std::memory_order_relaxed);
+            continue;
+        }
+
+        ringBuffer_.write(chunk.data(), framesRead);
+    }
+}
+
+void AudioEngine::setEqualizerBand(size_t band, float gainDb) {
+    if (audioOutput_) audioOutput_->setEqualizerBand(band, gainDb);
+}
+
+float AudioEngine::getEqualizerBand(size_t band) const {
+    return audioOutput_ ? audioOutput_->getEqualizerBand(band) : 0.0f;
+}
+
+void AudioEngine::setEqualizerEnabled(bool enabled) {
+    if (audioOutput_) audioOutput_->setEqualizerEnabled(enabled);
+}
+
+bool AudioEngine::isEqualizerEnabled() const {
+    return audioOutput_ ? audioOutput_->isEqualizerEnabled() : false;
+}
+
+void AudioEngine::setPreamp(float gainDb) {
+    if (audioOutput_) audioOutput_->setPreamp(gainDb);
+}
+
+float AudioEngine::getPreamp() const {
+    return audioOutput_ ? audioOutput_->getPreamp() : 0.0f;
+}
+
+void AudioEngine::setBass(float gainDb) {
+    if (audioOutput_) audioOutput_->setBass(gainDb);
+}
+
+float AudioEngine::getBass() const {
+    return audioOutput_ ? audioOutput_->getBass() : 0.0f;
+}
+
+void AudioEngine::setTreble(float gainDb) {
+    if (audioOutput_) audioOutput_->setTreble(gainDb);
+}
+
+float AudioEngine::getTreble() const {
+    return audioOutput_ ? audioOutput_->getTreble() : 0.0f;
+}
+
+void AudioEngine::setToneEnabled(bool enabled) {
+    if (audioOutput_) audioOutput_->setToneEnabled(enabled);
+}
+
+bool AudioEngine::isToneEnabled() const {
+    return audioOutput_ ? audioOutput_->isToneEnabled() : false;
+}
+
+void AudioEngine::setBalance(float balance) {
+    if (audioOutput_) audioOutput_->setBalance(balance);
+}
+
+float AudioEngine::getBalance() const {
+    return audioOutput_ ? audioOutput_->getBalance() : 0.0f;
+}
+
+void AudioEngine::setMono(bool mono) {
+    if (audioOutput_) audioOutput_->setMono(mono);
+}
+
+bool AudioEngine::isMono() const {
+    return audioOutput_ ? audioOutput_->isMono() : false;
+}
+
+void AudioEngine::setSpatialMode(int mode) {
+    mSpatialProcessor.setMode(mode);
+}
+
+void AudioEngine::setSpatialPreset(int preset, float intensity) {
+    mSpatialProcessor.setStandardPreset(preset, intensity);
+}
+
+void AudioEngine::setSpatialProParams(float subCutoffHz, float midGainDb, float sideWidth, float surroundAmbience, float speakerAngle, float elevation) {
+    mSpatialProcessor.setProParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle, elevation);
+}
+
+std::vector<float> AudioEngine::scanWaveform(int fd, int numPoints) {
+    if (fd < 0 || numPoints <= 0) return {};
+    auto decoder = DecoderFactory::createDecoder(fd);
+    if (!decoder) return {};
+
+    std::vector<float> peaks(numPoints, 0.05f);
+    int64_t totalFrames = decoder->getTotalFrames();
+
+    constexpr size_t kChunkSize = 2048;
+    std::vector<float> buffer(kChunkSize * 2);
+
+    if (totalFrames > 0) {
+        int64_t framesPerPoint = totalFrames / numPoints;
+        if (framesPerPoint <= 0) framesPerPoint = 1;
+
+        for (int p = 0; p < numPoints; ++p) {
+            int64_t targetFrame = p * framesPerPoint;
+            decoder->seek(targetFrame);
+
+            size_t framesToRead = std::min(static_cast<size_t>(framesPerPoint), kChunkSize);
+            size_t read = decoder->read(buffer.data(), framesToRead);
+            float maxPeak = 0.05f;
+            for (size_t i = 0; i < read * 2; ++i) {
+                float val = std::abs(buffer[i]);
+                if (val > maxPeak) maxPeak = val;
+            }
+            peaks[p] = std::min(maxPeak, 1.0f);
+        }
+    } else {
+        std::vector<float> allPeaks;
+        size_t read = 0;
+        while ((read = decoder->read(buffer.data(), kChunkSize)) > 0) {
+            float maxPeak = 0.05f;
+            for (size_t i = 0; i < read * 2; ++i) {
+                float val = std::abs(buffer[i]);
+                if (val > maxPeak) maxPeak = val;
+            }
+            allPeaks.push_back(std::min(maxPeak, 1.0f));
+            if (allPeaks.size() > 5000) break;
+        }
+        if (!allPeaks.empty()) {
+            for (int p = 0; p < numPoints; ++p) {
+                size_t idx = (p * allPeaks.size()) / numPoints;
+                peaks[p] = allPeaks[idx];
+            }
+        }
+    }
+
+    return peaks;
+}
+=== app/src/main/cpp/audio_output.cpp ===
+#include "audio_output.h"
+
+AudioOutput::AudioOutput(SpscRingBuffer* ringBuffer, SpatialProcessor* spatialProcessor)
+    : ringBuffer_(ringBuffer), spatialProcessor_(spatialProcessor) {}
+
+AudioOutput::~AudioOutput() {
+    closeStream();
+}
+
+bool AudioOutput::openStream(int32_t sampleRate) {
+    if (stream_ && currentSampleRate_ == sampleRate) {
+        return true;
+    }
+
+    closeStream();
+
+    oboe::AudioStreamBuilder builder;
+    builder.setFormat(oboe::AudioFormat::Float)
+           ->setChannelCount(oboe::ChannelCount::Stereo)
+           ->setSampleRate(sampleRate)
+           ->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium)
+           ->setPerformanceMode(oboe::PerformanceMode::None)
+           ->setSharingMode(oboe::SharingMode::Shared)
+           ->setDataCallback(this)
+           ->setErrorCallback(this);
+
+    oboe::Result result = builder.openStream(stream_);
+    if (result != oboe::Result::OK) {
+        stream_.reset();
+        return false;
+    }
+
+    currentSampleRate_ = sampleRate;
+    equalizer_.setSampleRate(sampleRate);
+    if (spatialProcessor_) {
+        spatialProcessor_->setSampleRate(sampleRate);
+    }
+    return true;
+}
+
+void AudioOutput::closeStream() {
+    isPlaying_.store(false, std::memory_order_relaxed);
+    if (stream_) {
+        stream_->stop();
+        stream_->close();
+        stream_.reset();
+    }
+    currentSampleRate_ = 0;
+}
+
+bool AudioOutput::start() {
+    if (!stream_) return false;
+    oboe::StreamState state = stream_->getState();
+    if (state == oboe::StreamState::Closed) return false;
+
+    if (state != oboe::StreamState::Started) {
+        oboe::Result res = stream_->requestStart();
+        if (res != oboe::Result::OK) {
+            return false;
+        }
+    }
+    isPlaying_.store(true, std::memory_order_relaxed);
+    return true;
+}
+
+bool AudioOutput::pause() {
+    isPlaying_.store(false, std::memory_order_relaxed);
+    if (!stream_) return false;
+    oboe::StreamState state = stream_->getState();
+    if (state == oboe::StreamState::Started) {
+        oboe::Result res = stream_->requestPause();
+        return (res == oboe::Result::OK);
+    }
+    return true;
+}
+
+bool AudioOutput::stop() {
+    isPlaying_.store(false, std::memory_order_relaxed);
+    if (!stream_) return false;
+    oboe::StreamState state = stream_->getState();
+    if (state == oboe::StreamState::Started || state == oboe::StreamState::Paused) {
+        oboe::Result res = stream_->requestStop();
+        return (res == oboe::Result::OK);
+    }
+    return true;
+}
+
+void AudioOutput::setVolume(float volume) {
+    if (volume < 0.0f) volume = 0.0f;
+    if (volume > 1.0f) volume = 1.0f;
+    volume_.store(volume, std::memory_order_relaxed);
+}
+
+float AudioOutput::getVolume() const {
+    return volume_.load(std::memory_order_relaxed);
+}
+
+void AudioOutput::setBalance(float balance) {
+    if (balance < -1.0f) balance = -1.0f;
+    if (balance > 1.0f) balance = 1.0f;
+    balance_.store(balance, std::memory_order_relaxed);
+}
+
+float AudioOutput::getBalance() const {
+    return balance_.load(std::memory_order_relaxed);
+}
+
+void AudioOutput::setMono(bool mono) {
+    mono_.store(mono, std::memory_order_relaxed);
+}
+
+bool AudioOutput::isMono() const {
+    return mono_.load(std::memory_order_relaxed);
+}
+
+int32_t AudioOutput::getSampleRate() const {
+    return currentSampleRate_;
+}
+
+uint64_t AudioOutput::getUnderrunCount() const {
+    return underrunCount_.load(std::memory_order_relaxed);
+}
+
+void AudioOutput::resetPlayedFrames(int64_t startingFrame) {
+    playedFrames_.store(startingFrame, std::memory_order_relaxed);
+}
+
+int64_t AudioOutput::getPlayedFrames() const {
+    return playedFrames_.load(std::memory_order_relaxed);
+}
+
+// STRICT REAL-TIME CALLBACK:
+// 1. No new/malloc
+// 2. No mutex/lock
+// 3. No log
+// 4. No JNI
+oboe::DataCallbackResult AudioOutput::onAudioReady(
+    oboe::AudioStream * /*oboeStream*/,
+    void *audioData,
+    int32_t numFrames) {
+
+    float* out = static_cast<float*>(audioData);
+
+    const size_t framesRead = ringBuffer_->read(out, static_cast<size_t>(numFrames));
+
+    if (framesRead < static_cast<size_t>(numFrames)) {
+        underrunCount_.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    // Process biquad equalizer DSP before volume and balance scaling
+    equalizer_.process(out, static_cast<size_t>(numFrames));
+
+    if (spatialProcessor_) {
+        spatialProcessor_->process(out, static_cast<int>(numFrames), 2);
+    }
+
+    const bool mono = mono_.load(std::memory_order_relaxed);
+    const float bal = balance_.load(std::memory_order_relaxed);
+    const float vol = volume_.load(std::memory_order_relaxed);
+
+    float leftGain = vol;
+    float rightGain = vol;
+    if (bal < -0.001f) {
+        // Shift towards left: attenuate right channel
+        rightGain *= std::max(0.0f, 1.0f + bal);
+    } else if (bal > 0.001f) {
+        // Shift towards right: attenuate left channel
+        leftGain *= std::max(0.0f, 1.0f - bal);
+    }
+
+    if (mono || leftGain < 0.999f || leftGain > 1.001f || rightGain < 0.999f || rightGain > 1.001f) {
+        for (size_t f = 0; f < static_cast<size_t>(numFrames); ++f) {
+            float l = out[f * 2];
+            float r = out[f * 2 + 1];
+            if (mono) {
+                float m = 0.5f * (l + r);
+                l = m;
+                r = m;
+            }
+            out[f * 2] = l * leftGain;
+            out[f * 2 + 1] = r * rightGain;
+        }
+    }
+
+    if (framesRead > 0) {
+        playedFrames_.fetch_add(static_cast<int64_t>(framesRead), std::memory_order_relaxed);
+    }
+
+    return oboe::DataCallbackResult::Continue;
+}
+
+void AudioOutput::onErrorAfterClose(oboe::AudioStream * /*oboeStream*/, oboe::Result error) {
+    if (error == oboe::Result::ErrorDisconnected) {
+        // Stream was disconnected (e.g. headphone unplugged).
+        // Re-open stream ready for future playback without calling start(),
+        // leaving play/pause control strictly to the service layer (noisy receiver).
+        isPlaying_.store(false, std::memory_order_relaxed);
+        openStream(currentSampleRate_);
+    }
+}
+=== app/src/main/cpp/jni_bridge.cpp ===
+#include <jni.h>
+#include "audio_engine.h"
+
+static inline AudioEngine* getEngine(jlong handle) {
+    return reinterpret_cast<AudioEngine*>(handle);
+}
+
+extern "C" {
+
+JNIEXPORT jlong JNICALL
+Java_com_lucas_player_AudioEngine_nativeCreate(JNIEnv* /*env*/, jobject /*thiz*/) {
+    try {
+        auto* engine = new AudioEngine();
+        return reinterpret_cast<jlong>(engine);
+    } catch (...) {
+        return 0;
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_lucas_player_AudioEngine_nativeDestroy(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        delete engine;
+    } catch (...) {
+        // Suppress any C++ exception crossing to JVM
+    }
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_lucas_player_AudioEngine_nativeOpenFile(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jint fd) {
+    try {
+        auto* engine = getEngine(handle);
+        if (!engine) return JNI_FALSE;
+        return engine->openFile(fd) ? JNI_TRUE : JNI_FALSE;
+    } catch (...) {
+        return JNI_FALSE;
+    }
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_lucas_player_AudioEngine_nativePlay(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        if (!engine) return JNI_FALSE;
+        return engine->play() ? JNI_TRUE : JNI_FALSE;
+    } catch (...) {
+        return JNI_FALSE;
+    }
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_lucas_player_AudioEngine_nativePause(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        if (!engine) return JNI_FALSE;
+        return engine->pause() ? JNI_TRUE : JNI_FALSE;
+    } catch (...) {
+        return JNI_FALSE;
+    }
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_lucas_player_AudioEngine_nativeStop(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        if (!engine) return JNI_FALSE;
+        return engine->stop() ? JNI_TRUE : JNI_FALSE;
+    } catch (...) {
+        return JNI_FALSE;
+    }
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_lucas_player_AudioEngine_nativeSeekTo(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jlong frameIndex) {
+    try {
+        auto* engine = getEngine(handle);
+        if (!engine) return JNI_FALSE;
+        return engine->seekTo(frameIndex) ? JNI_TRUE : JNI_FALSE;
+    } catch (...) {
+        return JNI_FALSE;
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_lucas_player_AudioEngine_nativeSetVolume(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jfloat volume) {
+    try {
+        auto* engine = getEngine(handle);
+        if (engine) engine->setVolume(volume);
+    } catch (...) {
+    }
+}
+
+JNIEXPORT jfloat JNICALL
+Java_com_lucas_player_AudioEngine_nativeGetVolume(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return engine ? engine->getVolume() : 0.0f;
+    } catch (...) {
+        return 0.0f;
+    }
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_lucas_player_AudioEngine_nativeGetPositionFrames(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return engine ? engine->getPositionFrames() : 0;
+    } catch (...) {
+        return 0;
+    }
+}
+
+JNIEXPORT jlong JNICALL
+Java_com_lucas_player_AudioEngine_nativeGetDurationFrames(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return engine ? engine->getDurationFrames() : 0;
+    } catch (...) {
+        return 0;
+    }
+}
+
+JNIEXPORT jint JNICALL
+Java_com_lucas_player_AudioEngine_nativeGetSampleRate(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return engine ? engine->getSampleRate() : 0;
+    } catch (...) {
+        return 0;
+    }
+}
+
+JNIEXPORT jint JNICALL
+Java_com_lucas_player_AudioEngine_nativeGetChannelCount(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return engine ? engine->getChannelCount() : 0;
+    } catch (...) {
+        return 0;
+    }
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_lucas_player_AudioEngine_nativeIsPlaying(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return (engine && engine->isPlaying()) ? JNI_TRUE : JNI_FALSE;
+    } catch (...) {
+        return JNI_FALSE;
+    }
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_lucas_player_AudioEngine_nativeIsPaused(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return (engine && engine->isPaused()) ? JNI_TRUE : JNI_FALSE;
+    } catch (...) {
+        return JNI_FALSE;
+    }
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_lucas_player_AudioEngine_nativeConsumeTrackCompleted(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return (engine && engine->consumeTrackCompleted()) ? JNI_TRUE : JNI_FALSE;
+    } catch (...) {
+        return JNI_FALSE;
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_lucas_player_AudioEngine_nativeSetEqualizerBand(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jint band, jfloat gainDb) {
+    try {
+        auto* engine = getEngine(handle);
+        if (engine && band >= 0) engine->setEqualizerBand(static_cast<size_t>(band), gainDb);
+    } catch (...) {}
+}
+
+JNIEXPORT jfloat JNICALL
+Java_com_lucas_player_AudioEngine_nativeGetEqualizerBand(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jint band) {
+    try {
+        auto* engine = getEngine(handle);
+        return (engine && band >= 0) ? engine->getEqualizerBand(static_cast<size_t>(band)) : 0.0f;
+    } catch (...) {
+        return 0.0f;
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_lucas_player_AudioEngine_nativeSetEqualizerEnabled(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jboolean enabled) {
+    try {
+        auto* engine = getEngine(handle);
+        if (engine) engine->setEqualizerEnabled(enabled == JNI_TRUE);
+    } catch (...) {}
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_lucas_player_AudioEngine_nativeIsEqualizerEnabled(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return (engine && engine->isEqualizerEnabled()) ? JNI_TRUE : JNI_FALSE;
+    } catch (...) {
+        return JNI_FALSE;
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_lucas_player_AudioEngine_nativeSetPreamp(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jfloat gainDb) {
+    try {
+        auto* engine = getEngine(handle);
+        if (engine) engine->setPreamp(gainDb);
+    } catch (...) {}
+}
+
+JNIEXPORT jfloat JNICALL
+Java_com_lucas_player_AudioEngine_nativeGetPreamp(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return engine ? engine->getPreamp() : 0.0f;
+    } catch (...) {
+        return 0.0f;
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_lucas_player_AudioEngine_nativeSetBass(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jfloat gainDb) {
+    try {
+        auto* engine = getEngine(handle);
+        if (engine) engine->setBass(gainDb);
+    } catch (...) {}
+}
+
+JNIEXPORT jfloat JNICALL
+Java_com_lucas_player_AudioEngine_nativeGetBass(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return engine ? engine->getBass() : 0.0f;
+    } catch (...) {
+        return 0.0f;
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_lucas_player_AudioEngine_nativeSetTreble(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jfloat gainDb) {
+    try {
+        auto* engine = getEngine(handle);
+        if (engine) engine->setTreble(gainDb);
+    } catch (...) {}
+}
+
+JNIEXPORT jfloat JNICALL
+Java_com_lucas_player_AudioEngine_nativeGetTreble(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return engine ? engine->getTreble() : 0.0f;
+    } catch (...) {
+        return 0.0f;
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_lucas_player_AudioEngine_nativeSetToneEnabled(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jboolean enabled) {
+    try {
+        auto* engine = getEngine(handle);
+        if (engine) engine->setToneEnabled(enabled == JNI_TRUE);
+    } catch (...) {}
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_lucas_player_AudioEngine_nativeIsToneEnabled(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return (engine && engine->isToneEnabled()) ? JNI_TRUE : JNI_FALSE;
+    } catch (...) {
+        return JNI_FALSE;
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_lucas_player_AudioEngine_nativeSetBalance(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jfloat balance) {
+    try {
+        auto* engine = getEngine(handle);
+        if (engine) engine->setBalance(balance);
+    } catch (...) {}
+}
+
+JNIEXPORT jfloat JNICALL
+Java_com_lucas_player_AudioEngine_nativeGetBalance(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return engine ? engine->getBalance() : 0.0f;
+    } catch (...) {
+        return 0.0f;
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_lucas_player_AudioEngine_nativeSetMono(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jboolean mono) {
+    try {
+        auto* engine = getEngine(handle);
+        if (engine) engine->setMono(mono == JNI_TRUE);
+    } catch (...) {}
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_lucas_player_AudioEngine_nativeIsMono(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
+    try {
+        auto* engine = getEngine(handle);
+        return (engine && engine->isMono()) ? JNI_TRUE : JNI_FALSE;
+    } catch (...) {
+        return JNI_FALSE;
+    }
+}
+
+JNIEXPORT jfloatArray JNICALL
+Java_com_lucas_player_AudioEngine_nativeScanWaveform(JNIEnv* env, jobject /*thiz*/, jint fd, jint numPoints) {
+    try {
+        std::vector<float> peaks = AudioEngine::scanWaveform(fd, numPoints);
+        if (peaks.empty()) return nullptr;
+
+        jfloatArray result = env->NewFloatArray(static_cast<jsize>(peaks.size()));
+        if (!result) return nullptr;
+
+        env->SetFloatArrayRegion(result, 0, static_cast<jsize>(peaks.size()), peaks.data());
+        return result;
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+JNIEXPORT void JNICALL
+Java_com_lucas_player_AudioEngine_nativeSetSpatialMode(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jint mode) {
+    try {
+        auto* engine = getEngine(handle);
+        if (engine) engine->setSpatialMode(mode);
+    } catch (...) {}
+}
+
+JNIEXPORT void JNICALL
+Java_com_lucas_player_AudioEngine_nativeSetSpatialPreset(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jint preset, jfloat intensity) {
+    try {
+        auto* engine = getEngine(handle);
+        if (engine) engine->setSpatialPreset(preset, intensity);
+    } catch (...) {}
+}
+
+JNIEXPORT void JNICALL
+Java_com_lucas_player_AudioEngine_nativeSetSpatialProParams(
+        JNIEnv* /*env*/, jobject /*thiz*/, jlong handle,
+        jfloat subCutoffHz, jfloat midGainDb, jfloat sideWidth, jfloat surroundAmbience, jfloat speakerAngle, jfloat elevation) {
+    try {
+        auto* engine = getEngine(handle);
+        if (engine) engine->setSpatialProParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle, elevation);
+    } catch (...) {}
+}
+
+} // extern "C"
+=== app/src/main/java/com/lucas/player/AudioEngine.kt ===
+package com.lucas.player
+
+import android.os.ParcelFileDescriptor
+
+/**
+ * Kotlin wrapper for the native C++ Oboe Audio Engine.
+ */
+class AudioEngine {
+
+    private var nativeHandle: Long = 0
+
+    init {
+        nativeHandle = nativeCreate()
+        check(nativeHandle != 0L) { "Failed to create native AudioEngine" }
+    }
+
+    /**
+     * Opens an audio file via ParcelFileDescriptor.
+     * C++ makes an internal dup() of the fd, so the caller retains ownership
+     * of [pfd] and should close it when done.
+     */
+    fun open(pfd: ParcelFileDescriptor): Boolean {
+        if (nativeHandle == 0L) return false
+        return nativeOpenFile(nativeHandle, pfd.fd)
+    }
+
+    fun play(): Boolean {
+        if (nativeHandle == 0L) return false
+        return nativePlay(nativeHandle)
+    }
+
+    fun pause(): Boolean {
+        if (nativeHandle == 0L) return false
+        return nativePause(nativeHandle)
+    }
+
+    fun stop(): Boolean {
+        if (nativeHandle == 0L) return false
+        return nativeStop(nativeHandle)
+    }
+
+    fun seekTo(frameIndex: Long): Boolean {
+        if (nativeHandle == 0L) return false
+        return nativeSeekTo(nativeHandle, frameIndex)
+    }
+
+    fun seekToMs(positionMs: Long): Boolean {
+        val rate = getSampleRate()
+        if (rate <= 0) return false
+        val frame = (positionMs * rate) / 1000L
+        return seekTo(frame)
+    }
+
+    fun setVolume(volume: Float) {
+        if (nativeHandle == 0L) return
+        nativeSetVolume(nativeHandle, volume.coerceIn(0.0f, 1.0f))
+    }
+
+    fun getVolume(): Float {
+        if (nativeHandle == 0L) return 0.0f
+        return nativeGetVolume(nativeHandle)
+    }
+
+    fun getPositionFrames(): Long {
+        if (nativeHandle == 0L) return 0L
+        return nativeGetPositionFrames(nativeHandle)
+    }
+
+    fun getDurationFrames(): Long {
+        if (nativeHandle == 0L) return 0L
+        return nativeGetDurationFrames(nativeHandle)
+    }
+
+    fun getPositionMs(): Long {
+        val rate = getSampleRate()
+        if (rate <= 0) return 0L
+        return (getPositionFrames() * 1000L) / rate
+    }
+
+    fun getDurationMs(): Long {
+        val rate = getSampleRate()
+        if (rate <= 0) return 0L
+        return (getDurationFrames() * 1000L) / rate
+    }
+
+    fun getSampleRate(): Int {
+        if (nativeHandle == 0L) return 0
+        return nativeGetSampleRate(nativeHandle)
+    }
+
+    fun getChannelCount(): Int {
+        if (nativeHandle == 0L) return 0
+        return nativeGetChannelCount(nativeHandle)
+    }
+
+    fun isPlaying(): Boolean {
+        if (nativeHandle == 0L) return false
+        return nativeIsPlaying(nativeHandle)
+    }
+
+    fun isPaused(): Boolean {
+        if (nativeHandle == 0L) return false
+        return nativeIsPaused(nativeHandle)
+    }
+
+    fun consumeTrackCompleted(): Boolean {
+        if (nativeHandle == 0L) return false
+        return nativeConsumeTrackCompleted(nativeHandle)
+    }
+
+    fun setEqualizerBand(band: Int, gainDb: Float) {
+        if (nativeHandle == 0L) return
+        nativeSetEqualizerBand(nativeHandle, band, gainDb)
+    }
+
+    fun getEqualizerBand(band: Int): Float {
+        if (nativeHandle == 0L) return 0f
+        return nativeGetEqualizerBand(nativeHandle, band)
+    }
+
+    fun setEqualizerEnabled(enabled: Boolean) {
+        if (nativeHandle == 0L) return
+        nativeSetEqualizerEnabled(nativeHandle, enabled)
+    }
+
+    fun isEqualizerEnabled(): Boolean {
+        if (nativeHandle == 0L) return false
+        return nativeIsEqualizerEnabled(nativeHandle)
+    }
+
+    fun setPreamp(gainDb: Float) {
+        if (nativeHandle == 0L) return
+        nativeSetPreamp(nativeHandle, gainDb)
+    }
+
+    fun getPreamp(): Float {
+        if (nativeHandle == 0L) return 0f
+        return nativeGetPreamp(nativeHandle)
+    }
+
+    fun setBass(gainDb: Float) {
+        if (nativeHandle == 0L) return
+        nativeSetBass(nativeHandle, gainDb)
+    }
+
+    fun getBass(): Float {
+        if (nativeHandle == 0L) return 0f
+        return nativeGetBass(nativeHandle)
+    }
+
+    fun setTreble(gainDb: Float) {
+        if (nativeHandle == 0L) return
+        nativeSetTreble(nativeHandle, gainDb)
+    }
+
+    fun getTreble(): Float {
+        if (nativeHandle == 0L) return 0f
+        return nativeGetTreble(nativeHandle)
+    }
+
+    fun setToneEnabled(enabled: Boolean) {
+        if (nativeHandle == 0L) return
+        nativeSetToneEnabled(nativeHandle, enabled)
+    }
+
+    fun isToneEnabled(): Boolean {
+        if (nativeHandle == 0L) return false
+        return nativeIsToneEnabled(nativeHandle)
+    }
+
+    fun setBalance(balance: Float) {
+        if (nativeHandle == 0L) return
+        nativeSetBalance(nativeHandle, balance.coerceIn(-1.0f, 1.0f))
+    }
+
+    fun getBalance(): Float {
+        if (nativeHandle == 0L) return 0f
+        return nativeGetBalance(nativeHandle)
+    }
+
+    fun setMono(mono: Boolean) {
+        if (nativeHandle == 0L) return
+        nativeSetMono(nativeHandle, mono)
+    }
+
+    fun isMono(): Boolean {
+        if (nativeHandle == 0L) return false
+        return nativeIsMono(nativeHandle)
+    }
+
+    fun setSpatialMode(mode: Int) {
+        if (nativeHandle == 0L) return
+        nativeSetSpatialMode(nativeHandle, mode)
+    }
+
+    fun setSpatialPreset(preset: Int, intensity: Float) {
+        if (nativeHandle == 0L) return
+        nativeSetSpatialPreset(nativeHandle, preset, intensity)
+    }
+
+    fun setSpatialProParams(
+        subCutoffHz: Float,
+        midGainDb: Float,
+        sideWidth: Float,
+        surroundAmbience: Float,
+        speakerAngle: Float,
+        elevation: Float = 0f
+    ) {
+        if (nativeHandle == 0L) return
+        nativeSetSpatialProParams(nativeHandle, subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle, elevation)
+    }
+
+    /**
+     * Scans an audio file to produce normalized waveform amplitude peaks [0.0..1.0].
+     * Similar to Poweramp's ScanDecode.
+     */
+    fun scanWaveform(pfd: ParcelFileDescriptor, numPoints: Int = 100): FloatArray? {
+        return nativeScanWaveform(pfd.fd, numPoints)
+    }
+
+    fun release() {
+        if (nativeHandle != 0L) {
+            nativeDestroy(nativeHandle)
+            nativeHandle = 0L
+        }
+    }
+
+    protected fun finalize() {
+        release()
+    }
+
+    companion object {
+        init {
+            System.loadLibrary("phonon")
+            System.loadLibrary("audio_engine")
+        }
+    }
+
+    // Native JNI functions
+    private external fun nativeCreate(): Long
+    private external fun nativeDestroy(handle: Long)
+    private external fun nativeOpenFile(handle: Long, fd: Int): Boolean
+    private external fun nativePlay(handle: Long): Boolean
+    private external fun nativePause(handle: Long): Boolean
+    private external fun nativeStop(handle: Long): Boolean
+    private external fun nativeSeekTo(handle: Long, frameIndex: Long): Boolean
+    private external fun nativeSetVolume(handle: Long, volume: Float)
+    private external fun nativeGetVolume(handle: Long): Float
+    private external fun nativeGetPositionFrames(handle: Long): Long
+    private external fun nativeGetDurationFrames(handle: Long): Long
+    private external fun nativeGetSampleRate(handle: Long): Int
+    private external fun nativeGetChannelCount(handle: Long): Int
+    private external fun nativeIsPlaying(handle: Long): Boolean
+    private external fun nativeIsPaused(handle: Long): Boolean
+    private external fun nativeConsumeTrackCompleted(handle: Long): Boolean
+    private external fun nativeSetEqualizerBand(handle: Long, band: Int, gainDb: Float)
+    private external fun nativeGetEqualizerBand(handle: Long, band: Int): Float
+    private external fun nativeSetEqualizerEnabled(handle: Long, enabled: Boolean)
+    private external fun nativeIsEqualizerEnabled(handle: Long): Boolean
+    private external fun nativeSetPreamp(handle: Long, gainDb: Float)
+    private external fun nativeGetPreamp(handle: Long): Float
+    private external fun nativeSetBass(handle: Long, gainDb: Float)
+    private external fun nativeGetBass(handle: Long): Float
+    private external fun nativeSetTreble(handle: Long, gainDb: Float)
+    private external fun nativeGetTreble(handle: Long): Float
+    private external fun nativeSetToneEnabled(handle: Long, enabled: Boolean)
+    private external fun nativeIsToneEnabled(handle: Long): Boolean
+    private external fun nativeSetBalance(handle: Long, balance: Float)
+    private external fun nativeGetBalance(handle: Long): Float
+    private external fun nativeSetMono(handle: Long, mono: Boolean)
+    private external fun nativeIsMono(handle: Long): Boolean
+    private external fun nativeScanWaveform(fd: Int, numPoints: Int): FloatArray?
+    private external fun nativeSetSpatialMode(handle: Long, mode: Int)
+    private external fun nativeSetSpatialPreset(handle: Long, preset: Int, intensity: Float)
+    private external fun nativeSetSpatialProParams(
+        handle: Long,
+        subCutoffHz: Float,
+        midGainDb: Float,
+        sideWidth: Float,
+        surroundAmbience: Float,
+        speakerAngle: Float,
+        elevation: Float
+    )
+}
+=== app/src/main/java/com/lucas/player/ui/screens/AuroEqualizerScreen.kt ===
+package com.lucas.player.ui.screens
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BookmarkAdd
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.RestartAlt
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.lucas.player.R
+import com.lucas.player.data.MusicDatabase
+import com.lucas.player.ui.components.*
+import com.lucas.player.ui.theme.AuroColor
+import com.lucas.player.ui.theme.AuroGlass
+import com.lucas.player.ui.theme.AuroGlassKind
+import com.lucas.player.ui.theme.AuroHeight
+import com.lucas.player.ui.theme.AuroSpace
+import com.lucas.player.ui.theme.AuroType
+import com.lucas.player.ui.theme.LocalAuroAccent
+import com.lucas.player.ui.theme.LocalAuroBottomInset
+import java.util.Locale
+import kotlin.math.roundToInt
+
+/**
+ * AURŌ DESIGN SYSTEM v2 - TELA DE EQUALIZADOR (AURŌ EQUALIZER)
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun AuroEqualizerScreen(
+    eqEnabled: Boolean,
+    onToggleEq: (Boolean) -> Unit,
+    toneEnabled: Boolean,
+    onToggleTone: (Boolean) -> Unit,
+    preampDb: Float,
+    onPreampChange: (Float) -> Unit,
+    bassDb: Float,
+    onBassChange: (Float) -> Unit,
+    trebleDb: Float,
+    onTrebleChange: (Float) -> Unit,
+    balance: Float,
+    onBalanceChange: (Float) -> Unit,
+    isMono: Boolean,
+    onToggleMono: (Boolean) -> Unit,
+    bandGains: List<Float>,
+    onBandGainChange: (Int, Float) -> Unit,
+    activePresetName: String,
+    presets: List<MusicDatabase.EqPreset>,
+    onSelectPreset: (MusicDatabase.EqPreset) -> Unit,
+    onResetEq: () -> Unit = {},
+    onSavePreset: () -> Unit = {},
+    onDeletePreset: (MusicDatabase.EqPreset) -> Unit = {},
+    spatialMode: Int = 0,
+    onSpatialModeChange: (Int) -> Unit = {},
+    spatialPreset: Int = 0,
+    onSpatialPresetChange: (Int) -> Unit = {},
+    spatialIntensity: Float = 0.75f,
+    onSpatialIntensityChange: (Float) -> Unit = {},
+    spatialSubCutoff: Float = 120f,
+    onSpatialSubCutoffChange: (Float) -> Unit = {},
+    spatialMidGain: Float = 0f,
+    onSpatialMidGainChange: (Float) -> Unit = {},
+    spatialSideWidth: Float = 1.3f,
+    onSpatialSideWidthChange: (Float) -> Unit = {},
+    spatialSurround: Float = 0.35f,
+    onSpatialSurroundChange: (Float) -> Unit = {},
+    spatialAngle: Float = 0.4f,
+    onSpatialAngleChange: (Float) -> Unit = {},
+    spatialElevation: Float = 0f,
+    onSpatialElevationChange: (Float) -> Unit = {},
+    spatialProPreset: Int = 0,
+    onSpatialProPresetChange: (Int) -> Unit = {},
+    onResetSpatialPro: () -> Unit = {},
+    onClose: () -> Unit,
+    listState: LazyListState = rememberLazyListState(),
+    modifier: Modifier = Modifier
+) {
+    val accent = LocalAuroAccent.current.a.value
+    val bandFreqs = remember {
+        listOf("31Hz", "62Hz", "125Hz", "250Hz", "500Hz", "1kHz", "2kHz", "4kHz", "8kHz", "16kHz")
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(AuroColor.Black)
+    ) {
+        AuroTopBar(
+            title = stringResource(R.string.equalizer_breadcrumb),
+            canGoBack = true,
+            onBackClick = onClose,
+            rightActions = {
+                AuroSwitch(
+                    checked = eqEnabled,
+                    onCheckedChange = onToggleEq
+                )
+            }
+        )
+
+        Box(modifier = Modifier.weight(1f)) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = AuroSpace.ScreenMargin),
+                contentPadding = PaddingValues(top = 12.dp, bottom = LocalAuroBottomInset.current + 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+            // Presets
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.eq_presets_header),
+                        style = AuroType.Caption.copy(
+                            color = AuroColor.TextTertiary,
+                            fontFamily = FontFamily.Monospace
+                        ),
+                        modifier = Modifier.weight(1f)
+                    )
+                    AuroGlass(
+                        kind = AuroGlassKind.Card,
+                        cornerRadius = 20.dp,
+                        onClick = onResetEq,
+                        modifier = Modifier.height(AuroHeight.GlassButton)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .fillMaxHeight(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.RestartAlt,
+                                contentDescription = null,
+                                tint = AuroColor.TextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(R.string.eq_reset),
+                                style = AuroType.Label.copy(color = AuroColor.TextSecondary)
+                            )
+                        }
+                    }
+                    AuroGlass(
+                        kind = AuroGlassKind.Card,
+                        cornerRadius = 20.dp,
+                        onClick = onSavePreset,
+                        modifier = Modifier.height(AuroHeight.GlassButton)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .fillMaxHeight(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.BookmarkAdd,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = stringResource(R.string.eq_save),
+                                style = AuroType.Label.copy(
+                                    color = accent,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(presets, key = { it.id }) { p ->
+                        val isSelected = p.name.equals(activePresetName, ignoreCase = true)
+                        Row(
+                            modifier = Modifier
+                                .height(32.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isSelected) accent.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.18f),
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .clickable { onSelectPreset(p) }
+                                .padding(horizontal = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = p.name,
+                                style = AuroType.Body.copy(
+                                    color = if (isSelected) Color.White else AuroColor.TextSecondary,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                                )
+                            )
+                            if (!p.isBuiltin) {
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable { onDeletePreset(p) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = stringResource(R.string.cd_delete_preset),
+                                        tint = AuroColor.TextTertiary,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Áudio Espacial (HRTF + Sala FDN 4x4 + LR4)
+            item {
+                AuroGlass(
+                    kind = AuroGlassKind.Card,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.spatial_header),
+                                style = AuroType.Caption.copy(
+                                    color = AuroColor.TextTertiary,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // 1. Seletor de 3 estados (Segmented Pill): Desativado (0) | Dolby Padrão (1) | Espacial Pro (2)
+                        val view = LocalView.current
+                        val modeLabels = listOf(
+                            stringResource(R.string.spatial_mode_off),
+                            stringResource(R.string.spatial_mode_standard),
+                            stringResource(R.string.spatial_mode_pro)
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(38.dp)
+                                .clip(RoundedCornerShape(19.dp))
+                                .background(Color.White.copy(alpha = 0.06f))
+                                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(19.dp))
+                                .padding(3.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            modeLabels.forEachIndexed { index, label ->
+                                val isSelected = spatialMode == index
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(if (isSelected) accent.copy(alpha = 0.25f) else Color.Transparent)
+                                        .border(
+                                            width = if (isSelected) 1.dp else 0.dp,
+                                            color = if (isSelected) accent.copy(alpha = 0.70f) else Color.Transparent,
+                                            shape = RoundedCornerShape(16.dp)
+                                        )
+                                        .clickable {
+                                            AuroHaptics.tick(view)
+                                            onSpatialModeChange(index)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = AuroType.Caption.copy(
+                                            color = if (isSelected) Color.White else AuroColor.TextSecondary,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+
+                        // Modo 0: Desativado
+                        if (spatialMode == 0) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(R.string.spatial_off_desc),
+                                style = AuroType.Caption.copy(color = AuroColor.TextTertiary)
+                            )
+                        }
+
+                        // Modo 1: Dolby Padrão
+                        if (spatialMode == 1) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            // 3 Chips selecionáveis: Música (0), Cinema (1), Palco (2)
+                            val presetLabels = listOf(
+                                stringResource(R.string.spatial_preset_music),
+                                stringResource(R.string.spatial_preset_cinema),
+                                stringResource(R.string.spatial_preset_stage)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                presetLabels.forEachIndexed { index, label ->
+                                    val isSelected = spatialPreset == index
+                                    Row(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(34.dp)
+                                            .clip(RoundedCornerShape(17.dp))
+                                            .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                            .border(
+                                                width = 1.dp,
+                                                color = if (isSelected) accent.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.18f),
+                                                shape = RoundedCornerShape(17.dp)
+                                            )
+                                            .clickable {
+                                                AuroHaptics.tick(view)
+                                                onSpatialPresetChange(index)
+                                            }
+                                            .padding(horizontal = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            style = AuroType.Body.copy(
+                                                color = if (isSelected) Color.White else AuroColor.TextSecondary,
+                                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                                fontSize = 13.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // 1 slider de Intensidade (0% a 100%)
+                            val formattedIntensity = "${(spatialIntensity * 100).roundToInt()}%"
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_intensity_label),
+                                value = spatialIntensity,
+                                range = 0f..1f,
+                                formattedValue = formattedIntensity,
+                                onValueChange = onSpatialIntensityChange
+                            )
+                        }
+
+                        // Modo 2: Espacial Pro
+                        if (spatialMode == 2) {
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // 5 Presets Waves Nx + Personalizado
+                            val proPresetLabels = listOf(
+                                "Estúdio Nx",
+                                "Abbey Road",
+                                "Cinema 360°",
+                                "Arena 3D",
+                                "Personalizado"
+                            )
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(proPresetLabels.size) { index ->
+                                    val label = proPresetLabels[index]
+                                    val isSelected = spatialProPreset == index
+                                    Row(
+                                        modifier = Modifier
+                                            .height(34.dp)
+                                            .clip(RoundedCornerShape(17.dp))
+                                            .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                            .border(
+                                                width = 1.dp,
+                                                color = if (isSelected) accent.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.18f),
+                                                shape = RoundedCornerShape(17.dp)
+                                            )
+                                            .clickable {
+                                                AuroHaptics.tick(view)
+                                                onSpatialProPresetChange(index)
+                                            }
+                                            .padding(horizontal = 14.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            style = AuroType.Body.copy(
+                                                color = if (isSelected) Color.White else AuroColor.TextSecondary,
+                                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                                fontSize = 13.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "PARÂMETROS ACÚSTICOS 3D",
+                                    style = AuroType.Caption.copy(
+                                        color = AuroColor.TextTertiary,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 11.sp
+                                    )
+                                )
+                                AuroGlass(
+                                    kind = AuroGlassKind.Card,
+                                    cornerRadius = 16.dp,
+                                    onClick = onResetSpatialPro,
+                                    modifier = Modifier.height(30.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .padding(horizontal = 10.dp)
+                                            .fillMaxHeight(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.RestartAlt,
+                                            contentDescription = null,
+                                            tint = AuroColor.TextSecondary,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = stringResource(R.string.spatial_reset_pro),
+                                            style = AuroType.Label.copy(
+                                                color = AuroColor.TextSecondary,
+                                                fontSize = 11.sp
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // 1. Corte Sub-Grave: 60 Hz – 250 Hz (controla o crossover LR4)
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_sub_cutoff_label),
+                                value = spatialSubCutoff,
+                                range = 60f..250f,
+                                formattedValue = "${spatialSubCutoff.roundToInt()} Hz",
+                                onValueChange = onSpatialSubCutoffChange
+                            )
+
+                            // 2. Foco Vocal (Mid): -6.0 dB – +6.0 dB (projeção da caixa central)
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_mid_gain_label),
+                                value = spatialMidGain,
+                                range = -6f..6f,
+                                formattedValue = String.format(Locale.getDefault(), "%+.1f dB", spatialMidGain),
+                                onValueChange = onSpatialMidGainChange
+                            )
+
+                            // 3. Largura de Palco: 50% – 220% (abertura L/R)
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_side_width_label),
+                                value = spatialSideWidth,
+                                range = 0.5f..2.2f,
+                                formattedValue = "${(spatialSideWidth * 100).roundToInt()}%",
+                                onValueChange = onSpatialSideWidthChange
+                            )
+
+                            // 4. Acústica da Sala: 0% – 100% (Early Reflections + Matriz FDN Hadamard 4x4)
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_surround_label),
+                                value = spatialSurround,
+                                range = 0f..1f,
+                                formattedValue = "${(spatialSurround * 100).roundToInt()}%",
+                                onValueChange = onSpatialSurroundChange
+                            )
+
+                            // 5. Ângulo Binaural: 15° – 65° (Steam Audio HRTF)
+                            val degrees = (15f + spatialAngle * 50f).roundToInt()
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_angle_label),
+                                value = spatialAngle,
+                                range = 0f..1f,
+                                formattedValue = "$degrees°",
+                                onValueChange = onSpatialAngleChange
+                            )
+
+                            // 6. Altura 3D (Elevação): -35° – +35° (Steam Audio HRTF)
+                            val elevDegrees = (spatialElevation * 35).toInt()
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_elevation_label),
+                                value = spatialElevation,
+                                range = -1f..1f,
+                                formattedValue = "$elevDegrees°",
+                                onValueChange = onSpatialElevationChange
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Tom & Pré-amp
+            item {
+                AuroGlass(
+                    kind = AuroGlassKind.Card,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = stringResource(R.string.eq_tone_preamp_header),
+                                    style = AuroType.Caption.copy(
+                                        color = AuroColor.TextTertiary,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(10.dp))
+                                AuroSwitch(
+                                    checked = toneEnabled,
+                                    onCheckedChange = onToggleTone,
+                                    enabled = eqEnabled
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = stringResource(R.string.eq_mono),
+                                    style = AuroType.Label.copy(color = AuroColor.TextSecondary)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Checkbox(
+                                    checked = isMono,
+                                    onCheckedChange = onToggleMono,
+                                    colors = CheckboxDefaults.colors(checkedColor = accent)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+                        AuroToneRow(label = stringResource(R.string.eq_preamp_label), value = preampDb, range = -12f..12f, enabled = eqEnabled, onValueChange = onPreampChange)
+                        AuroToneRow(label = stringResource(R.string.eq_bass_label), value = bassDb, range = -12f..12f, enabled = eqEnabled && toneEnabled, onValueChange = onBassChange)
+                        AuroToneRow(label = stringResource(R.string.eq_treble_label), value = trebleDb, range = -12f..12f, enabled = eqEnabled && toneEnabled, onValueChange = onTrebleChange)
+                        AuroToneRow(label = stringResource(R.string.eq_balance_label), value = balance, range = -1f..1f, isBalance = true, enabled = true, onValueChange = onBalanceChange)
+                    }
+                }
+            }
+
+            // 10 Bandas
+            item {
+                AuroGlass(
+                    kind = AuroGlassKind.Card,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = stringResource(R.string.eq_bands_header),
+                            style = AuroType.Caption.copy(
+                                color = AuroColor.TextTertiary,
+                                fontFamily = FontFamily.Monospace
+                            )
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Curva de resposta gráfica de 2dp interpolada das 10 bandas
+                        Canvas(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                        ) {
+                            val w = size.width
+                            val h = size.height
+                            val midY = h / 2f
+
+                            // Linha de referência central 0 dB
+                            drawLine(
+                                color = Color.White.copy(alpha = 0.10f),
+                                start = androidx.compose.ui.geometry.Offset(0f, midY),
+                                end = androidx.compose.ui.geometry.Offset(w, midY),
+                                strokeWidth = 1.dp.toPx()
+                            )
+
+                            if (bandGains.isNotEmpty()) {
+                                val path = Path()
+                                val stepX = if (bandGains.size > 1) w / (bandGains.size - 1) else w
+
+                                val points = bandGains.mapIndexed { index, gain ->
+                                    val clamped = gain.coerceIn(-12f, 12f)
+                                    val x = index * stepX
+                                    val y = midY - (clamped / 12f) * (h * 0.40f)
+                                    androidx.compose.ui.geometry.Offset(x, y)
+                                }
+
+                                path.moveTo(points.first().x, points.first().y)
+                                for (i in 0 until points.size - 1) {
+                                    val p0 = points[i]
+                                    val p1 = points[i + 1]
+                                    val cx = (p0.x + p1.x) / 2f
+                                    path.cubicTo(cx, p0.y, cx, p1.y, p1.x, p1.y)
+                                }
+
+                                drawPath(
+                                    path = path,
+                                    color = accent,
+                                    style = Stroke(
+                                        width = 2.dp.toPx(),
+                                        cap = StrokeCap.Round,
+                                        join = StrokeJoin.Round
+                                    )
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        bandFreqs.forEachIndexed { bandIndex, freqLabel ->
+                            val gain = bandGains.getOrElse(bandIndex) { 0f }
+                            val formattedGain = String.format(Locale.getDefault(), "%+.1f dB", gain)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = freqLabel,
+                                    style = AuroType.Caption.copy(
+                                        color = AuroColor.TextPrimary,
+                                        fontFamily = FontFamily.Monospace
+                                    ),
+                                    modifier = Modifier.width(50.dp)
+                                )
+
+                                AuroSlider(
+                                    value = gain,
+                                    onValueChange = { onBandGainChange(bandIndex, it) },
+                                    valueRange = -12f..12f,
+                                    contentDescription = stringResource(R.string.cd_eq_band, freqLabel),
+                                    stateDescription = formattedGain,
+                                    enabled = eqEnabled,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(36.dp)
+                                )
+
+                                Text(
+                                    text = formattedGain,
+                                    style = AuroType.Caption.copy(
+                                        color = AuroColor.TextSecondary,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontFeatureSettings = "tnum"
+                                    ),
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.width(54.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fade sutil de 16dp no topo
+        AuroTopFade(modifier = Modifier.align(Alignment.TopCenter))
+    }
+}
+}
+
+@Composable
+private fun AuroToneRow(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    isBalance: Boolean = false,
+    enabled: Boolean = true,
+    onValueChange: (Float) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = AuroType.Label.copy(
+                color = if (enabled) AuroColor.TextSecondary else AuroColor.TextTertiary
+            ),
+            modifier = Modifier.width(86.dp)
+        )
+        val textVal = if (isBalance) {
+            when {
+                value < -0.05f -> "L ${(value * -100).roundToInt()}%"
+                value > 0.05f -> "R ${(value * 100).roundToInt()}%"
+                else -> stringResource(R.string.eq_balance_center)
+            }
+        } else {
+            String.format(Locale.getDefault(), "%+.1f dB", value)
+        }
+        AuroSlider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = range,
+            contentDescription = label,
+            stateDescription = textVal,
+            enabled = enabled,
+            modifier = Modifier
+                .weight(1f)
+                .height(36.dp)
+        )
+        Text(
+            text = textVal,
+            style = AuroType.Caption.copy(
+                color = if (enabled) AuroColor.TextPrimary else AuroColor.TextTertiary,
+                fontFamily = FontFamily.Monospace,
+                fontFeatureSettings = "tnum"
+            ),
+            textAlign = TextAlign.End,
+            modifier = Modifier.width(54.dp)
+        )
+    }
+}
+
+@Composable
+private fun AuroSpatialSliderRow(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    formattedValue: String,
+    onValueChange: (Float) -> Unit,
+    enabled: Boolean = true
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = AuroType.Label.copy(
+                color = if (enabled) AuroColor.TextSecondary else AuroColor.TextTertiary
+            ),
+            modifier = Modifier.width(136.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        AuroSlider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = range,
+            contentDescription = label,
+            stateDescription = formattedValue,
+            enabled = enabled,
+            modifier = Modifier
+                .weight(1f)
+                .height(36.dp)
+        )
+        Text(
+            text = formattedValue,
+            style = AuroType.Caption.copy(
+                color = if (enabled) AuroColor.TextPrimary else AuroColor.TextTertiary,
+                fontFamily = FontFamily.Monospace,
+                fontFeatureSettings = "tnum"
+            ),
+            textAlign = TextAlign.End,
+            modifier = Modifier.width(64.dp)
+        )
+    }
+}
