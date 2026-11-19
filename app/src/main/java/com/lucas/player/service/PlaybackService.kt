@@ -195,6 +195,17 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
         audioEngine.setBalance(preferencesManager.getBalance())
         audioEngine.setMono(preferencesManager.isMonoEnabled())
 
+        // Restore Spatial Audio (HRTF + FDN Room 4x4 + LR4)
+        audioEngine.setSpatialMode(preferencesManager.spatialMode)
+        audioEngine.setSpatialPreset(preferencesManager.spatialPreset, preferencesManager.spatialIntensity)
+        audioEngine.setSpatialProParams(
+            preferencesManager.spatialSubCutoff,
+            preferencesManager.spatialMidGain,
+            preferencesManager.spatialSideWidth,
+            preferencesManager.spatialSurround,
+            preferencesManager.spatialAngle
+        )
+
         initMediaSession()
         createNotificationChannel()
 
@@ -790,6 +801,39 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
     }
 
     fun isMono(): Boolean = audioEngine.isMono()
+
+    // --- Spatial Audio DSP ---
+
+    fun setSpatialMode(mode: Int) {
+        audioEngine.setSpatialMode(mode)
+        preferencesManager.spatialMode = mode
+    }
+
+    fun getSpatialMode(): Int = preferencesManager.spatialMode
+
+    fun setSpatialPreset(preset: Int, intensity: Float) {
+        audioEngine.setSpatialPreset(preset, intensity)
+        preferencesManager.spatialPreset = preset
+        preferencesManager.spatialIntensity = intensity
+    }
+
+    fun getSpatialPreset(): Int = preferencesManager.spatialPreset
+    fun getSpatialIntensity(): Float = preferencesManager.spatialIntensity
+
+    fun setSpatialProParams(
+        subCutoffHz: Float,
+        midGainDb: Float,
+        sideWidth: Float,
+        surroundAmbience: Float,
+        speakerAngle: Float
+    ) {
+        audioEngine.setSpatialProParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle)
+        preferencesManager.spatialSubCutoff = subCutoffHz
+        preferencesManager.spatialMidGain = midGainDb
+        preferencesManager.spatialSideWidth = sideWidth
+        preferencesManager.spatialSurround = surroundAmbience
+        preferencesManager.spatialAngle = speakerAngle
+    }
 
     fun setCrossfadeDurationMs(ms: Int) {
         preferencesManager.saveCrossfadeDurationMs(ms)

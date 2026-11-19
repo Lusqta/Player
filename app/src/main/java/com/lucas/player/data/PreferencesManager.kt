@@ -265,6 +265,40 @@ class PreferencesManager(context: Context) {
         prefs.edit().putBoolean(KEY_REQUESTED_AUDIO_PERM, requested).apply()
     }
 
+    // --- Áudio Espacial (DSP Binaural) ---
+
+    var spatialMode: Int
+        get() = prefs.getInt(KEY_SPATIAL_MODE, 0)
+        set(value) = prefs.edit().putInt(KEY_SPATIAL_MODE, value).apply()
+
+    var spatialPreset: Int
+        get() = prefs.getInt(KEY_SPATIAL_PRESET, 0)
+        set(value) = prefs.edit().putInt(KEY_SPATIAL_PRESET, value).apply()
+
+    var spatialIntensity: Float
+        get() = prefs.getFloat(KEY_SPATIAL_INTENSITY, 0.75f)
+        set(value) = prefs.edit().putFloat(KEY_SPATIAL_INTENSITY, value).apply()
+
+    var spatialSubCutoff: Float
+        get() = prefs.getFloat(KEY_SPATIAL_SUB_CUTOFF, 120f)
+        set(value) = prefs.edit().putFloat(KEY_SPATIAL_SUB_CUTOFF, value).apply()
+
+    var spatialMidGain: Float
+        get() = prefs.getFloat(KEY_SPATIAL_MID_GAIN, 0f)
+        set(value) = prefs.edit().putFloat(KEY_SPATIAL_MID_GAIN, value).apply()
+
+    var spatialSideWidth: Float
+        get() = prefs.getFloat(KEY_SPATIAL_SIDE_WIDTH, 1.3f)
+        set(value) = prefs.edit().putFloat(KEY_SPATIAL_SIDE_WIDTH, value).apply()
+
+    var spatialSurround: Float
+        get() = prefs.getFloat(KEY_SPATIAL_SURROUND, 0.35f)
+        set(value) = prefs.edit().putFloat(KEY_SPATIAL_SURROUND, value).apply()
+
+    var spatialAngle: Float
+        get() = prefs.getFloat(KEY_SPATIAL_ANGLE, 0.4f)
+        set(value) = prefs.edit().putFloat(KEY_SPATIAL_ANGLE, value).apply()
+
     companion object {
         private const val SEARCH_DELIMITER = "\u001F"
         private const val KEY_RECENT_SEARCHES = "recent_searches"
@@ -296,5 +330,13 @@ class PreferencesManager(context: Context) {
         private const val KEY_IGNORE_SHORTER_THAN_SEC = "ignore_shorter_than_sec"
         private const val KEY_GAPLESS_ENABLED = "gapless_enabled"
         private const val KEY_RESUME_PLAYBACK = "resume_playback"
+        private const val KEY_SPATIAL_MODE = "spatial_mode"
+        private const val KEY_SPATIAL_PRESET = "spatial_preset"
+        private const val KEY_SPATIAL_INTENSITY = "spatial_intensity"
+        private const val KEY_SPATIAL_SUB_CUTOFF = "spatial_sub_cutoff"
+        private const val KEY_SPATIAL_MID_GAIN = "spatial_mid_gain"
+        private const val KEY_SPATIAL_SIDE_WIDTH = "spatial_side_width"
+        private const val KEY_SPATIAL_SURROUND = "spatial_surround"
+        private const val KEY_SPATIAL_ANGLE = "spatial_angle"
     }
 }

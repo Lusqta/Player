@@ -6,11 +6,12 @@
 #include <cstdint>
 #include "ring_buffer.h"
 #include "biquad_equalizer.h"
+#include "spatial_processor.h"
 
 class AudioOutput : public oboe::AudioStreamDataCallback,
                     public oboe::AudioStreamErrorCallback {
 public:
-    explicit AudioOutput(SpscRingBuffer* ringBuffer);
+    explicit AudioOutput(SpscRingBuffer* ringBuffer, SpatialProcessor* spatialProcessor = nullptr);
     ~AudioOutput() override;
 
     bool openStream(int32_t sampleRate);
@@ -63,6 +64,7 @@ private:
     SpscRingBuffer* ringBuffer_;
     std::shared_ptr<oboe::AudioStream> stream_;
     BiquadEqualizer equalizer_;
+    SpatialProcessor* spatialProcessor_ = nullptr;
 
     std::atomic<float> volume_{1.0f};
     std::atomic<float> balance_{0.0f}; // -1.0 (Full Left) to +1.0 (Full Right)

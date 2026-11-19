@@ -141,6 +141,16 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     private val activePresetNameState = mutableStateOf("Flat")
     private val presetsListState = mutableStateOf<List<MusicDatabase.EqPreset>>(emptyList())
 
+    // Áudio Espacial (DSP Binaural)
+    private val spatialModeState = mutableIntStateOf(0)
+    private val spatialPresetState = mutableIntStateOf(0)
+    private val spatialIntensityState = mutableFloatStateOf(0.75f)
+    private val spatialSubCutoffState = mutableFloatStateOf(120f)
+    private val spatialMidGainState = mutableFloatStateOf(0f)
+    private val spatialSideWidthState = mutableFloatStateOf(1.3f)
+    private val spatialSurroundState = mutableFloatStateOf(0.35f)
+    private val spatialAngleState = mutableFloatStateOf(0.4f)
+
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as PlaybackService.LocalBinder
@@ -958,6 +968,97 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onResetEq = { resetEqualizerToFlat() },
                                     onSavePreset = { showSavePresetDialogState.value = true },
                                     onDeletePreset = { preset -> deletePresetTargetState.value = preset },
+                                    spatialMode = spatialModeState.intValue,
+                                    onSpatialModeChange = { mode ->
+                                        spatialModeState.intValue = mode
+                                        playbackService?.setSpatialMode(mode)
+                                        preferencesManager.spatialMode = mode
+                                    },
+                                    spatialPreset = spatialPresetState.intValue,
+                                    onSpatialPresetChange = { preset ->
+                                        spatialPresetState.intValue = preset
+                                        playbackService?.setSpatialPreset(preset, spatialIntensityState.floatValue)
+                                        preferencesManager.spatialPreset = preset
+                                    },
+                                    spatialIntensity = spatialIntensityState.floatValue,
+                                    onSpatialIntensityChange = { intensity ->
+                                        spatialIntensityState.floatValue = intensity
+                                        playbackService?.setSpatialPreset(spatialPresetState.intValue, intensity)
+                                        preferencesManager.spatialIntensity = intensity
+                                    },
+                                    spatialSubCutoff = spatialSubCutoffState.floatValue,
+                                    onSpatialSubCutoffChange = { cutoff ->
+                                        spatialSubCutoffState.floatValue = cutoff
+                                        playbackService?.setSpatialProParams(
+                                            cutoff,
+                                            spatialMidGainState.floatValue,
+                                            spatialSideWidthState.floatValue,
+                                            spatialSurroundState.floatValue,
+                                            spatialAngleState.floatValue
+                                        )
+                                        preferencesManager.spatialSubCutoff = cutoff
+                                    },
+                                    spatialMidGain = spatialMidGainState.floatValue,
+                                    onSpatialMidGainChange = { gain ->
+                                        spatialMidGainState.floatValue = gain
+                                        playbackService?.setSpatialProParams(
+                                            spatialSubCutoffState.floatValue,
+                                            gain,
+                                            spatialSideWidthState.floatValue,
+                                            spatialSurroundState.floatValue,
+                                            spatialAngleState.floatValue
+                                        )
+                                        preferencesManager.spatialMidGain = gain
+                                    },
+                                    spatialSideWidth = spatialSideWidthState.floatValue,
+                                    onSpatialSideWidthChange = { width ->
+                                        spatialSideWidthState.floatValue = width
+                                        playbackService?.setSpatialProParams(
+                                            spatialSubCutoffState.floatValue,
+                                            spatialMidGainState.floatValue,
+                                            width,
+                                            spatialSurroundState.floatValue,
+                                            spatialAngleState.floatValue
+                                        )
+                                        preferencesManager.spatialSideWidth = width
+                                    },
+                                    spatialSurround = spatialSurroundState.floatValue,
+                                    onSpatialSurroundChange = { surround ->
+                                        spatialSurroundState.floatValue = surround
+                                        playbackService?.setSpatialProParams(
+                                            spatialSubCutoffState.floatValue,
+                                            spatialMidGainState.floatValue,
+                                            spatialSideWidthState.floatValue,
+                                            surround,
+                                            spatialAngleState.floatValue
+                                        )
+                                        preferencesManager.spatialSurround = surround
+                                    },
+                                    spatialAngle = spatialAngleState.floatValue,
+                                    onSpatialAngleChange = { angle ->
+                                        spatialAngleState.floatValue = angle
+                                        playbackService?.setSpatialProParams(
+                                            spatialSubCutoffState.floatValue,
+                                            spatialMidGainState.floatValue,
+                                            spatialSideWidthState.floatValue,
+                                            spatialSurroundState.floatValue,
+                                            angle
+                                        )
+                                        preferencesManager.spatialAngle = angle
+                                    },
+                                    onResetSpatialPro = {
+                                        spatialSubCutoffState.floatValue = 120f
+                                        spatialMidGainState.floatValue = 0f
+                                        spatialSideWidthState.floatValue = 1.3f
+                                        spatialSurroundState.floatValue = 0.35f
+                                        spatialAngleState.floatValue = 0.4f
+                                        playbackService?.setSpatialProParams(120f, 0f, 1.3f, 0.35f, 0.4f)
+                                        preferencesManager.spatialSubCutoff = 120f
+                                        preferencesManager.spatialMidGain = 0f
+                                        preferencesManager.spatialSideWidth = 1.3f
+                                        preferencesManager.spatialSurround = 0.35f
+                                        preferencesManager.spatialAngle = 0.4f
+                                    },
                                     onClose = { navController.navigateUp() },
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -1547,6 +1648,15 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         for (i in 0 until 10) {
             bandGainsState.add(service.getEqualizerBand(i))
         }
+
+        spatialModeState.intValue = preferencesManager.spatialMode
+        spatialPresetState.intValue = preferencesManager.spatialPreset
+        spatialIntensityState.floatValue = preferencesManager.spatialIntensity
+        spatialSubCutoffState.floatValue = preferencesManager.spatialSubCutoff
+        spatialMidGainState.floatValue = preferencesManager.spatialMidGain
+        spatialSideWidthState.floatValue = preferencesManager.spatialSideWidth
+        spatialSurroundState.floatValue = preferencesManager.spatialSurround
+        spatialAngleState.floatValue = preferencesManager.spatialAngle
     }
 
     private fun applyFullPreset(preset: MusicDatabase.EqPreset) {

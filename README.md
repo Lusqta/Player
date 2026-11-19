@@ -5,7 +5,7 @@ Um reprodutor de música offline de alta fidelidade para Android, combinando um 
 ![Android](https://img.shields.io/badge/Android-API%2026%2B%20(AGSL%2033%2B)-black?logo=android)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.0-purple?logo=kotlin)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202024-blue?logo=jetpackcompose)
-![License](https://img.shields.io/badge/License-Proprietary-gray)
+![License](https://img.shields.io/badge/License-Open%20Source%20(MIT)-success)
 [![Download APK](https://img.shields.io/badge/⬇️%20Download-v1.1.0-00C853?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Lusqta/Player/releases/download/v1.1.0/AuroPlayer-v1.1.0.apk)
 [![Releases](https://img.shields.io/badge/📦%20Ver-Releases-blue?style=for-the-badge&logo=github)](https://github.com/Lusqta/Player/releases)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/Lusqta/Player/build-apk.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Lusqta/Player/actions)
@@ -25,6 +25,35 @@ Para baixar e instalar o **Aurō Player** no seu Android:
 > 2. Ao terminar o download no celular, toque na notificação para abrir.
 > 3. Se solicitado, permita a instalação de apps desta fonte nas configurações.
 > 4. Toque em **Instalar** (ou **Atualizar**)! No app, vá em **Menu (⋮) → Sobre** para confirmar a versão `v1.1.0`.
+
+---
+
+## 🎨 Guia de UI/UX & Frontend (Para Designers & Desenvolvedores)
+
+Se você vai desenvolver a **estética visual, telas, animações e experiência (UI/UX)** do app, a camada de interface está organizada e isolada para você focar exclusivamente em design e Compose:
+
+### 📂 Onde fica o Frontend no projeto?
+Todo o frontend está localizado em `app/src/main/java/com/lucas/player/ui/`:
+* 📱 **Telas (`ui/screens/`)**:
+  * `AuroNowPlayingScreen.kt` — Tela principal de reprodução expandida com capa, controles gestuais e cards de Vidro.
+  * `AuroLibraryScreen.kt` — Tela raiz da biblioteca musical, atalhos rápidos e barra de busca integrada.
+  * `AuroCategoryListScreen.kt` — Listagem de faixas, álbuns, artistas, pastas e gêneros.
+  * `AuroDrilldownScreen.kt` — Visão interna de um álbum ou pasta específica.
+  * `AuroQueueScreen.kt` — Gestão da fila de reprodução (Fila prioritária + Fila principal).
+  * `AuroEqualizerScreen.kt` — Equalizador gráfico de 10 bandas + Controles de Áudio Espacial e Sala FDN.
+  * `AuroSearchScreen.kt` — Busca instantânea de faixas com teclado ativo.
+* 🧩 **Componentes Reutilizáveis (`ui/components/`)**:
+  * `AuroDock.kt` — Dock flutuante inferior combinando o mini player e a barra de navegação rápida.
+  * `AuroComponents.kt` — Sliders, barras de progresso (`AuroProgressBar`), linhas de faixas (`AuroTrackRow`).
+  * `AuroOverlays.kt` — Modais e menus de contexto (adicionar à fila, info técnica, temporizador de sono).
+  * `AuroFeedback.kt` — Notificações de vidro e feedback tátil/háptico.
+* 💎 **Design System & Shaders (`ui/theme/`)**:
+  * `AuroDesignSystem.kt` — Tokens de cores (`AuroColor`), tipografia (`AuroType`), espaçamentos (`AuroSpace`), curvas de mola/animação (`AuroMotion`) e o componente de vidro preto com shader AGSL (`AuroGlass`).
+
+### 📌 Documentos de Referência de Design
+* 📖 [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) — O guia completo de identidade visual v3, contraste, cores Oklab e iluminação física.
+* 📋 [`PLANO_UIUX_AGENTE.md`](PLANO_UIUX_AGENTE.md) — Roteiro de fases e boas práticas de implementação.
+* 🧠 [`AI_CONTEXT.md`](AI_CONTEXT.md) — Dossiê técnico completo sobre a arquitetura e fluxo de dados.
 
 ---
 

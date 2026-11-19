@@ -35,6 +35,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
@@ -79,6 +80,23 @@ fun AuroEqualizerScreen(
     onResetEq: () -> Unit = {},
     onSavePreset: () -> Unit = {},
     onDeletePreset: (MusicDatabase.EqPreset) -> Unit = {},
+    spatialMode: Int = 0,
+    onSpatialModeChange: (Int) -> Unit = {},
+    spatialPreset: Int = 0,
+    onSpatialPresetChange: (Int) -> Unit = {},
+    spatialIntensity: Float = 0.75f,
+    onSpatialIntensityChange: (Float) -> Unit = {},
+    spatialSubCutoff: Float = 120f,
+    onSpatialSubCutoffChange: (Float) -> Unit = {},
+    spatialMidGain: Float = 0f,
+    onSpatialMidGainChange: (Float) -> Unit = {},
+    spatialSideWidth: Float = 1.3f,
+    onSpatialSideWidthChange: (Float) -> Unit = {},
+    spatialSurround: Float = 0.35f,
+    onSpatialSurroundChange: (Float) -> Unit = {},
+    spatialAngle: Float = 0.4f,
+    onSpatialAngleChange: (Float) -> Unit = {},
+    onResetSpatialPro: () -> Unit = {},
     onClose: () -> Unit,
     listState: LazyListState = rememberLazyListState(),
     modifier: Modifier = Modifier
@@ -225,6 +243,246 @@ fun AuroEqualizerScreen(
                                     )
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            // Áudio Espacial (HRTF + Sala FDN 4x4 + LR4)
+            item {
+                AuroGlass(
+                    kind = AuroGlassKind.Card,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.spatial_header),
+                                style = AuroType.Caption.copy(
+                                    color = AuroColor.TextTertiary,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // 1. Seletor de 3 estados (Segmented Pill): Desativado (0) | Dolby Padrão (1) | Espacial Pro (2)
+                        val view = LocalView.current
+                        val modeLabels = listOf(
+                            stringResource(R.string.spatial_mode_off),
+                            stringResource(R.string.spatial_mode_standard),
+                            stringResource(R.string.spatial_mode_pro)
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(38.dp)
+                                .clip(RoundedCornerShape(19.dp))
+                                .background(Color.White.copy(alpha = 0.06f))
+                                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(19.dp))
+                                .padding(3.dp),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            modeLabels.forEachIndexed { index, label ->
+                                val isSelected = spatialMode == index
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxHeight()
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(if (isSelected) accent.copy(alpha = 0.25f) else Color.Transparent)
+                                        .border(
+                                            width = if (isSelected) 1.dp else 0.dp,
+                                            color = if (isSelected) accent.copy(alpha = 0.70f) else Color.Transparent,
+                                            shape = RoundedCornerShape(16.dp)
+                                        )
+                                        .clickable {
+                                            AuroHaptics.tick(view)
+                                            onSpatialModeChange(index)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        style = AuroType.Caption.copy(
+                                            color = if (isSelected) Color.White else AuroColor.TextSecondary,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                        ),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+
+                        // Modo 0: Desativado
+                        if (spatialMode == 0) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(R.string.spatial_off_desc),
+                                style = AuroType.Caption.copy(color = AuroColor.TextTertiary)
+                            )
+                        }
+
+                        // Modo 1: Dolby Padrão
+                        if (spatialMode == 1) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            // 3 Chips selecionáveis: Música (0), Cinema (1), Palco (2)
+                            val presetLabels = listOf(
+                                stringResource(R.string.spatial_preset_music),
+                                stringResource(R.string.spatial_preset_cinema),
+                                stringResource(R.string.spatial_preset_stage)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                presetLabels.forEachIndexed { index, label ->
+                                    val isSelected = spatialPreset == index
+                                    Row(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .height(34.dp)
+                                            .clip(RoundedCornerShape(17.dp))
+                                            .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                            .border(
+                                                width = 1.dp,
+                                                color = if (isSelected) accent.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.18f),
+                                                shape = RoundedCornerShape(17.dp)
+                                            )
+                                            .clickable {
+                                                AuroHaptics.tick(view)
+                                                onSpatialPresetChange(index)
+                                            }
+                                            .padding(horizontal = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = label,
+                                            style = AuroType.Body.copy(
+                                                color = if (isSelected) Color.White else AuroColor.TextSecondary,
+                                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                                fontSize = 13.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // 1 slider de Intensidade (0% a 100%)
+                            val formattedIntensity = "${(spatialIntensity * 100).roundToInt()}%"
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_intensity_label),
+                                value = spatialIntensity,
+                                range = 0f..1f,
+                                formattedValue = formattedIntensity,
+                                onValueChange = onSpatialIntensityChange
+                            )
+                        }
+
+                        // Modo 2: Espacial Pro
+                        if (spatialMode == 2) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "PARÂMETROS ACÚSTICOS",
+                                    style = AuroType.Caption.copy(
+                                        color = AuroColor.TextTertiary,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 11.sp
+                                    )
+                                )
+                                AuroGlass(
+                                    kind = AuroGlassKind.Card,
+                                    cornerRadius = 16.dp,
+                                    onClick = onResetSpatialPro,
+                                    modifier = Modifier.height(30.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .padding(horizontal = 10.dp)
+                                            .fillMaxHeight(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.RestartAlt,
+                                            contentDescription = null,
+                                            tint = AuroColor.TextSecondary,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = stringResource(R.string.spatial_reset_pro),
+                                            style = AuroType.Label.copy(
+                                                color = AuroColor.TextSecondary,
+                                                fontSize = 11.sp
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // 1. Corte Sub-Grave: 60 Hz – 250 Hz (controla o crossover LR4)
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_sub_cutoff_label),
+                                value = spatialSubCutoff,
+                                range = 60f..250f,
+                                formattedValue = "${spatialSubCutoff.roundToInt()} Hz",
+                                onValueChange = onSpatialSubCutoffChange
+                            )
+
+                            // 2. Foco Vocal (Mid): -6.0 dB – +6.0 dB (projeção da caixa central)
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_mid_gain_label),
+                                value = spatialMidGain,
+                                range = -6f..6f,
+                                formattedValue = String.format(Locale.getDefault(), "%+.1f dB", spatialMidGain),
+                                onValueChange = onSpatialMidGainChange
+                            )
+
+                            // 3. Largura de Palco: 50% – 220% (abertura L/R)
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_side_width_label),
+                                value = spatialSideWidth,
+                                range = 0.5f..2.2f,
+                                formattedValue = "${(spatialSideWidth * 100).roundToInt()}%",
+                                onValueChange = onSpatialSideWidthChange
+                            )
+
+                            // 4. Acústica da Sala: 0% – 100% (Early Reflections + Matriz FDN Hadamard 4x4)
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_surround_label),
+                                value = spatialSurround,
+                                range = 0f..1f,
+                                formattedValue = "${(spatialSurround * 100).roundToInt()}%",
+                                onValueChange = onSpatialSurroundChange
+                            )
+
+                            // 5. Ângulo Binaural: 15° – 60° (Woodworth + Pinna HRTF)
+                            val degrees = (15f + spatialAngle * 45f).roundToInt()
+                            AuroSpatialSliderRow(
+                                label = stringResource(R.string.spatial_angle_label),
+                                value = spatialAngle,
+                                range = 0f..1f,
+                                formattedValue = "$degrees°",
+                                onValueChange = onSpatialAngleChange
+                            )
                         }
                     }
                 }
@@ -452,6 +710,54 @@ private fun AuroToneRow(
             ),
             textAlign = TextAlign.End,
             modifier = Modifier.width(54.dp)
+        )
+    }
+}
+
+@Composable
+private fun AuroSpatialSliderRow(
+    label: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    formattedValue: String,
+    onValueChange: (Float) -> Unit,
+    enabled: Boolean = true
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = AuroType.Label.copy(
+                color = if (enabled) AuroColor.TextSecondary else AuroColor.TextTertiary
+            ),
+            modifier = Modifier.width(136.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        AuroSlider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = range,
+            contentDescription = label,
+            stateDescription = formattedValue,
+            enabled = enabled,
+            modifier = Modifier
+                .weight(1f)
+                .height(36.dp)
+        )
+        Text(
+            text = formattedValue,
+            style = AuroType.Caption.copy(
+                color = if (enabled) AuroColor.TextPrimary else AuroColor.TextTertiary,
+                fontFamily = FontFamily.Monospace,
+                fontFeatureSettings = "tnum"
+            ),
+            textAlign = TextAlign.End,
+            modifier = Modifier.width(64.dp)
         )
     }
 }

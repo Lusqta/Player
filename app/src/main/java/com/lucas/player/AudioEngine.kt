@@ -188,6 +188,27 @@ class AudioEngine {
         return nativeIsMono(nativeHandle)
     }
 
+    fun setSpatialMode(mode: Int) {
+        if (nativeHandle == 0L) return
+        nativeSetSpatialMode(mode)
+    }
+
+    fun setSpatialPreset(preset: Int, intensity: Float) {
+        if (nativeHandle == 0L) return
+        nativeSetSpatialPreset(preset, intensity)
+    }
+
+    fun setSpatialProParams(
+        subCutoffHz: Float,
+        midGainDb: Float,
+        sideWidth: Float,
+        surroundAmbience: Float,
+        speakerAngle: Float
+    ) {
+        if (nativeHandle == 0L) return
+        nativeSetSpatialProParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle)
+    }
+
     /**
      * Scans an audio file to produce normalized waveform amplitude peaks [0.0..1.0].
      * Similar to Poweramp's ScanDecode.
@@ -247,4 +268,13 @@ class AudioEngine {
     private external fun nativeSetMono(handle: Long, mono: Boolean)
     private external fun nativeIsMono(handle: Long): Boolean
     private external fun nativeScanWaveform(fd: Int, numPoints: Int): FloatArray?
+    private external fun nativeSetSpatialMode(mode: Int)
+    private external fun nativeSetSpatialPreset(preset: Int, intensity: Float)
+    private external fun nativeSetSpatialProParams(
+        subCutoffHz: Float,
+        midGainDb: Float,
+        sideWidth: Float,
+        surroundAmbience: Float,
+        speakerAngle: Float
+    )
 }
