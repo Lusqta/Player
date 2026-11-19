@@ -10,6 +10,7 @@ find_package(oboe REQUIRED CONFIG)
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/decoders
+    ${CMAKE_CURRENT_SOURCE_DIR}/jamesdsp
 )
 
 add_library(audio_engine SHARED
@@ -21,6 +22,11 @@ add_library(audio_engine SHARED
     decoders/mp3_decoder.cpp
     decoders/amedia_decoder.cpp
     decoders/decoder_factory.cpp
+    jamesdsp/reverb.c
+    jamesdsp/stereoEnhancement.c
+    jamesdsp/polyphaseFilterbank.c
+    jamesdsp/cos_fib_paraunitary.c
+    jamesdsp/qr_fact.c
 )
 
 target_link_libraries(audio_engine PRIVATE
