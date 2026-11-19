@@ -276,7 +276,7 @@ class PreferencesManager(context: Context) {
         set(value) = prefs.edit().putInt(KEY_SPATIAL_PRESET, value).apply()
 
     var spatialIntensity: Float
-        get() = prefs.getFloat(KEY_SPATIAL_INTENSITY, 0.75f)
+        get() = prefs.getFloat(KEY_SPATIAL_INTENSITY, 0.85f)
         set(value) = prefs.edit().putFloat(KEY_SPATIAL_INTENSITY, value).apply()
 
     var spatialSubCutoff: Float
@@ -284,19 +284,19 @@ class PreferencesManager(context: Context) {
         set(value) = prefs.edit().putFloat(KEY_SPATIAL_SUB_CUTOFF, value).apply()
 
     var spatialMidGain: Float
-        get() = prefs.getFloat(KEY_SPATIAL_MID_GAIN, 0f)
+        get() = prefs.getFloat(KEY_SPATIAL_MID_GAIN, 1.2f)
         set(value) = prefs.edit().putFloat(KEY_SPATIAL_MID_GAIN, value).apply()
 
     var spatialSideWidth: Float
-        get() = prefs.getFloat(KEY_SPATIAL_SIDE_WIDTH, 1.3f)
+        get() = prefs.getFloat(KEY_SPATIAL_SIDE_WIDTH, 1.45f)
         set(value) = prefs.edit().putFloat(KEY_SPATIAL_SIDE_WIDTH, value).apply()
 
     var spatialSurround: Float
-        get() = prefs.getFloat(KEY_SPATIAL_SURROUND, 0.35f)
+        get() = prefs.getFloat(KEY_SPATIAL_SURROUND, 0.45f)
         set(value) = prefs.edit().putFloat(KEY_SPATIAL_SURROUND, value).apply()
 
     var spatialAngle: Float
-        get() = prefs.getFloat(KEY_SPATIAL_ANGLE, 0.4f)
+        get() = prefs.getFloat(KEY_SPATIAL_ANGLE, 0.45f)
         set(value) = prefs.edit().putFloat(KEY_SPATIAL_ANGLE, value).apply()
 
     companion object {

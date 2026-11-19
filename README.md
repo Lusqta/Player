@@ -6,25 +6,25 @@ Um reprodutor de música offline de alta fidelidade para Android, combinando um 
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.0-purple?logo=kotlin)
 ![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202024-blue?logo=jetpackcompose)
 ![License](https://img.shields.io/badge/License-Open%20Source%20(MIT)-success)
-[![Download APK](https://img.shields.io/badge/⬇️%20Download-v1.1.0-00C853?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Lusqta/Player/releases/download/v1.1.0/AuroPlayer-v1.1.0.apk)
+[![Download APK](https://img.shields.io/badge/⬇️%20Download-v1.1.1-00C853?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Lusqta/Player/releases/download/v1.1.1/AuroPlayer-v1.1.1.apk)
 [![Releases](https://img.shields.io/badge/📦%20Ver-Releases-blue?style=for-the-badge&logo=github)](https://github.com/Lusqta/Player/releases)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/Lusqta/Player/build-apk.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Lusqta/Player/actions)
 
 ---
 
-## 📲 Download do APK (v1.1.0)
+## 📲 Download do APK (v1.1.1)
 
 Para baixar e instalar o **Aurō Player** no seu Android:
 
-* 👉 **[⬇️ CLIQUE AQUI PARA BAIXAR: `AuroPlayer-v1.1.0.apk`](https://github.com/Lusqta/Player/releases/download/v1.1.0/AuroPlayer-v1.1.0.apk)**
+* 👉 **[⬇️ CLIQUE AQUI PARA BAIXAR: `AuroPlayer-v1.1.1.apk`](https://github.com/Lusqta/Player/releases/download/v1.1.1/AuroPlayer-v1.1.1.apk)**
 * 🔄 **[⬇️ Baixar Sempre a Última Versão (`AuroPlayer-latest.apk`)](https://github.com/Lusqta/Player/releases/latest/download/AuroPlayer-latest.apk)**
 * 📦 **[Página com Todas as Releases](https://github.com/Lusqta/Player/releases)**
 
 > 💡 **Como instalar:**
-> 1. Toque no link acima para baixar o `AuroPlayer-v1.1.0.apk`.
+> 1. Toque no link acima para baixar o `AuroPlayer-v1.1.1.apk`.
 > 2. Ao terminar o download no celular, toque na notificação para abrir.
 > 3. Se solicitado, permita a instalação de apps desta fonte nas configurações.
-> 4. Toque em **Instalar** (ou **Atualizar**)! No app, vá em **Menu (⋮) → Sobre** para confirmar a versão `v1.1.0`.
+> 4. Toque em **Instalar** (ou **Atualizar**)! No app, vá em **Menu (⋮) → Sobre** para confirmar a versão `v1.1.1`.
 
 ---
 

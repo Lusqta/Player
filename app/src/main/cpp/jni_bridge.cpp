@@ -1,8 +1,6 @@
 #include <jni.h>
 #include "audio_engine.h"
 
-static AudioEngine* gEngine = nullptr;
-
 static inline AudioEngine* getEngine(jlong handle) {
     return reinterpret_cast<AudioEngine*>(handle);
 }
@@ -13,7 +11,6 @@ JNIEXPORT jlong JNICALL
 Java_com_lucas_player_AudioEngine_nativeCreate(JNIEnv* /*env*/, jobject /*thiz*/) {
     try {
         auto* engine = new AudioEngine();
-        gEngine = engine;
         return reinterpret_cast<jlong>(engine);
     } catch (...) {
         return 0;
@@ -24,9 +21,6 @@ JNIEXPORT void JNICALL
 Java_com_lucas_player_AudioEngine_nativeDestroy(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle) {
     try {
         auto* engine = getEngine(handle);
-        if (gEngine == engine) {
-            gEngine = nullptr;
-        }
         delete engine;
     } catch (...) {
         // Suppress any C++ exception crossing to JVM
@@ -337,21 +331,30 @@ Java_com_lucas_player_AudioEngine_nativeScanWaveform(JNIEnv* env, jobject /*thiz
     }
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_lucas_player_AudioEngine_nativeSetSpatialMode(JNIEnv* /*env*/, jobject /*thiz*/, jint mode) {
-    if (gEngine) gEngine->setSpatialMode(mode);
+JNIEXPORT void JNICALL
+Java_com_lucas_player_AudioEngine_nativeSetSpatialMode(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jint mode) {
+    try {
+        auto* engine = getEngine(handle);
+        if (engine) engine->setSpatialMode(mode);
+    } catch (...) {}
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_lucas_player_AudioEngine_nativeSetSpatialPreset(JNIEnv* /*env*/, jobject /*thiz*/, jint preset, jfloat intensity) {
-    if (gEngine) gEngine->setSpatialPreset(preset, intensity);
+JNIEXPORT void JNICALL
+Java_com_lucas_player_AudioEngine_nativeSetSpatialPreset(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jint preset, jfloat intensity) {
+    try {
+        auto* engine = getEngine(handle);
+        if (engine) engine->setSpatialPreset(preset, intensity);
+    } catch (...) {}
 }
 
-extern "C" JNIEXPORT void JNICALL
+JNIEXPORT void JNICALL
 Java_com_lucas_player_AudioEngine_nativeSetSpatialProParams(
-        JNIEnv* /*env*/, jobject /*thiz*/,
+        JNIEnv* /*env*/, jobject /*thiz*/, jlong handle,
         jfloat subCutoffHz, jfloat midGainDb, jfloat sideWidth, jfloat surroundAmbience, jfloat speakerAngle) {
-    if (gEngine) gEngine->setSpatialProParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle);
+    try {
+        auto* engine = getEngine(handle);
+        if (engine) engine->setSpatialProParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle);
+    } catch (...) {}
 }
 
 } // extern "C"

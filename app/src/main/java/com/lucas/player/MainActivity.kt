@@ -144,12 +144,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     // Áudio Espacial (DSP Binaural)
     private val spatialModeState = mutableIntStateOf(0)
     private val spatialPresetState = mutableIntStateOf(0)
-    private val spatialIntensityState = mutableFloatStateOf(0.75f)
+    private val spatialIntensityState = mutableFloatStateOf(0.85f)
     private val spatialSubCutoffState = mutableFloatStateOf(120f)
-    private val spatialMidGainState = mutableFloatStateOf(0f)
-    private val spatialSideWidthState = mutableFloatStateOf(1.3f)
-    private val spatialSurroundState = mutableFloatStateOf(0.35f)
-    private val spatialAngleState = mutableFloatStateOf(0.4f)
+    private val spatialMidGainState = mutableFloatStateOf(1.2f)
+    private val spatialSideWidthState = mutableFloatStateOf(1.45f)
+    private val spatialSurroundState = mutableFloatStateOf(0.45f)
+    private val spatialAngleState = mutableFloatStateOf(0.45f)
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -1048,16 +1048,16 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     },
                                     onResetSpatialPro = {
                                         spatialSubCutoffState.floatValue = 120f
-                                        spatialMidGainState.floatValue = 0f
-                                        spatialSideWidthState.floatValue = 1.3f
-                                        spatialSurroundState.floatValue = 0.35f
-                                        spatialAngleState.floatValue = 0.4f
-                                        playbackService?.setSpatialProParams(120f, 0f, 1.3f, 0.35f, 0.4f)
+                                        spatialMidGainState.floatValue = 1.2f
+                                        spatialSideWidthState.floatValue = 1.45f
+                                        spatialSurroundState.floatValue = 0.45f
+                                        spatialAngleState.floatValue = 0.45f
+                                        playbackService?.setSpatialProParams(120f, 1.2f, 1.45f, 0.45f, 0.45f)
                                         preferencesManager.spatialSubCutoff = 120f
-                                        preferencesManager.spatialMidGain = 0f
-                                        preferencesManager.spatialSideWidth = 1.3f
-                                        preferencesManager.spatialSurround = 0.35f
-                                        preferencesManager.spatialAngle = 0.4f
+                                        preferencesManager.spatialMidGain = 1.2f
+                                        preferencesManager.spatialSideWidth = 1.45f
+                                        preferencesManager.spatialSurround = 0.45f
+                                        preferencesManager.spatialAngle = 0.45f
                                     },
                                     onClose = { navController.navigateUp() },
                                     modifier = Modifier.fillMaxSize()

@@ -37,8 +37,17 @@ public:
     }
 
     void setMode(int mode) {
-        mMode.store(std::clamp(mode, 0, 2), std::memory_order_relaxed);
+        int clamped = std::clamp(mode, 0, 2);
+        mMode.store(clamped, std::memory_order_relaxed);
         updateInternalTargets();
+        if (clamped != MODE_OFF) {
+            mCurSubCutoffHz = mTargetSubCutoffHz.load(std::memory_order_relaxed);
+            mCurMidGain = mTargetMidGainLinear.load(std::memory_order_relaxed);
+            mCurSideWidth = mTargetSideWidth.load(std::memory_order_relaxed);
+            mCurSurround = mTargetSurround.load(std::memory_order_relaxed);
+            mCurAngle = mTargetAngle.load(std::memory_order_relaxed);
+            updateCrossoverCoeffs(mCurSubCutoffHz, static_cast<float>(mSampleRate.load(std::memory_order_relaxed)));
+        }
     }
 
     void setStandardPreset(int preset, float intensity) {
@@ -112,7 +121,11 @@ public:
         const float targetSurround = mTargetSurround.load(std::memory_order_relaxed);
         const float targetAngle = mTargetAngle.load(std::memory_order_relaxed);
 
-        const float smooth = 0.0025f;
+        if (std::fabs(targetCutoff - mLastCalcCutoffHz) > 0.5f) {
+            updateCrossoverCoeffs(targetCutoff, sr);
+        }
+
+        const float smooth = 0.005f;
 
         for (int i = 0; i < numFrames; ++i) {
             mCurSubCutoffHz += (targetCutoff - mCurSubCutoffHz) * smooth;
@@ -120,11 +133,6 @@ public:
             mCurSideWidth += (targetSideWidth - mCurSideWidth) * smooth;
             mCurSurround += (targetSurround - mCurSurround) * smooth;
             mCurAngle += (targetAngle - mCurAngle) * smooth;
-
-            // Recalcula coeficientes do crossover LR4 apenas quando a frequência muda
-            if (std::fabs(mCurSubCutoffHz - mLastCalcCutoffHz) > 0.2f) {
-                updateCrossoverCoeffs(mCurSubCutoffHz, sr);
-            }
 
             const float inL = buffer[i * 2];
             const float inR = buffer[i * 2 + 1];
@@ -234,11 +242,10 @@ public:
 
             mWriteIdx = (mWriteIdx + 1) & kBufferMask;
 
-            // 6. Recombinação + Compensação Automática de Volume Percebido
-            const float energyComp = 1.0f / (1.0f + mCurSurround * 0.16f + mCurAngle * 0.09f + std::max(0.0f, mCurSideWidth - 1.0f) * 0.08f);
-
-            const float outL = lowL + (directL + contralateralL + roomOutL) * energyComp;
-            const float outR = lowR + (directR + contralateralR + roomOutR) * energyComp;
+            // 6. Recombinação com preservação da energia direta e imersão acústica
+            const float directScale = 1.0f / (1.0f + mCurSurround * 0.05f);
+            const float outL = lowL + directL * directScale + (contralateralL + roomOutL);
+            const float outR = lowR + directR * directScale + (contralateralR + roomOutR);
 
             // 7. Soft-Limiter Racional de Estúdio
             buffer[i * 2] = softLimit(outL);
@@ -358,22 +365,22 @@ private:
             const float k = mStandardIntensity.load(std::memory_order_relaxed);
 
             float cutoff = 120.0f;
-            float midDb = 0.6f;
-            float width = 1.32f;
-            float sur = 0.35f;
-            float angle = 0.40f;
+            float midDb = 1.2f;
+            float width = 1.45f;
+            float sur = 0.45f;
+            float angle = 0.45f;
 
             if (preset == PRESET_CINEMA) {
                 cutoff = 135.0f;
-                midDb = 1.6f;
-                width = 1.60f;
+                midDb = 2.4f;
+                width = 1.70f;
                 sur = 0.65f;
-                angle = 0.55f;
+                angle = 0.60f;
             } else if (preset == PRESET_STAGE) {
-                cutoff = 105.0f;
-                midDb = -0.3f;
-                width = 1.80f;
-                sur = 0.78f;
+                cutoff = 110.0f;
+                midDb = 0.8f;
+                width = 1.95f;
+                sur = 0.80f;
                 angle = 0.70f;
             }
 

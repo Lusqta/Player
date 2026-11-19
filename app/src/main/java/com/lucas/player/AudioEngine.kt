@@ -190,12 +190,12 @@ class AudioEngine {
 
     fun setSpatialMode(mode: Int) {
         if (nativeHandle == 0L) return
-        nativeSetSpatialMode(mode)
+        nativeSetSpatialMode(nativeHandle, mode)
     }
 
     fun setSpatialPreset(preset: Int, intensity: Float) {
         if (nativeHandle == 0L) return
-        nativeSetSpatialPreset(preset, intensity)
+        nativeSetSpatialPreset(nativeHandle, preset, intensity)
     }
 
     fun setSpatialProParams(
@@ -206,7 +206,7 @@ class AudioEngine {
         speakerAngle: Float
     ) {
         if (nativeHandle == 0L) return
-        nativeSetSpatialProParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle)
+        nativeSetSpatialProParams(nativeHandle, subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle)
     }
 
     /**
@@ -268,9 +268,10 @@ class AudioEngine {
     private external fun nativeSetMono(handle: Long, mono: Boolean)
     private external fun nativeIsMono(handle: Long): Boolean
     private external fun nativeScanWaveform(fd: Int, numPoints: Int): FloatArray?
-    private external fun nativeSetSpatialMode(mode: Int)
-    private external fun nativeSetSpatialPreset(preset: Int, intensity: Float)
+    private external fun nativeSetSpatialMode(handle: Long, mode: Int)
+    private external fun nativeSetSpatialPreset(handle: Long, preset: Int, intensity: Float)
     private external fun nativeSetSpatialProParams(
+        handle: Long,
         subCutoffHz: Float,
         midGainDb: Float,
         sideWidth: Float,
