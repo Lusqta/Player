@@ -46,9 +46,15 @@ public:
         mTargetElevation.store(std::clamp(elevationNorm, -1.0f, 1.0f), std::memory_order_relaxed);
     }
 
+    void requestReset() {
+        mResetRequested.store(true, std::memory_order_release);
+    }
+
     void resetState() {
         mFifoCount = 0;
-        mOutReadPos = kBlockSize;
+        mOutFifoL.fill(0.0f);
+        mOutFifoR.fill(0.0f);
+        mOutReadPos = 0;
         mDelayWriteIdx = 0;
         mSurDelayL.fill(0.0f);
         mSurDelayR.fill(0.0f);
@@ -66,6 +72,10 @@ public:
     void process(float* buffer, int numFrames) {
         if (!mReady.load(std::memory_order_acquire) || buffer == nullptr || numFrames <= 0) {
             return;
+        }
+
+        if (mResetRequested.exchange(false, std::memory_order_acq_rel)) {
+            resetState();
         }
 
         for (int i = 0; i < numFrames; ++i) {
@@ -362,6 +372,7 @@ private:
     }
 
     std::atomic<bool> mReady{false};
+    std::atomic<bool> mResetRequested{false};
     std::atomic<int> mSampleRate{48000};
 
     IPLContext mContext = nullptr;
@@ -408,5 +419,5 @@ private:
     IPLAudioBuffer mOutBufDesc{};
 
     int mFifoCount = 0;
-    int mOutReadPos = kBlockSize;
+    int mOutReadPos = 0;
 };

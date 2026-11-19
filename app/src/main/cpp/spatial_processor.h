@@ -43,10 +43,8 @@ public:
     void setMode(int mode) {
         int clamped = std::clamp(mode, 0, 2);
         mMode.store(clamped, std::memory_order_relaxed);
-        if (clamped == MODE_DOLBY_STANDARD) {
-            applyJdspPreset(mPreset.load(std::memory_order_relaxed));
-        } else if (clamped == MODE_SPATIAL_PRO) {
-            mSteamPro.resetState();
+        if (clamped == MODE_SPATIAL_PRO) {
+            mSteamPro.requestReset();
         }
     }
 
@@ -54,7 +52,6 @@ public:
         const int p = std::clamp(preset, 0, 2);
         mPreset.store(p, std::memory_order_relaxed);
         mStandardIntensity.store(std::clamp(intensity, 0.0f, 1.0f), std::memory_order_relaxed);
-        applyJdspPreset(p);
     }
 
     void setProParams(float subCutoffHz, float midGainDb, float sideWidth,
@@ -73,7 +70,7 @@ public:
         mStdLp1R.reset(); mStdLp2R.reset();
         mStdHp1L.reset(); mStdHp2L.reset();
         mStdHp1R.reset(); mStdHp2R.reset();
-        mSteamPro.resetState();
+        mSteamPro.requestReset();
     }
 
     // Processa buffer float32 intercalado (L, R, L, R...)
@@ -155,6 +152,8 @@ private:
         mJdspLib->tmpBuffer[0] = mJdspBlockL.data();
         mJdspLib->tmpBuffer[1] = mJdspBlockR.data();
 
+        // Inicializa Stereo Enhancement (Stereo Widen)
+        StereoEnhancementConstructor(mJdspLib.get());
         StereoEnhancementRefresh(mJdspLib.get());
         StereoEnhancementEnable(mJdspLib.get());
 
