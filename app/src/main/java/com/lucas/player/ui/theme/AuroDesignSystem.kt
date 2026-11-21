@@ -29,6 +29,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -724,9 +725,26 @@ fun LiquidGlassSurface(
             .onGloballyPositioned { coordinates ->
                 topLeft = coordinates.boundsInWindow().topLeft
             }
-            .then(clickModifier)
+            .then(clickModifier),
+        contentAlignment = Alignment.Center
     ) {
-        // Fundo (irmão 1, matchParentSize()): desenha backdropLayer com blur e shader AGSL
+        // Irmão 1 (matchParentSize()): apenas quando backdropLayer != null && API >= 33 && !reduceTransparency
+        if (backdropLayer != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !reduceTransparency) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .graphicsLayer {
+                        renderEffect = BlurEffect(blurRadius.toPx(), blurRadius.toPx())
+                    }
+                    .drawWithContent {
+                        translate(left = -topLeft.x, top = -topLeft.y) {
+                            drawLayer(backdropLayer)
+                        }
+                    }
+            )
+        }
+
+        // Irmão 2 (matchParentSize()): desenha o IOS_LIQUID_GLASS_AGSL (nítido, fora do BlurEffect) + border
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !reduceTransparency) {
             val shader = remember { RuntimeShader(IOS_LIQUID_GLASS_AGSL) }
             val brush = remember(shader) { ShaderBrush(shader) }
@@ -736,17 +754,6 @@ fun LiquidGlassSurface(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .graphicsLayer {
-                        renderEffect = BlurEffect(blurRadius.toPx(), blurRadius.toPx())
-                    }
-                    .drawWithContent {
-                        if (backdropLayer != null) {
-                            translate(left = -topLeft.x, top = -topLeft.y) {
-                                drawLayer(backdropLayer)
-                            }
-                        }
-                        drawContent()
-                    }
                     .drawBehind {
                         val l = light()
                         val a = accent.a.value
@@ -763,6 +770,7 @@ fun LiquidGlassSurface(
                         shader.setFloatUniform("uTintAlpha", tintAlpha)
                         drawRect(brush)
                     }
+                    .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
             )
         } else {
             // Fallback elegante para API < 33 ou quando reduceTransparency == true
@@ -770,21 +778,12 @@ fun LiquidGlassSurface(
                 modifier = Modifier
                     .matchParentSize()
                     .background(AuroColor.SurfaceGrouped.copy(alpha = 0.94f), shape)
+                    .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
             )
         }
 
-        // Borda fina seca de 1.dp com especular sutil
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
-        )
-
-        // Conteúdo (irmão 2): renderizado nítido por cima, SEM qualquer BlurEffect!
-        Box(
-            modifier = Modifier,
-            content = content
-        )
+        // Irmão 3: renderiza content 100% nítido, preservando centralização e fillMaxSize()
+        content()
     }
 }
 

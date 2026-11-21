@@ -53,6 +53,7 @@ import com.lucas.player.queue.ShuffleMode
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -413,20 +414,24 @@ fun AuroNowPlayingScreen(
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
+                                    var isHold = false
                                     val job = coroutineScope.launch {
-                                        kotlinx.coroutines.delay(350)
+                                        delay(350L)
+                                        isHold = true
                                         AuroHaptics.sliderTick(view)
                                         onBeginRewind()
                                     }
-                                    val released = tryAwaitRelease()
-                                    job.cancel()
-                                    if (released) {
-                                        onEndRewind()
+                                    try {
+                                        val released = tryAwaitRelease()
+                                        job.cancel()
+                                        if (!isHold && released) {
+                                            AuroHaptics.click(view)
+                                            onPrevious()
+                                        }
+                                    } finally {
+                                        job.cancel()
+                                        if (isHold) onEndRewind()
                                     }
-                                },
-                                onTap = {
-                                    AuroHaptics.click(view)
-                                    onPrevious()
                                 }
                             )
                         },
@@ -463,20 +468,24 @@ fun AuroNowPlayingScreen(
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
+                                    var isHold = false
                                     val job = coroutineScope.launch {
-                                        kotlinx.coroutines.delay(350)
+                                        delay(350L)
+                                        isHold = true
                                         AuroHaptics.sliderTick(view)
                                         onBeginFastForward()
                                     }
-                                    val released = tryAwaitRelease()
-                                    job.cancel()
-                                    if (released) {
-                                        onEndFastForward()
+                                    try {
+                                        val released = tryAwaitRelease()
+                                        job.cancel()
+                                        if (!isHold && released) {
+                                            AuroHaptics.click(view)
+                                            onNext()
+                                        }
+                                    } finally {
+                                        job.cancel()
+                                        if (isHold) onEndFastForward()
                                     }
-                                },
-                                onTap = {
-                                    AuroHaptics.click(view)
-                                    onNext()
                                 }
                             )
                         },

@@ -30,6 +30,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -725,9 +726,26 @@ fun LiquidGlassSurface(
             .onGloballyPositioned { coordinates ->
                 topLeft = coordinates.boundsInWindow().topLeft
             }
-            .then(clickModifier)
+            .then(clickModifier),
+        contentAlignment = Alignment.Center
     ) {
-        // Fundo (irmão 1, matchParentSize()): desenha backdropLayer com blur e shader AGSL
+        // Irmão 1 (matchParentSize()): apenas quando backdropLayer != null && API >= 33 && !reduceTransparency
+        if (backdropLayer != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !reduceTransparency) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .graphicsLayer {
+                        renderEffect = BlurEffect(blurRadius.toPx(), blurRadius.toPx())
+                    }
+                    .drawWithContent {
+                        translate(left = -topLeft.x, top = -topLeft.y) {
+                            drawLayer(backdropLayer)
+                        }
+                    }
+            )
+        }
+
+        // Irmão 2 (matchParentSize()): desenha o IOS_LIQUID_GLASS_AGSL (nítido, fora do BlurEffect) + border
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !reduceTransparency) {
             val shader = remember { RuntimeShader(IOS_LIQUID_GLASS_AGSL) }
             val brush = remember(shader) { ShaderBrush(shader) }
@@ -737,17 +755,6 @@ fun LiquidGlassSurface(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .graphicsLayer {
-                        renderEffect = BlurEffect(blurRadius.toPx(), blurRadius.toPx())
-                    }
-                    .drawWithContent {
-                        if (backdropLayer != null) {
-                            translate(left = -topLeft.x, top = -topLeft.y) {
-                                drawLayer(backdropLayer)
-                            }
-                        }
-                        drawContent()
-                    }
                     .drawBehind {
                         val l = light()
                         val a = accent.a.value
@@ -764,6 +771,7 @@ fun LiquidGlassSurface(
                         shader.setFloatUniform("uTintAlpha", tintAlpha)
                         drawRect(brush)
                     }
+                    .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
             )
         } else {
             // Fallback elegante para API < 33 ou quando reduceTransparency == true
@@ -771,21 +779,12 @@ fun LiquidGlassSurface(
                 modifier = Modifier
                     .matchParentSize()
                     .background(AuroColor.SurfaceGrouped.copy(alpha = 0.94f), shape)
+                    .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
             )
         }
 
-        // Borda fina seca de 1.dp com especular sutil
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
-        )
-
-        // Conteúdo (irmão 2): renderizado nítido por cima, SEM qualquer BlurEffect!
-        Box(
-            modifier = Modifier,
-            content = content
-        )
+        // Irmão 3: renderiza content 100% nítido, preservando centralização e fillMaxSize()
+        content()
     }
 }
 
@@ -983,6 +982,7 @@ package com.lucas.player.ui.components
 
 import android.content.Context
 import android.graphics.Bitmap
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.unit.Dp
 import kotlin.math.abs
 import androidx.compose.animation.animateColorAsState
@@ -1586,7 +1586,7 @@ fun AppleVolumeSlider(
             }
         }
         val filter = android.content.IntentFilter("android.media.VOLUME_CHANGED_ACTION")
-        context.registerReceiver(receiver, filter)
+        ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         onDispose {
             try {
                 context.unregisterReceiver(receiver)
@@ -5305,6 +5305,7 @@ import com.lucas.player.queue.ShuffleMode
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -5665,20 +5666,24 @@ fun AuroNowPlayingScreen(
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
+                                    var isHold = false
                                     val job = coroutineScope.launch {
-                                        kotlinx.coroutines.delay(350)
+                                        delay(350L)
+                                        isHold = true
                                         AuroHaptics.sliderTick(view)
                                         onBeginRewind()
                                     }
-                                    val released = tryAwaitRelease()
-                                    job.cancel()
-                                    if (released) {
-                                        onEndRewind()
+                                    try {
+                                        val released = tryAwaitRelease()
+                                        job.cancel()
+                                        if (!isHold && released) {
+                                            AuroHaptics.click(view)
+                                            onPrevious()
+                                        }
+                                    } finally {
+                                        job.cancel()
+                                        if (isHold) onEndRewind()
                                     }
-                                },
-                                onTap = {
-                                    AuroHaptics.click(view)
-                                    onPrevious()
                                 }
                             )
                         },
@@ -5715,20 +5720,24 @@ fun AuroNowPlayingScreen(
                         .pointerInput(Unit) {
                             detectTapGestures(
                                 onPress = {
+                                    var isHold = false
                                     val job = coroutineScope.launch {
-                                        kotlinx.coroutines.delay(350)
+                                        delay(350L)
+                                        isHold = true
                                         AuroHaptics.sliderTick(view)
                                         onBeginFastForward()
                                     }
-                                    val released = tryAwaitRelease()
-                                    job.cancel()
-                                    if (released) {
-                                        onEndFastForward()
+                                    try {
+                                        val released = tryAwaitRelease()
+                                        job.cancel()
+                                        if (!isHold && released) {
+                                            AuroHaptics.click(view)
+                                            onNext()
+                                        }
+                                    } finally {
+                                        job.cancel()
+                                        if (isHold) onEndFastForward()
                                     }
-                                },
-                                onTap = {
-                                    AuroHaptics.click(view)
-                                    onNext()
                                 }
                             )
                         },
@@ -7200,6 +7209,7 @@ import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.LiquidGlassSurface
 import com.lucas.player.ui.theme.LocalAuroAccent
 import com.lucas.player.ui.theme.LocalAuroBottomInset
+import com.lucas.player.ui.theme.LocalAuroSoft
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -7334,7 +7344,7 @@ fun AuroSearchScreen(
         // Campo de busca em pílula LiquidGlassSurface (48dp, CircleShape)
         LiquidGlassSurface(
             shape = CircleShape,
-            soft = 0.5f,
+            soft = LocalAuroSoft.current,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
@@ -11110,7 +11120,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                     CompositionLocalProvider(
                         LocalAuroBottomInset provides activeBottomInset,
                         LocalAuroIsPlaying provides isPlaying,
-                        LocalBackdropLayer provides backdropLayer
+                        LocalBackdropLayer provides null
                     ) {
                         Box(
                             modifier = Modifier
@@ -11255,7 +11265,10 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 } else Modifier
                             )
                     ) {
-                        AnimatedContent(
+                        CompositionLocalProvider(
+                            LocalBackdropLayer provides null
+                        ) {
+                            AnimatedContent(
                             targetState = currentScreen,
                             transitionSpec = {
                                 if (reduceMotion) {
@@ -12054,7 +12067,11 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             }
                         }
                     }
+                }
 
+                CompositionLocalProvider(
+                    LocalBackdropLayer provides backdropLayer
+                ) {
                     // AuroSnackbarHost posicionado acima do mini player / navbar (Fase 5.4: insets medidos)
                     val snackbarBottomPadding = if (currentScreen is NavScreen.NowPlaying) {
                         16.dp
@@ -12309,6 +12326,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             },
                             onDismiss = { deletePresetTargetState.value = null }
                         )
+                    }
                     }
                 }
             }

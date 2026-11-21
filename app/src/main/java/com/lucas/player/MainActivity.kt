@@ -476,7 +476,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                     CompositionLocalProvider(
                         LocalAuroBottomInset provides activeBottomInset,
                         LocalAuroIsPlaying provides isPlaying,
-                        LocalBackdropLayer provides backdropLayer
+                        LocalBackdropLayer provides null
                     ) {
                         Box(
                             modifier = Modifier
@@ -621,7 +621,10 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 } else Modifier
                             )
                     ) {
-                        AnimatedContent(
+                        CompositionLocalProvider(
+                            LocalBackdropLayer provides null
+                        ) {
+                            AnimatedContent(
                             targetState = currentScreen,
                             transitionSpec = {
                                 if (reduceMotion) {
@@ -1420,7 +1423,11 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             }
                         }
                     }
+                }
 
+                CompositionLocalProvider(
+                    LocalBackdropLayer provides backdropLayer
+                ) {
                     // AuroSnackbarHost posicionado acima do mini player / navbar (Fase 5.4: insets medidos)
                     val snackbarBottomPadding = if (currentScreen is NavScreen.NowPlaying) {
                         16.dp
@@ -1675,6 +1682,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             },
                             onDismiss = { deletePresetTargetState.value = null }
                         )
+                    }
                     }
                 }
             }

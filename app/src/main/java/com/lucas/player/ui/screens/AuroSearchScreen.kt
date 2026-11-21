@@ -67,6 +67,7 @@ import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.LiquidGlassSurface
 import com.lucas.player.ui.theme.LocalAuroAccent
 import com.lucas.player.ui.theme.LocalAuroBottomInset
+import com.lucas.player.ui.theme.LocalAuroSoft
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -201,7 +202,7 @@ fun AuroSearchScreen(
         // Campo de busca em pílula LiquidGlassSurface (48dp, CircleShape)
         LiquidGlassSurface(
             shape = CircleShape,
-            soft = 0.5f,
+            soft = LocalAuroSoft.current,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)

@@ -2,6 +2,7 @@ package com.lucas.player.ui.components
 
 import android.content.Context
 import android.graphics.Bitmap
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.unit.Dp
 import kotlin.math.abs
 import androidx.compose.animation.animateColorAsState
@@ -605,7 +606,7 @@ fun AppleVolumeSlider(
             }
         }
         val filter = android.content.IntentFilter("android.media.VOLUME_CHANGED_ACTION")
-        context.registerReceiver(receiver, filter)
+        ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         onDispose {
             try {
                 context.unregisterReceiver(receiver)
