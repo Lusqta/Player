@@ -162,9 +162,9 @@ fun AuroNowPlayingScreen(
         }
     }
 
-    // Viewport Fixo com Fundo Mesh Animado (Zero scroll do container principal)
-    LiquidMeshBackground(
-        isPlaying = isPlaying,
+    // Viewport com Fundo Ambient Bleed Suave
+    AmbientBleedBackground(
+        color = accent,
         modifier = modifier
             .fillMaxSize()
             .graphicsLayer {
@@ -445,21 +445,12 @@ fun AuroNowPlayingScreen(
                     )
                 }
 
-                // Play / Pause (Sem círculo branco no padrão Apple Music 7.0.2)
-                IconButton(
-                    onClick = {
-                        AuroHaptics.click(view)
-                        onPlayPause()
-                    },
-                    modifier = Modifier.size(64.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = if (isPlaying) stringResource(R.string.cd_pause) else stringResource(R.string.cd_play),
-                        tint = Color.White,
-                        modifier = Modifier.size(48.dp)
-                    )
-                }
+                // Play / Pause (TranslucentPlayButton no padrão Editorial Dark OLED)
+                TranslucentPlayButton(
+                    isPlaying = isPlaying,
+                    size = 56.dp,
+                    onClick = onPlayPause
+                )
 
                 // Próxima Faixa com toque curto (onNext) e hold (onBeginFastForward / onEndFastForward)
                 Box(
@@ -689,7 +680,7 @@ private fun ArtworkView(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Título e Artista com botão de Estrela de Favorito
+        // Título e Artista com botão de Coração de Favorito
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -698,46 +689,39 @@ private fun ArtworkView(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = track.title,
-                    style = AuroType.SectionTitle.copy(
-                        fontSize = 22.sp,
-                        lineHeight = 26.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
+                    style = AuroType.NowPlayingTitle,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                    style = AuroType.Subtitle.copy(
-                        fontSize = 17.sp,
-                        lineHeight = 22.sp,
-                        color = AuroColor.TextSecondary
-                    ),
+                    style = AuroType.Subtitle.copy(color = AuroColor.TextSecondary),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            // Botão de Favorito (★)
+            // Botão de Favorito (Coração)
             val isFavorite = track.rating > 0
-            AuroGlass(
-                kind = AuroGlassKind.Button,
-                cornerRadius = 20.dp,
-                modifier = Modifier.size(40.dp),
-                onClick = {
-                    val nextRating = if (isFavorite) 0 else 5
-                    onRatingChanged(nextRating)
-                }
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(AuroColor.ControlGlass)
+                    .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                    .clickable {
+                        val nextRating = if (isFavorite) 0 else 5
+                        onRatingChanged(nextRating)
+                    },
+                contentAlignment = Alignment.Center
             ) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                        contentDescription = stringResource(if (isFavorite) R.string.cd_unfavorite else R.string.cd_favorite),
-                        tint = if (isFavorite) AuroColor.FavoriteYellow else AuroColor.TextPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                Icon(
+                    imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    contentDescription = stringResource(if (isFavorite) R.string.cd_unfavorite else R.string.cd_favorite),
+                    tint = if (isFavorite) Color.White else AuroColor.TextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

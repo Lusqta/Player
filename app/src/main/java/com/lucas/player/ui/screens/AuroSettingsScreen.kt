@@ -86,7 +86,7 @@ fun AuroSettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(AuroColor.Black)
+            .background(AuroColor.Canvas)
     ) {
         AuroTopBar(
             title = stringResource(R.string.settings_title),

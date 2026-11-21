@@ -89,7 +89,7 @@ fun AuroCategoryListScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(AuroColor.Black)
+            .background(AuroColor.Canvas)
     ) {
         AuroTopBar(
             title = stringResource(category.getTitleRes()),
@@ -180,7 +180,6 @@ fun AuroCategoryListScreen(
                     }
                 }
             }
-            HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
         }
 
         // Ação de Nova Lista de Reprodução
@@ -207,7 +206,6 @@ fun AuroCategoryListScreen(
                     )
                 )
             }
-            HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
         }
 
         val coroutineScope = rememberCoroutineScope()
@@ -248,11 +246,6 @@ fun AuroCategoryListScreen(
                                 },
                                 onLongClick = { onTrackLongClick(track) },
                                 onMenuClick = { onTrackMenuClick(track) }
-                            )
-                            HorizontalDivider(
-                                modifier = Modifier.padding(start = 80.dp),
-                                color = AuroColor.Hairline,
-                                thickness = 1.dp
                             )
                         }
                     }
@@ -346,11 +339,6 @@ fun AuroCategoryListScreen(
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
-                            HorizontalDivider(
-                                modifier = Modifier.padding(start = 66.dp),
-                                color = AuroColor.Hairline,
-                                thickness = 1.dp
-                            )
                         }
                     }
 

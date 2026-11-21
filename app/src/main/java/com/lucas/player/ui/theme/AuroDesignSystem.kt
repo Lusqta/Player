@@ -73,6 +73,7 @@ import androidx.compose.ui.platform.LocalGraphicsContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -103,101 +104,111 @@ import kotlinx.coroutines.withContext
  * - Fundo Mesh Animado (Now Playing) misturando 4 cores profundas da capa com rotação lenta.
  */
 
-// ───────────────────────────── Tokens Apple Music ─────────────────────────────
+// ───────────────────────────── Tokens Editorial Dark OLED ─────────────────────────────
 
 object AuroColor {
-    val Canvas = Color(0xFF000000)                      // Preto OLED absoluto
+    val Canvas = Color(0xFF050505)                      // Fundo OLED profundo
     val Black = Canvas                                  // Alias
-    val SurfaceGrouped = Color(0xFF1C1C1E)              // Cards agrupados, platters iOS
-    val SurfaceElevated = Color(0xFF2C2C2E)             // Superfícies elevadas e botões
-    val Separator = Color.White.copy(alpha = 0.12f)     // Divisores inset 12% branco
-    val Hairline = Separator                            // Alias
+    val SurfaceCard = Color(0xFF141416)                 // Cards horizontais e agrupados
+    val SurfaceGrouped = Color(0xFF1C1C1E)              // Platters secundários e sheets
+    val SurfaceElevated = Color(0xFF262629)             // Superfícies elevadas
+    val NavBarBg = Color(0xE0161618)                    // Fundo da barra flutuante (88% opacidade)
+    val NavBarBorder = Color.White.copy(alpha = 0.08f)  // Borda sutil da navbar
+    val ControlGlass = Color.White.copy(alpha = 0.22f)  // Botões de controle translúcidos
+    val PillMuted = Color.White.copy(alpha = 0.12f)     // Pílulas secundárias ("Ver tudo")
     val TextPrimary = Color(0xFFFFFFFF)                 // Texto principal 100% branco
-    val TextSecondary = Color(0xFF8E8E93)               // Rótulos secundários System Gray
-    val TextTertiary = Color(0xFF636366)                // Rótulos terciários / desabilitados
-    val IconMono = Color(0xFFEBEBF5).copy(alpha = 0.85f)// Ícones monocromáticos translúcidos
-    val FavoriteYellow = Color(0xFFFFD60A)              // Estrela de favorito
-    val ToggleGreen = Color(0xFF34C759)                 // Chave ativa padrão iOS
+    val TextSecondary = Color.White.copy(alpha = 0.55f) // Rótulos secundários 55% branco
+    val TextTertiary = Color.White.copy(alpha = 0.28f)  // Rótulos terciários 28% branco
+    val ScrubberTrack = Color.White.copy(alpha = 0.20f) // Trilho inativo do scrubber
+    val ScrubberActive = Color(0xFFFFFFFF)              // Trilho ativo do scrubber branco puro
+    val Separator = Color.White.copy(alpha = 0.08f)     // Divisores sutis
+    val Hairline = Separator                            // Alias
+    val IconMono = Color(0xFFEBEBF5).copy(alpha = 0.85f)// Ícones monocromáticos
+    val FavoriteYellow = Color(0xFFFFD60A)              // Estrela/coração ativo
+    val ToggleGreen = Color(0xFF34C759)                 // Chave ativa padrão
     val Danger = Color(0xFFFF453A)                      // Ações destrutivas
-    val AppleBlueFallback = Color(0xFF0A84FF)           // Azul oficial Apple Music 7.0
-    val Track = Color(0xFF2D2D2D)                       // Trilho de barra inativo
+    val AppleBlueFallback = Color(0xFF0A84FF)           // Fallback de azul
+    val Track = ScrubberTrack                           // Alias
 }
 
 object AuroType {
-    val LargeTitle = TextStyle(
-        fontSize = 34.sp,
-        lineHeight = 41.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = (-0.5).sp,
+    val GreetingTitle = TextStyle(
+        fontSize = 26.sp,
+        lineHeight = 32.sp,
+        fontWeight = FontWeight.Medium,
+        color = AuroColor.TextPrimary
+    )
+    val HeroName = TextStyle(
+        fontSize = 30.sp,
+        lineHeight = 36.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = AuroColor.TextPrimary
+    )
+    val NowPlayingTitle = TextStyle(
+        fontSize = 20.sp,
+        lineHeight = 25.sp,
+        fontWeight = FontWeight.Medium,
         color = AuroColor.TextPrimary
     )
     val SectionTitle = TextStyle(
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = (-0.3).sp,
-        color = AuroColor.TextPrimary
-    )
-    val CardTitle = TextStyle(
-        fontSize = 18.sp,
-        lineHeight = 24.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = AuroColor.TextPrimary
-    )
-    val Body = TextStyle(
-        fontSize = 16.sp,
+        fontSize = 17.sp,
         lineHeight = 22.sp,
         fontWeight = FontWeight.SemiBold,
         color = AuroColor.TextPrimary
-    )
-    val TrackTitle = TextStyle(
-        fontSize = 16.sp,
-        lineHeight = 22.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = AuroColor.TextPrimary
-    )
-    val Subtitle = TextStyle(
-        fontSize = 14.sp,
-        lineHeight = 18.sp,
-        fontWeight = FontWeight.Normal,
-        color = AuroColor.TextSecondary
-    )
-    val Caption = TextStyle(
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        fontWeight = FontWeight.Medium,
-        color = AuroColor.TextSecondary
     )
     val LyricsActive = TextStyle(
-        fontSize = 30.sp,
-        lineHeight = 38.sp,
-        fontWeight = FontWeight.Bold,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
+        fontWeight = FontWeight.Medium,
+        textAlign = TextAlign.Center,
         color = AuroColor.TextPrimary
     )
     val LyricsInactive = TextStyle(
-        fontSize = 26.sp,
-        lineHeight = 34.sp,
-        fontWeight = FontWeight.Bold,
-        color = Color.White.copy(alpha = 0.38f)
+        fontSize = 17.sp,
+        lineHeight = 23.sp,
+        fontWeight = FontWeight.Normal,
+        textAlign = TextAlign.Center,
+        color = Color.White.copy(alpha = 0.28f)
+    )
+    val CardTitle = TextStyle(
+        fontSize = 14.sp,
+        lineHeight = 18.sp,
+        fontWeight = FontWeight.Medium,
+        color = AuroColor.TextPrimary
+    )
+    val TrackTitle = TextStyle(
+        fontSize = 13.5.sp,
+        lineHeight = 18.sp,
+        fontWeight = FontWeight.Normal,
+        color = AuroColor.TextPrimary
+    )
+    val Subtitle = TextStyle(
+        fontSize = 13.sp,
+        lineHeight = 17.sp,
+        fontWeight = FontWeight.Normal,
+        color = AuroColor.TextSecondary
+    )
+    val MicroLabel = TextStyle(
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        fontWeight = FontWeight.Medium,
+        color = Color.White.copy(alpha = 0.75f)
     )
 
-    // Aliases de retrocompatibilidade
-    val Display = LargeTitle
-    val Title = SectionTitle
+    // Aliases para manter total compatibilidade com o restante do app
+    val LargeTitle = GreetingTitle
+    val Body = TrackTitle
+    val Caption = Subtitle
     val Label = Subtitle
+    val Display = HeroName
+    val Title = SectionTitle
     val NavLabel = TextStyle(
         fontSize = 10.sp,
         lineHeight = 12.sp,
         fontWeight = FontWeight.Normal,
         color = AuroColor.TextSecondary
     )
-    val SectionHeader = TextStyle(
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 1.sp,
-        color = AuroColor.TextTertiary
-    )
+    val SectionHeader = MicroLabel.copy(letterSpacing = 1.sp)
     val FastScroller = TextStyle(
         fontSize = 8.5.sp,
         lineHeight = 10.sp,
@@ -245,13 +256,18 @@ object AuroHeight {
 }
 
 object AuroRadius {
-    val thumbnail = 6.dp
-    val card = 12.dp
-    val cover = 18.dp
-    val chip = 999.dp
-    val dock = 999.dp
-    val button = 999.dp
-    val sheet = 24.dp
+    val hero = 32.dp
+    val cover = 28.dp
+    val sheet = 28.dp
+    val card = 24.dp
+    val mix = 18.dp
+    val artist = 18.dp
+    val thumbnail = 8.dp
+    val pill = 999.dp
+
+    val chip = pill
+    val dock = pill
+    val button = pill
 }
 
 object AuroMotion {
@@ -317,8 +333,8 @@ object GlowTone {
         val b = (argb and 0xFF) / 255f
         val hsl = rgbToHsl(r, g, b)
         val h = hsl[0]
-        val s = (hsl[1] * 1.3f).coerceIn(0.40f, 0.95f)
-        val l = (hsl[2] * 0.55f).coerceIn(0.12f, 0.32f) // Luminância limitada para fundo elegante
+        val s = hsl[1].coerceIn(0.15f, 0.65f)
+        val l = hsl[2].coerceIn(0.12f, 0.26f) // Luminância suave limitada para ambient bleed atmosférico
         return Color(hslToArgb(h, s, l))
     }
 
@@ -654,33 +670,16 @@ fun AuroTheme(
     }
 }
 
-// ─────────────────────────── Liquid Glass Neutro ───────────────────────────
-
-val LocalBackdropLayer = compositionLocalOf<GraphicsLayer?> { null }
-
-@Composable
-fun rememberBackdropGraphicsLayer(): GraphicsLayer {
-    val context = LocalGraphicsContext.current
-    return remember(context) { context.createGraphicsLayer() }.also { layer ->
-        DisposableEffect(layer, context) {
-            onDispose {
-                context.releaseGraphicsLayer(layer)
-            }
-        }
-    }
-}
+// ─────────────────────────── Superfícies Editorial OLED ───────────────────────────
 
 enum class AuroGlassKind { Button, Card }
 
 /**
- * Superfície de Liquid Glass neutra e contida, fiel à experiência do Apple Music Android 7.0.2.
- * - Backdrop real via LocalBackdropLayer capturando a tela principal (API 33+)
- * - Camada traseira desfocada por BlurEffect e tingida por AGSL
- * - Conteúdo frontal 100% NÍTIDO e sem qualquer BlurEffect
- * - Grafite neutro (#121214) com opacidade controlada por `soft` (0.38 a 0.72)
- * - Refração esférica nas bordas externas de ~10dp guiada por SDF arredondado (sdRound)
- * - Borda seca fina de 1dp com especular discreto
- * - Fallback automático para API < 33 ou quando `reduceTransparency == true`
+ * Superfície limpa do design Editorial Dark OLED:
+ * - Fundo fosco translúcido (#18181B @ 82%) ou branco translúcido (#FFFFFF @ 22% para Button)
+ * - Borda fina e precisa de 0.5.dp a 10% branco
+ * - Zero blur/refração pesada, garantindo 120Hz constantes e leveza total
+ * - Animação de toque com escala 0.95f e mola spring(0.75f, 500f)
  */
 @Composable
 fun LiquidGlassSurface(
@@ -692,16 +691,11 @@ fun LiquidGlassSurface(
     content: @Composable BoxScope.() -> Unit
 ) {
     val view = LocalView.current
-    val density = LocalDensity.current.density
-    val reduceTransparency = LocalReduceTransparency.current
-    val backdropLayer = LocalBackdropLayer.current
-    var topLeft by remember { mutableStateOf(Offset.Zero) }
-
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val pressScale by animateFloatAsState(
-        targetValue = if (pressed) 0.96f else 1f,
-        animationSpec = AuroMotion.press(),
+        targetValue = if (pressed) 0.95f else 1f,
+        animationSpec = spring(dampingRatio = 0.75f, stiffness = 500f),
         label = "glassPressScale"
     )
 
@@ -712,8 +706,8 @@ fun LiquidGlassSurface(
         }
     } else Modifier
 
-    val blurRadius = (2f + 8f * soft.coerceIn(0f, 1f)).dp
-    val tintAlpha = 0.38f + 0.34f * soft.coerceIn(0f, 1f)
+    val isButton = shape == CircleShape
+    val surfaceColor = if (isButton) AuroColor.ControlGlass else Color(0xD118181B)
 
     Box(
         modifier = modifier
@@ -722,69 +716,12 @@ fun LiquidGlassSurface(
                 scaleY = pressScale
             }
             .clip(shape)
-            .onGloballyPositioned { coordinates ->
-                topLeft = coordinates.boundsInWindow().topLeft
-            }
+            .background(surfaceColor, shape)
+            .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
             .then(clickModifier),
-        contentAlignment = Alignment.Center
-    ) {
-        // Irmão 1 (matchParentSize()): apenas quando backdropLayer != null && API >= 33 && !reduceTransparency
-        if (backdropLayer != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !reduceTransparency) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .graphicsLayer {
-                        renderEffect = BlurEffect(blurRadius.toPx(), blurRadius.toPx())
-                    }
-                    .drawWithContent {
-                        translate(left = -topLeft.x, top = -topLeft.y) {
-                            drawLayer(backdropLayer)
-                        }
-                    }
-            )
-        }
-
-        // Irmão 2 (matchParentSize()): desenha o IOS_LIQUID_GLASS_AGSL (nítido, fora do BlurEffect) + border
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !reduceTransparency) {
-            val shader = remember { RuntimeShader(IOS_LIQUID_GLASS_AGSL) }
-            val brush = remember(shader) { ShaderBrush(shader) }
-            val light = LocalAuroLight.current
-            val accent = LocalAuroAccent.current
-
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .drawBehind {
-                        val l = light()
-                        val a = accent.a.value
-                        val rPx = if (shape == CircleShape) min(size.width, size.height) / 2f
-                        else if (shape is RoundedCornerShape) shape.topStart.toPx(size, this)
-                        else 16.dp.toPx()
-
-                        shader.setFloatUniform("uSize", size.width, size.height)
-                        shader.setFloatUniform("uRadius", rPx)
-                        shader.setFloatUniform("uSoft", soft)
-                        shader.setFloatUniform("uLightDir", l.dx, l.dy)
-                        shader.setFloatUniform("uAccent", a.red, a.green, a.blue)
-                        shader.setFloatUniform("uPx", density)
-                        shader.setFloatUniform("uTintAlpha", tintAlpha)
-                        drawRect(brush)
-                    }
-                    .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
-            )
-        } else {
-            // Fallback elegante para API < 33 ou quando reduceTransparency == true
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(AuroColor.SurfaceGrouped.copy(alpha = 0.94f), shape)
-                    .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
-            )
-        }
-
-        // Irmão 3: renderiza content 100% nítido, preservando centralização e fillMaxSize()
-        content()
-    }
+        contentAlignment = Alignment.Center,
+        content = content
+    )
 }
 
 /**
@@ -811,6 +748,44 @@ fun AuroGlass(
         soft = soft,
         onClick = onClick,
         haptic = haptic,
+        content = content
+    )
+}
+
+/**
+ * Fundo com Ambient Bleed suave extraído da capa:
+ * Base #050505 com gradiente vertical suave da cor da capa desvanecendo para transparente.
+ * Zero shader pesado, garantindo 120Hz perfeitos.
+ */
+@Composable
+fun AmbientBleedBackground(
+    color: Color,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val animatedColor by animateColorAsState(
+        targetValue = color,
+        animationSpec = tween(AuroMotion.ColorMs, easing = AuroMotion.Emphasized),
+        label = "ambientBleedColor"
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(AuroColor.Canvas)
+            .drawBehind {
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            animatedColor.copy(alpha = 0.50f),
+                            animatedColor.copy(alpha = 0.15f),
+                            Color.Transparent
+                        ),
+                        startY = 0f,
+                        endY = size.height * 0.70f
+                    )
+                )
+            },
         content = content
     )
 }

@@ -104,7 +104,7 @@ fun AuroLibraryRootScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(AuroColor.Black)
+            .background(AuroColor.Canvas)
     ) {
         if (totalTracksCount == 0 && !isLoading) {
             AuroEmptyState(
@@ -335,13 +335,6 @@ fun AuroLibraryRootScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                         }
-
-                        // Divisor Inset
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 54.dp),
-                            color = AuroColor.Separator,
-                            thickness = 0.5.dp
-                        )
                     }
                 }
 

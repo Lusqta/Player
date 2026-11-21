@@ -185,7 +185,7 @@ fun AuroSearchScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(AuroColor.Black)
+            .background(AuroColor.Canvas)
             .statusBarsPadding()
             .imePadding()
             .padding(top = 12.dp)
@@ -194,19 +194,21 @@ fun AuroSearchScreen(
         Text(
             text = stringResource(R.string.tab_search),
             style = AuroType.LargeTitle,
+            color = AuroColor.TextPrimary,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = AuroSpace.ScreenMargin, vertical = 6.dp)
         )
 
-        // Campo de busca em pílula LiquidGlassSurface (48dp, CircleShape)
-        LiquidGlassSurface(
-            shape = CircleShape,
-            soft = LocalAuroSoft.current,
+        // Campo de busca em pílula (48dp, CircleShape)
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
                 .padding(horizontal = AuroSpace.ScreenMargin)
+                .clip(CircleShape)
+                .background(AuroColor.SurfaceCard)
+                .border(0.5.dp, Color.White.copy(alpha = 0.08f), CircleShape)
         ) {
             Row(
                 modifier = Modifier
@@ -393,11 +395,6 @@ fun AuroSearchScreen(
                                     )
                                 }
                             }
-                            HorizontalDivider(
-                                modifier = Modifier.padding(start = 54.dp),
-                                color = AuroColor.Hairline,
-                                thickness = 1.dp
-                            )
                         }
                     }
                     AuroTopFade(modifier = Modifier.align(Alignment.TopCenter))
@@ -446,11 +443,6 @@ fun AuroSearchScreen(
                                         onLongClick = { onTrackLongClick(track) },
                                         onMenuClick = { onTrackMenuClick(track) }
                                     )
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 80.dp),
-                                        color = AuroColor.Hairline,
-                                        thickness = 1.dp
-                                    )
                                 }
                             }
 
@@ -471,11 +463,6 @@ fun AuroSearchScreen(
                                             keyboardController?.hide()
                                             onAlbumClick(album.name)
                                         }
-                                    )
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 80.dp),
-                                        color = AuroColor.Hairline,
-                                        thickness = 1.dp
                                     )
                                 }
                             }
@@ -498,11 +485,6 @@ fun AuroSearchScreen(
                                             onArtistClick(artist.name)
                                         }
                                     )
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 80.dp),
-                                        color = AuroColor.Hairline,
-                                        thickness = 1.dp
-                                    )
                                 }
                             }
                         }
@@ -522,11 +504,6 @@ fun AuroSearchScreen(
                                     onLongClick = { onTrackLongClick(track) },
                                     onMenuClick = { onTrackMenuClick(track) }
                                 )
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(start = 80.dp),
-                                    color = AuroColor.Hairline,
-                                    thickness = 1.dp
-                                )
                             }
                         }
 
@@ -540,11 +517,6 @@ fun AuroSearchScreen(
                                         onAlbumClick(album.name)
                                     }
                                 )
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(start = 80.dp),
-                                    color = AuroColor.Hairline,
-                                    thickness = 1.dp
-                                )
                             }
                         }
 
@@ -557,11 +529,6 @@ fun AuroSearchScreen(
                                         keyboardController?.hide()
                                         onArtistClick(artist.name)
                                     }
-                                )
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(start = 80.dp),
-                                    color = AuroColor.Hairline,
-                                    thickness = 1.dp
                                 )
                             }
                         }

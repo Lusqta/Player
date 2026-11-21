@@ -113,7 +113,7 @@ fun AuroEqualizerScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(AuroColor.Black)
+            .background(AuroColor.Canvas)
     ) {
         AuroTopBar(
             title = stringResource(R.string.equalizer_breadcrumb),

@@ -467,21 +467,17 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 ) {
                     val reduceMotion = rememberReduceMotion()
                     val navBarBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                    val floatingBarsHeight = 62.dp + 10.dp + (if (currentTrack != null) 56.dp + 8.dp else 0.dp)
+                    val floatingBarsHeight = 56.dp + 12.dp + (if (currentTrack != null) 52.dp + 8.dp else 0.dp)
                     val activeBottomInset = if (currentScreen is NavScreen.NowPlaying) 0.dp else (floatingBarsHeight + navBarBottomInset)
-                    val backdropLayer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        rememberBackdropGraphicsLayer()
-                    } else null
 
                     CompositionLocalProvider(
                         LocalAuroBottomInset provides activeBottomInset,
-                        LocalAuroIsPlaying provides isPlaying,
-                        LocalBackdropLayer provides null
+                        LocalAuroIsPlaying provides isPlaying
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(AuroColor.Black)
+                                .background(AuroColor.Canvas)
                         ) {
                         // Barra Superior de Seleção Múltipla (Fase 4.3)
                         if (isSelectionModeState.value) {
@@ -608,23 +604,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                     // Conteúdo Principal de Acordo com a Tela Ativa (Fase 5.4: insets medidos via LocalAuroBottomInset)
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(
-                                if (backdropLayer != null) {
-                                    Modifier.drawWithContent {
-                                        backdropLayer.record {
-                                            this@drawWithContent.drawContent()
-                                        }
-                                        drawLayer(backdropLayer)
-                                    }
-                                } else Modifier
-                            )
+                        modifier = Modifier.fillMaxSize()
                     ) {
-                        CompositionLocalProvider(
-                            LocalBackdropLayer provides null
-                        ) {
-                            AnimatedContent(
+                        AnimatedContent(
                             targetState = currentScreen,
                             transitionSpec = {
                                 if (reduceMotion) {
@@ -1420,14 +1402,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
-                            }
                         }
                     }
-                }
 
-                CompositionLocalProvider(
-                    LocalBackdropLayer provides backdropLayer
-                ) {
                     // AuroSnackbarHost posicionado acima do mini player / navbar (Fase 5.4: insets medidos)
                     val snackbarBottomPadding = if (currentScreen is NavScreen.NowPlaying) {
                         16.dp
@@ -1443,17 +1420,17 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             .padding(bottom = snackbarBottomPadding)
                     )
 
-                    // Duas Barras Flutuantes Independentes (Padrão Apple Music Android 7.0.2)
+                    // Duas Barras Flutuantes Independentes (Editorial Dark OLED)
                     if (currentScreen !is NavScreen.NowPlaying) {
                         Column(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .padding(bottom = 10.dp)
+                                .padding(bottom = 12.dp)
                                 .navigationBarsPadding(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             if (currentTrack != null) {
-                                AppleMiniPlayer(
+                                EditorialMiniPlayer(
                                     track = currentTrack,
                                     isPlaying = isPlaying,
                                     progressMs = progressMsState.longValue,
@@ -1466,12 +1443,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 )
                             }
 
-                            AppleFloatingTabBar(
+                            EditorialFloatingNavbar(
                                 currentScreen = currentScreen,
                                 onHomeClick = { navController.toggleHome() },
+                                onSearchClick = { navController.toggleSearch() },
                                 onLibraryClick = { navController.toggleLibrary() },
-                                onQueueClick = { navController.toggleQueue() },
-                                onSearchClick = { navController.toggleSearch() }
+                                onTuneClick = { navController.navigateTo(NavScreen.Equalizer) }
                             )
                         }
                     }
@@ -1683,13 +1660,13 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             onDismiss = { deletePresetTargetState.value = null }
                         )
                     }
-                    }
                 }
             }
         }
             }
         }
     }
+}
 
     private fun resetEqualizerToFlat() {
         val service = playbackService ?: return

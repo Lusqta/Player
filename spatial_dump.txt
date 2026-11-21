@@ -49,6 +49,7 @@ target_compile_options(audio_engine PRIVATE
     -O3
     -fvisibility=hidden
 )
+
 === app/src/main/cpp/spatial_processor.h ===
 #pragma once
 
@@ -395,6 +396,7 @@ private:
     // Motor Steam Audio (Modo 2)
     SteamSpatialPro mSteamPro;
 };
+
 === app/src/main/cpp/steam_spatial_pro.h ===
 #pragma once
 
@@ -819,6 +821,7 @@ private:
     int mFifoCount = 0;
     int mOutReadPos = 0;
 };
+
 === app/src/main/cpp/jamesdsp/jdsp_shim.h ===
 #ifndef JDSP_SHIM_H
 #define JDSP_SHIM_H
@@ -1079,6 +1082,7 @@ void StereoEnhancementProcess(JamesDSPLib *jdsp, size_t n);
 #endif
 
 #endif // JDSP_SHIM_H
+
 === app/src/main/cpp/audio_engine.cpp ===
 #include "audio_engine.h"
 #include "decoders/decoder_factory.h"
@@ -1462,6 +1466,7 @@ std::vector<float> AudioEngine::scanWaveform(int fd, int numPoints) {
 
     return peaks;
 }
+
 === app/src/main/cpp/audio_output.cpp ===
 #include "audio_output.h"
 
@@ -1663,6 +1668,7 @@ void AudioOutput::onErrorAfterClose(oboe::AudioStream * /*oboeStream*/, oboe::Re
         openStream(currentSampleRate_);
     }
 }
+
 === app/src/main/cpp/jni_bridge.cpp ===
 #include <jni.h>
 #include "audio_engine.h"
@@ -2024,6 +2030,7 @@ Java_com_lucas_player_AudioEngine_nativeSetSpatialProParams(
 }
 
 } // extern "C"
+
 === app/src/main/java/com/lucas/player/AudioEngine.kt ===
 package com.lucas.player
 
@@ -2309,6 +2316,7 @@ class AudioEngine {
         elevation: Float
     )
 }
+
 === app/src/main/java/com/lucas/player/ui/screens/AuroEqualizerScreen.kt ===
 package com.lucas.player.ui.screens
 
@@ -2425,7 +2433,7 @@ fun AuroEqualizerScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(AuroColor.Black)
+            .background(AuroColor.Canvas)
     ) {
         AuroTopBar(
             title = stringResource(R.string.equalizer_breadcrumb),
@@ -3139,3 +3147,4 @@ private fun AuroSpatialSliderRow(
         )
     }
 }
+

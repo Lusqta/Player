@@ -74,6 +74,7 @@ import androidx.compose.ui.platform.LocalGraphicsContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -104,101 +105,111 @@ import kotlinx.coroutines.withContext
  * - Fundo Mesh Animado (Now Playing) misturando 4 cores profundas da capa com rotação lenta.
  */
 
-// ───────────────────────────── Tokens Apple Music ─────────────────────────────
+// ───────────────────────────── Tokens Editorial Dark OLED ─────────────────────────────
 
 object AuroColor {
-    val Canvas = Color(0xFF000000)                      // Preto OLED absoluto
+    val Canvas = Color(0xFF050505)                      // Fundo OLED profundo
     val Black = Canvas                                  // Alias
-    val SurfaceGrouped = Color(0xFF1C1C1E)              // Cards agrupados, platters iOS
-    val SurfaceElevated = Color(0xFF2C2C2E)             // Superfícies elevadas e botões
-    val Separator = Color.White.copy(alpha = 0.12f)     // Divisores inset 12% branco
-    val Hairline = Separator                            // Alias
+    val SurfaceCard = Color(0xFF141416)                 // Cards horizontais e agrupados
+    val SurfaceGrouped = Color(0xFF1C1C1E)              // Platters secundários e sheets
+    val SurfaceElevated = Color(0xFF262629)             // Superfícies elevadas
+    val NavBarBg = Color(0xE0161618)                    // Fundo da barra flutuante (88% opacidade)
+    val NavBarBorder = Color.White.copy(alpha = 0.08f)  // Borda sutil da navbar
+    val ControlGlass = Color.White.copy(alpha = 0.22f)  // Botões de controle translúcidos
+    val PillMuted = Color.White.copy(alpha = 0.12f)     // Pílulas secundárias ("Ver tudo")
     val TextPrimary = Color(0xFFFFFFFF)                 // Texto principal 100% branco
-    val TextSecondary = Color(0xFF8E8E93)               // Rótulos secundários System Gray
-    val TextTertiary = Color(0xFF636366)                // Rótulos terciários / desabilitados
-    val IconMono = Color(0xFFEBEBF5).copy(alpha = 0.85f)// Ícones monocromáticos translúcidos
-    val FavoriteYellow = Color(0xFFFFD60A)              // Estrela de favorito
-    val ToggleGreen = Color(0xFF34C759)                 // Chave ativa padrão iOS
+    val TextSecondary = Color.White.copy(alpha = 0.55f) // Rótulos secundários 55% branco
+    val TextTertiary = Color.White.copy(alpha = 0.28f)  // Rótulos terciários 28% branco
+    val ScrubberTrack = Color.White.copy(alpha = 0.20f) // Trilho inativo do scrubber
+    val ScrubberActive = Color(0xFFFFFFFF)              // Trilho ativo do scrubber branco puro
+    val Separator = Color.White.copy(alpha = 0.08f)     // Divisores sutis
+    val Hairline = Separator                            // Alias
+    val IconMono = Color(0xFFEBEBF5).copy(alpha = 0.85f)// Ícones monocromáticos
+    val FavoriteYellow = Color(0xFFFFD60A)              // Estrela/coração ativo
+    val ToggleGreen = Color(0xFF34C759)                 // Chave ativa padrão
     val Danger = Color(0xFFFF453A)                      // Ações destrutivas
-    val AppleBlueFallback = Color(0xFF0A84FF)           // Azul oficial Apple Music 7.0
-    val Track = Color(0xFF2D2D2D)                       // Trilho de barra inativo
+    val AppleBlueFallback = Color(0xFF0A84FF)           // Fallback de azul
+    val Track = ScrubberTrack                           // Alias
 }
 
 object AuroType {
-    val LargeTitle = TextStyle(
-        fontSize = 34.sp,
-        lineHeight = 41.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = (-0.5).sp,
+    val GreetingTitle = TextStyle(
+        fontSize = 26.sp,
+        lineHeight = 32.sp,
+        fontWeight = FontWeight.Medium,
+        color = AuroColor.TextPrimary
+    )
+    val HeroName = TextStyle(
+        fontSize = 30.sp,
+        lineHeight = 36.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = AuroColor.TextPrimary
+    )
+    val NowPlayingTitle = TextStyle(
+        fontSize = 20.sp,
+        lineHeight = 25.sp,
+        fontWeight = FontWeight.Medium,
         color = AuroColor.TextPrimary
     )
     val SectionTitle = TextStyle(
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = (-0.3).sp,
-        color = AuroColor.TextPrimary
-    )
-    val CardTitle = TextStyle(
-        fontSize = 18.sp,
-        lineHeight = 24.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = AuroColor.TextPrimary
-    )
-    val Body = TextStyle(
-        fontSize = 16.sp,
+        fontSize = 17.sp,
         lineHeight = 22.sp,
         fontWeight = FontWeight.SemiBold,
         color = AuroColor.TextPrimary
-    )
-    val TrackTitle = TextStyle(
-        fontSize = 16.sp,
-        lineHeight = 22.sp,
-        fontWeight = FontWeight.SemiBold,
-        color = AuroColor.TextPrimary
-    )
-    val Subtitle = TextStyle(
-        fontSize = 14.sp,
-        lineHeight = 18.sp,
-        fontWeight = FontWeight.Normal,
-        color = AuroColor.TextSecondary
-    )
-    val Caption = TextStyle(
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        fontWeight = FontWeight.Medium,
-        color = AuroColor.TextSecondary
     )
     val LyricsActive = TextStyle(
-        fontSize = 30.sp,
-        lineHeight = 38.sp,
-        fontWeight = FontWeight.Bold,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
+        fontWeight = FontWeight.Medium,
+        textAlign = TextAlign.Center,
         color = AuroColor.TextPrimary
     )
     val LyricsInactive = TextStyle(
-        fontSize = 26.sp,
-        lineHeight = 34.sp,
-        fontWeight = FontWeight.Bold,
-        color = Color.White.copy(alpha = 0.38f)
+        fontSize = 17.sp,
+        lineHeight = 23.sp,
+        fontWeight = FontWeight.Normal,
+        textAlign = TextAlign.Center,
+        color = Color.White.copy(alpha = 0.28f)
+    )
+    val CardTitle = TextStyle(
+        fontSize = 14.sp,
+        lineHeight = 18.sp,
+        fontWeight = FontWeight.Medium,
+        color = AuroColor.TextPrimary
+    )
+    val TrackTitle = TextStyle(
+        fontSize = 13.5.sp,
+        lineHeight = 18.sp,
+        fontWeight = FontWeight.Normal,
+        color = AuroColor.TextPrimary
+    )
+    val Subtitle = TextStyle(
+        fontSize = 13.sp,
+        lineHeight = 17.sp,
+        fontWeight = FontWeight.Normal,
+        color = AuroColor.TextSecondary
+    )
+    val MicroLabel = TextStyle(
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
+        fontWeight = FontWeight.Medium,
+        color = Color.White.copy(alpha = 0.75f)
     )
 
-    // Aliases de retrocompatibilidade
-    val Display = LargeTitle
-    val Title = SectionTitle
+    // Aliases para manter total compatibilidade com o restante do app
+    val LargeTitle = GreetingTitle
+    val Body = TrackTitle
+    val Caption = Subtitle
     val Label = Subtitle
+    val Display = HeroName
+    val Title = SectionTitle
     val NavLabel = TextStyle(
         fontSize = 10.sp,
         lineHeight = 12.sp,
         fontWeight = FontWeight.Normal,
         color = AuroColor.TextSecondary
     )
-    val SectionHeader = TextStyle(
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 1.sp,
-        color = AuroColor.TextTertiary
-    )
+    val SectionHeader = MicroLabel.copy(letterSpacing = 1.sp)
     val FastScroller = TextStyle(
         fontSize = 8.5.sp,
         lineHeight = 10.sp,
@@ -246,13 +257,18 @@ object AuroHeight {
 }
 
 object AuroRadius {
-    val thumbnail = 6.dp
-    val card = 12.dp
-    val cover = 18.dp
-    val chip = 999.dp
-    val dock = 999.dp
-    val button = 999.dp
-    val sheet = 24.dp
+    val hero = 32.dp
+    val cover = 28.dp
+    val sheet = 28.dp
+    val card = 24.dp
+    val mix = 18.dp
+    val artist = 18.dp
+    val thumbnail = 8.dp
+    val pill = 999.dp
+
+    val chip = pill
+    val dock = pill
+    val button = pill
 }
 
 object AuroMotion {
@@ -318,8 +334,8 @@ object GlowTone {
         val b = (argb and 0xFF) / 255f
         val hsl = rgbToHsl(r, g, b)
         val h = hsl[0]
-        val s = (hsl[1] * 1.3f).coerceIn(0.40f, 0.95f)
-        val l = (hsl[2] * 0.55f).coerceIn(0.12f, 0.32f) // Luminância limitada para fundo elegante
+        val s = hsl[1].coerceIn(0.15f, 0.65f)
+        val l = hsl[2].coerceIn(0.12f, 0.26f) // Luminância suave limitada para ambient bleed atmosférico
         return Color(hslToArgb(h, s, l))
     }
 
@@ -655,33 +671,16 @@ fun AuroTheme(
     }
 }
 
-// ─────────────────────────── Liquid Glass Neutro ───────────────────────────
-
-val LocalBackdropLayer = compositionLocalOf<GraphicsLayer?> { null }
-
-@Composable
-fun rememberBackdropGraphicsLayer(): GraphicsLayer {
-    val context = LocalGraphicsContext.current
-    return remember(context) { context.createGraphicsLayer() }.also { layer ->
-        DisposableEffect(layer, context) {
-            onDispose {
-                context.releaseGraphicsLayer(layer)
-            }
-        }
-    }
-}
+// ─────────────────────────── Superfícies Editorial OLED ───────────────────────────
 
 enum class AuroGlassKind { Button, Card }
 
 /**
- * Superfície de Liquid Glass neutra e contida, fiel à experiência do Apple Music Android 7.0.2.
- * - Backdrop real via LocalBackdropLayer capturando a tela principal (API 33+)
- * - Camada traseira desfocada por BlurEffect e tingida por AGSL
- * - Conteúdo frontal 100% NÍTIDO e sem qualquer BlurEffect
- * - Grafite neutro (#121214) com opacidade controlada por `soft` (0.38 a 0.72)
- * - Refração esférica nas bordas externas de ~10dp guiada por SDF arredondado (sdRound)
- * - Borda seca fina de 1dp com especular discreto
- * - Fallback automático para API < 33 ou quando `reduceTransparency == true`
+ * Superfície limpa do design Editorial Dark OLED:
+ * - Fundo fosco translúcido (#18181B @ 82%) ou branco translúcido (#FFFFFF @ 22% para Button)
+ * - Borda fina e precisa de 0.5.dp a 10% branco
+ * - Zero blur/refração pesada, garantindo 120Hz constantes e leveza total
+ * - Animação de toque com escala 0.95f e mola spring(0.75f, 500f)
  */
 @Composable
 fun LiquidGlassSurface(
@@ -693,16 +692,11 @@ fun LiquidGlassSurface(
     content: @Composable BoxScope.() -> Unit
 ) {
     val view = LocalView.current
-    val density = LocalDensity.current.density
-    val reduceTransparency = LocalReduceTransparency.current
-    val backdropLayer = LocalBackdropLayer.current
-    var topLeft by remember { mutableStateOf(Offset.Zero) }
-
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val pressScale by animateFloatAsState(
-        targetValue = if (pressed) 0.96f else 1f,
-        animationSpec = AuroMotion.press(),
+        targetValue = if (pressed) 0.95f else 1f,
+        animationSpec = spring(dampingRatio = 0.75f, stiffness = 500f),
         label = "glassPressScale"
     )
 
@@ -713,8 +707,8 @@ fun LiquidGlassSurface(
         }
     } else Modifier
 
-    val blurRadius = (2f + 8f * soft.coerceIn(0f, 1f)).dp
-    val tintAlpha = 0.38f + 0.34f * soft.coerceIn(0f, 1f)
+    val isButton = shape == CircleShape
+    val surfaceColor = if (isButton) AuroColor.ControlGlass else Color(0xD118181B)
 
     Box(
         modifier = modifier
@@ -723,69 +717,12 @@ fun LiquidGlassSurface(
                 scaleY = pressScale
             }
             .clip(shape)
-            .onGloballyPositioned { coordinates ->
-                topLeft = coordinates.boundsInWindow().topLeft
-            }
+            .background(surfaceColor, shape)
+            .border(0.5.dp, Color.White.copy(alpha = 0.10f), shape)
             .then(clickModifier),
-        contentAlignment = Alignment.Center
-    ) {
-        // Irmão 1 (matchParentSize()): apenas quando backdropLayer != null && API >= 33 && !reduceTransparency
-        if (backdropLayer != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !reduceTransparency) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .graphicsLayer {
-                        renderEffect = BlurEffect(blurRadius.toPx(), blurRadius.toPx())
-                    }
-                    .drawWithContent {
-                        translate(left = -topLeft.x, top = -topLeft.y) {
-                            drawLayer(backdropLayer)
-                        }
-                    }
-            )
-        }
-
-        // Irmão 2 (matchParentSize()): desenha o IOS_LIQUID_GLASS_AGSL (nítido, fora do BlurEffect) + border
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !reduceTransparency) {
-            val shader = remember { RuntimeShader(IOS_LIQUID_GLASS_AGSL) }
-            val brush = remember(shader) { ShaderBrush(shader) }
-            val light = LocalAuroLight.current
-            val accent = LocalAuroAccent.current
-
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .drawBehind {
-                        val l = light()
-                        val a = accent.a.value
-                        val rPx = if (shape == CircleShape) min(size.width, size.height) / 2f
-                        else if (shape is RoundedCornerShape) shape.topStart.toPx(size, this)
-                        else 16.dp.toPx()
-
-                        shader.setFloatUniform("uSize", size.width, size.height)
-                        shader.setFloatUniform("uRadius", rPx)
-                        shader.setFloatUniform("uSoft", soft)
-                        shader.setFloatUniform("uLightDir", l.dx, l.dy)
-                        shader.setFloatUniform("uAccent", a.red, a.green, a.blue)
-                        shader.setFloatUniform("uPx", density)
-                        shader.setFloatUniform("uTintAlpha", tintAlpha)
-                        drawRect(brush)
-                    }
-                    .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
-            )
-        } else {
-            // Fallback elegante para API < 33 ou quando reduceTransparency == true
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(AuroColor.SurfaceGrouped.copy(alpha = 0.94f), shape)
-                    .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
-            )
-        }
-
-        // Irmão 3: renderiza content 100% nítido, preservando centralização e fillMaxSize()
-        content()
-    }
+        contentAlignment = Alignment.Center,
+        content = content
+    )
 }
 
 /**
@@ -812,6 +749,44 @@ fun AuroGlass(
         soft = soft,
         onClick = onClick,
         haptic = haptic,
+        content = content
+    )
+}
+
+/**
+ * Fundo com Ambient Bleed suave extraído da capa:
+ * Base #050505 com gradiente vertical suave da cor da capa desvanecendo para transparente.
+ * Zero shader pesado, garantindo 120Hz perfeitos.
+ */
+@Composable
+fun AmbientBleedBackground(
+    color: Color,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val animatedColor by animateColorAsState(
+        targetValue = color,
+        animationSpec = tween(AuroMotion.ColorMs, easing = AuroMotion.Emphasized),
+        label = "ambientBleedColor"
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(AuroColor.Canvas)
+            .drawBehind {
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(
+                            animatedColor.copy(alpha = 0.50f),
+                            animatedColor.copy(alpha = 0.15f),
+                            Color.Transparent
+                        ),
+                        startY = 0f,
+                        endY = size.height * 0.70f
+                    )
+                )
+            },
         content = content
     )
 }
@@ -977,6 +952,7 @@ half4 main(float2 fragCoord) {
     return half4(half3(col), 1.0);
 }
 """
+
 === FILE: app/src/main/java/com/lucas/player/ui/components/AuroComponents.kt ===
 package com.lucas.player.ui.components
 
@@ -1241,9 +1217,126 @@ fun AuroProgressBar(
 }
 
 /**
- * APPLE FLOATING TAB BAR (Apple Music Android 7.0.2)
- * Pílula flutuante de Liquid Glass (altura 62dp, CircleShape, margem lateral 16dp, 10dp acima da barra de navegação).
- * 4 abas: Início, Biblioteca, Fila, Buscar.
+ * EDITORIAL FLOATING NAVBAR (Editorial Dark OLED)
+ * Pílula flutuante (altura 56dp, CircleShape, margem lateral 24dp).
+ * 4 abas minimalistas com apenas ícones: Início, Buscar, Biblioteca, Ajustes/Áudio.
+ * Fundo #161618 @ 88% + borda 0.5dp White 8%.
+ */
+@Composable
+fun EditorialFloatingNavbar(
+    currentScreen: NavScreen,
+    onHomeClick: () -> Unit,
+    onSearchClick: () -> Unit,
+    onLibraryClick: () -> Unit,
+    onTuneClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .height(56.dp)
+            .clip(CircleShape)
+            .background(AuroColor.NavBarBg)
+            .border(0.5.dp, AuroColor.NavBarBorder, CircleShape)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            EditorialNavIcon(
+                icon = Icons.Rounded.Home,
+                contentDescription = stringResource(R.string.tab_home),
+                isActive = currentScreen is NavScreen.Home,
+                onClick = onHomeClick
+            )
+            EditorialNavIcon(
+                icon = Icons.Rounded.Search,
+                contentDescription = stringResource(R.string.tab_search),
+                isActive = currentScreen is NavScreen.Search,
+                onClick = onSearchClick
+            )
+            EditorialNavIcon(
+                icon = Icons.Rounded.LibraryMusic,
+                contentDescription = stringResource(R.string.tab_library),
+                isActive = currentScreen is NavScreen.LibraryRoot || currentScreen is NavScreen.CategoryList || currentScreen is NavScreen.Drilldown,
+                onClick = onLibraryClick
+            )
+            EditorialNavIcon(
+                icon = Icons.Rounded.Tune,
+                contentDescription = stringResource(R.string.tab_tune),
+                isActive = currentScreen is NavScreen.Equalizer || currentScreen is NavScreen.Settings,
+                onClick = onTuneClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun EditorialNavIcon(
+    icon: ImageVector,
+    contentDescription: String,
+    isActive: Boolean,
+    onClick: () -> Unit
+) {
+    val view = LocalView.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.88f else if (isActive) 1.05f else 1f,
+        animationSpec = AuroMotion.press(),
+        label = "nav_icon_scale"
+    )
+
+    val tint by animateColorAsState(
+        targetValue = if (isActive) Color.White else Color.White.copy(alpha = 0.40f),
+        animationSpec = tween(200),
+        label = "nav_icon_tint"
+    )
+
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .scale(scale)
+            .clip(CircleShape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {
+                    AuroHaptics.tick(view)
+                    onClick()
+                }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = tint,
+                modifier = Modifier.size(24.dp)
+            )
+            if (isActive) {
+                Spacer(modifier = Modifier.height(3.dp))
+                Box(
+                    modifier = Modifier
+                        .size(3.5.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * APPLE FLOATING TAB BAR - Retrocompatibilidade com EditorialFloatingNavbar
  */
 @Composable
 fun AppleFloatingTabBar(
@@ -1254,117 +1347,69 @@ fun AppleFloatingTabBar(
     onSearchClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    LiquidGlassSurface(
+    EditorialFloatingNavbar(
+        currentScreen = currentScreen,
+        onHomeClick = onHomeClick,
+        onSearchClick = onSearchClick,
+        onLibraryClick = onLibraryClick,
+        onTuneClick = onQueueClick,
         modifier = modifier
-            .fillMaxWidth()
-            .height(62.dp)
-            .padding(horizontal = 16.dp),
-        shape = CircleShape,
-        soft = LocalAuroSoft.current
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 8.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AppleTabItem(
-                filledIcon = Icons.Rounded.Home,
-                outlinedIcon = Icons.Outlined.Home,
-                label = stringResource(R.string.tab_home),
-                isActive = currentScreen is NavScreen.Home,
-                onClick = onHomeClick
-            )
-            AppleTabItem(
-                filledIcon = Icons.Rounded.LibraryMusic,
-                outlinedIcon = Icons.Outlined.LibraryMusic,
-                label = stringResource(R.string.tab_library),
-                isActive = currentScreen is NavScreen.LibraryRoot || currentScreen is NavScreen.CategoryList || currentScreen is NavScreen.Drilldown,
-                onClick = onLibraryClick
-            )
-            AppleTabItem(
-                filledIcon = Icons.AutoMirrored.Rounded.QueueMusic,
-                outlinedIcon = Icons.AutoMirrored.Rounded.QueueMusic,
-                label = stringResource(R.string.tab_queue),
-                isActive = currentScreen is NavScreen.Queue,
-                onClick = onQueueClick
-            )
-            AppleTabItem(
-                filledIcon = Icons.Rounded.Search,
-                outlinedIcon = Icons.Outlined.Search,
-                label = stringResource(R.string.tab_search),
-                isActive = currentScreen is NavScreen.Search,
-                onClick = onSearchClick
-            )
-        }
-    }
+    )
 }
 
+/**
+ * TRANSLUCENT PLAY BUTTON (Editorial Dark OLED)
+ * Botão circular translúcido (#FFFFFF @ 22%) com ícone branco e escala interativa.
+ */
 @Composable
-private fun AppleTabItem(
-    filledIcon: ImageVector,
-    outlinedIcon: ImageVector,
-    label: String,
-    isActive: Boolean,
+fun TranslucentPlayButton(
+    isPlaying: Boolean,
+    modifier: Modifier = Modifier,
+    size: Dp = 40.dp,
     onClick: () -> Unit
 ) {
-    val accent = LocalAuroAccent.current.a.value
     val view = LocalView.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.92f else 1f,
         animationSpec = AuroMotion.press(),
-        label = "tab_item_scale"
+        label = "translucent_play_scale"
     )
 
-    val contentColor = if (isActive) accent else AuroColor.TextSecondary
-
-    Column(
-        modifier = Modifier
+    Box(
+        modifier = modifier
+            .size(size)
             .scale(scale)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(CircleShape)
+            .background(AuroColor.ControlGlass)
+            .border(0.5.dp, Color.White.copy(alpha = 0.15f), CircleShape)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
                 onClick = {
-                    AuroHaptics.tick(view)
+                    AuroHaptics.click(view)
                     onClick()
                 }
-            )
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            ),
+        contentAlignment = Alignment.Center
     ) {
         Icon(
-            imageVector = if (isActive) filledIcon else outlinedIcon,
-            contentDescription = label,
-            tint = contentColor,
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = label,
-            style = AuroType.Caption.copy(
-                fontSize = 10.sp,
-                lineHeight = 12.sp,
-                fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-                color = contentColor
-            )
+            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+            contentDescription = if (isPlaying) stringResource(R.string.cd_pause) else stringResource(R.string.cd_play),
+            tint = Color.White,
+            modifier = Modifier.size(size * 0.52f)
         )
     }
 }
 
 /**
- * APPLE MINI PLAYER (Apple Music Android 7.0.2)
- * Pílula flutuante de Liquid Glass (altura 56dp, CircleShape, margem lateral 16dp, 8dp acima da Tab Bar).
- * Capa 40dp (raio 6dp), título 15sp SemiBold, artista 13sp TextSecondary, botões limpos Play/Pause (24dp) e SkipNext (22dp)
- * sem círculo branco, barra de progresso discreta de 2dp na base interna.
- * Swipe horizontal no texto troca de faixa; toque ou swipe para cima abre o Now Playing.
+ * EDITORIAL MINI PLAYER (Editorial Dark OLED)
+ * Pílula minimalista (altura 52dp, CircleShape, margem lateral 20dp).
+ * Capa 36dp (raio 8dp), título 13.5sp, artista 12sp, TranslucentPlayButton (34dp) e SkipNext (20dp).
  */
 @Composable
-fun AppleMiniPlayer(
+fun EditorialMiniPlayer(
     track: Track?,
     isPlaying: Boolean,
     progressMs: Long,
@@ -1379,7 +1424,6 @@ fun AppleMiniPlayer(
     if (track == null) return
 
     val view = LocalView.current
-    val accent = LocalAuroAccent.current.a.value
     val progressFraction = if (durationMs > 0) {
         (progressMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
     } else 0f
@@ -1387,153 +1431,321 @@ fun AppleMiniPlayer(
     var totalDragX by remember { mutableFloatStateOf(0f) }
     var totalDragY by remember { mutableFloatStateOf(0f) }
 
-    LiquidGlassSurface(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp)
-            .padding(horizontal = 16.dp),
-        shape = CircleShape,
-        soft = LocalAuroSoft.current,
-        onClick = onOpenNowPlaying
+            .height(52.dp)
+            .padding(horizontal = 20.dp)
+            .clip(CircleShape)
+            .background(AuroColor.SurfaceCard)
+            .border(0.5.dp, Color.White.copy(alpha = 0.08f), CircleShape)
+            .clickable(onClick = onOpenNowPlaying)
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            // Linha discreta de progresso de 2dp na base interna
+        // Linha de progresso discreta de 2dp na base
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .align(Alignment.BottomCenter)
+                .padding(horizontal = 20.dp)
+                .background(Color.White.copy(alpha = 0.08f), CircleShape)
+        ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.dp)
-                    .align(Alignment.BottomCenter)
-                    .padding(horizontal = 24.dp)
-                    .background(Color.White.copy(alpha = 0.08f), CircleShape)
+                    .fillMaxWidth(progressFraction)
+                    .fillMaxHeight()
+                    .background(Color.White, CircleShape)
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Capa 36dp com raio 8dp
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(AuroRadius.thumbnail)),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(progressFraction)
-                        .fillMaxHeight()
-                        .background(accent, CircleShape)
+                if (coverBitmap != null) {
+                    Image(
+                        bitmap = coverBitmap.asImageBitmap(),
+                        contentDescription = stringResource(R.string.cd_album_cover),
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    AuroCoverPlaceholder(
+                        modifier = Modifier.fillMaxSize(),
+                        glass = false,
+                        shape = RoundedCornerShape(AuroRadius.thumbnail)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            // Metadados com suporte a gestos
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .pointerInput(Unit) {
+                        detectDragGestures(
+                            onDragStart = {
+                                totalDragX = 0f
+                                totalDragY = 0f
+                            },
+                            onDragEnd = {
+                                if (abs(totalDragY) > abs(totalDragX) && totalDragY < -20f) {
+                                    AuroHaptics.click(view)
+                                    onOpenNowPlaying()
+                                } else if (abs(totalDragX) > 30f) {
+                                    if (totalDragX < 0) {
+                                        AuroHaptics.click(view)
+                                        onNext()
+                                    } else {
+                                        AuroHaptics.click(view)
+                                        onPrevious()
+                                    }
+                                }
+                            }
+                        ) { change, dragAmount ->
+                            change.consume()
+                            totalDragX += dragAmount.x
+                            totalDragY += dragAmount.y
+                        }
+                    }
+                    .padding(end = 4.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = track.title,
+                    style = AuroType.TrackTitle,
+                    color = AuroColor.TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(1.dp))
+                Text(
+                    text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                    style = AuroType.Subtitle,
+                    color = AuroColor.TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Botão Play Translúcido (34dp)
+            TranslucentPlayButton(
+                isPlaying = isPlaying,
+                size = 34.dp,
+                onClick = onPlayPause
+            )
+
+            Spacer(modifier = Modifier.width(4.dp))
+
+            // SkipNext (20dp)
+            IconButton(
+                onClick = {
+                    AuroHaptics.click(view)
+                    onNext()
+                },
+                modifier = Modifier.size(34.dp)
             ) {
-                // Capa de 40.dp com cantos arredondados de 6.dp (Padrão Apple Music)
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(6.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (coverBitmap != null) {
-                        Image(
-                            bitmap = coverBitmap.asImageBitmap(),
-                            contentDescription = stringResource(R.string.cd_album_cover),
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        AuroCoverPlaceholder(
-                            modifier = Modifier.fillMaxSize(),
-                            glass = false,
-                            shape = RoundedCornerShape(6.dp)
-                        )
+                Icon(
+                    imageVector = Icons.Rounded.SkipNext,
+                    contentDescription = stringResource(R.string.cd_next),
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * APPLE MINI PLAYER - Retrocompatibilidade
+ */
+@Composable
+fun AppleMiniPlayer(
+    track: Track?,
+    isPlaying: Boolean,
+    progressMs: Long,
+    durationMs: Long,
+    coverBitmap: Bitmap?,
+    onOpenNowPlaying: () -> Unit,
+    onPlayPause: () -> Unit,
+    onNext: () -> Unit,
+    onPrevious: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    EditorialMiniPlayer(
+        track = track,
+        isPlaying = isPlaying,
+        progressMs = progressMs,
+        durationMs = durationMs,
+        coverBitmap = coverBitmap,
+        onOpenNowPlaying = onOpenNowPlaying,
+        onPlayPause = onPlayPause,
+        onNext = onNext,
+        onPrevious = onPrevious,
+        modifier = modifier
+    )
+}
+
+/**
+ * EDITORIAL SECTION HEADER (Editorial Dark OLED)
+ * Título de seção 17sp SemiBold com ação opcional "Ver tudo".
+ */
+@Composable
+fun EditorialSectionHeader(
+    title: String,
+    modifier: Modifier = Modifier,
+    actionLabel: String? = stringResource(R.string.view_all),
+    onAction: (() -> Unit)? = null
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            style = AuroType.SectionTitle,
+            color = AuroColor.TextPrimary
+        )
+        if (actionLabel != null && onAction != null) {
+            Text(
+                text = actionLabel,
+                style = AuroType.Subtitle,
+                color = AuroColor.TextSecondary,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onAction)
+                    .padding(horizontal = 6.dp, vertical = 4.dp)
+            )
+        }
+    }
+}
+
+/**
+ * EDITORIAL SCRUBBER (Editorial Dark OLED)
+ * Barra de progresso com trilho de 2.5dp, thumb de 10dp e números monoespaçados.
+ */
+@Composable
+fun EditorialScrubber(
+    progressMs: Long,
+    durationMs: Long,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+    activeColor: Color = AuroColor.ScrubberActive,
+    trackColor: Color = AuroColor.ScrubberTrack
+) {
+    var draggingFraction by remember { mutableFloatStateOf(-1f) }
+    val view = LocalView.current
+    val currentFraction = if (durationMs > 0) (progressMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
+    val displayFraction = if (draggingFraction >= 0f) draggingFraction else currentFraction
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(28.dp)
+                .pointerInput(durationMs) {
+                    detectDragGestures(
+                        onDragStart = { offset ->
+                            val f = (offset.x / size.width).coerceIn(0f, 1f)
+                            draggingFraction = f
+                            AuroHaptics.sliderTick(view)
+                        },
+                        onDragEnd = {
+                            if (draggingFraction >= 0f) {
+                                onSeek((draggingFraction * durationMs).toLong())
+                                draggingFraction = -1f
+                                AuroHaptics.click(view)
+                            }
+                        },
+                        onDragCancel = {
+                            draggingFraction = -1f
+                        }
+                    ) { change, _ ->
+                        change.consume()
+                        val f = (change.position.x / size.width).coerceIn(0f, 1f)
+                        draggingFraction = f
                     }
                 }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Título (15sp SemiBold) + Artista (13sp TextSecondary) com suporte a swipe horizontal
-                Column(
+                .pointerInput(durationMs) {
+                    detectTapGestures { offset ->
+                        val f = (offset.x / size.width).coerceIn(0f, 1f)
+                        onSeek((f * durationMs).toLong())
+                        AuroHaptics.sliderTick(view)
+                    }
+                },
+            contentAlignment = Alignment.CenterStart
+        ) {
+            // Track base
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(2.5.dp)
+                    .clip(CircleShape)
+                    .background(trackColor)
+            )
+            // Active progress
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(displayFraction)
+                    .height(2.5.dp)
+                    .clip(CircleShape)
+                    .background(activeColor)
+            )
+            // Thumb
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(displayFraction),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .pointerInput(Unit) {
-                            detectDragGestures(
-                                onDragStart = {
-                                    totalDragX = 0f
-                                    totalDragY = 0f
-                                },
-                                onDragEnd = {
-                                    if (abs(totalDragY) > abs(totalDragX) && totalDragY < -20f) {
-                                        AuroHaptics.click(view)
-                                        onOpenNowPlaying()
-                                    } else if (abs(totalDragX) > 30f) {
-                                        if (totalDragX < 0) {
-                                            AuroHaptics.click(view)
-                                            onNext()
-                                        } else {
-                                            AuroHaptics.click(view)
-                                            onPrevious()
-                                        }
-                                    }
-                                }
-                            ) { change, dragAmount ->
-                                change.consume()
-                                totalDragX += dragAmount.x
-                                totalDragY += dragAmount.y
-                            }
-                        }
-                        .padding(end = 4.dp),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = track.title,
-                        style = TextStyle(
-                            fontSize = 15.sp,
-                            lineHeight = 18.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AuroColor.TextPrimary
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(1.dp))
-                    Text(
-                        text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                        style = TextStyle(
-                            fontSize = 13.sp,
-                            lineHeight = 16.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = AuroColor.TextSecondary
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                // Botões de transporte limpos: Play/Pause (24dp) e SkipNext (22dp)
-                IconButton(
-                    onClick = {
-                        AuroHaptics.click(view)
-                        onPlayPause()
-                    },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = if (isPlaying) stringResource(R.string.cd_pause) else stringResource(R.string.cd_play),
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = {
-                        AuroHaptics.click(view)
-                        onNext()
-                    },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.SkipNext,
-                        contentDescription = stringResource(R.string.cd_next),
-                        tint = Color.White,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                )
             }
+        }
+
+        // Time labels
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            val elapsed = if (draggingFraction >= 0f) (draggingFraction * durationMs).toLong() else progressMs
+            val remaining = (durationMs - elapsed).coerceAtLeast(0)
+
+            Text(
+                text = formatTimeMs(elapsed),
+                style = AuroType.MicroLabel.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontFeatureSettings = "tnum"
+                ),
+                color = AuroColor.TextSecondary
+            )
+            Text(
+                text = "-${formatTimeMs(remaining)}",
+                style = AuroType.MicroLabel.copy(
+                    fontFamily = FontFamily.Monospace,
+                    fontFeatureSettings = "tnum"
+                ),
+                color = AuroColor.TextSecondary
+            )
         }
     }
 }
@@ -2033,10 +2245,9 @@ fun AuroEqualizerBars(
 }
 
 /**
- * 4. LINHA DE FAIXA NA LISTA (AURŌ TRACK ROW)
- * Specs: Altura 58dp, miniatura 44dp (raio 10), título Body, artista Label em TextSecondary,
- * duração Label à direita. Faixa tocando: 3 barras de accent A animadas sobre miniatura
- * escurecida a 45% (param quando pausado) e título em accent A. Sem capa: nota musical a 55% de accent (sem caixa).
+ * 4. LINHA DE FAIXA NA LISTA (AURŌ / EDITORIAL TRACK ROW)
+ * Specs: Altura 52dp, miniatura 36dp (raio 8dp), título TrackTitle (13.5sp), artista Subtitle (12sp),
+ * sem divisores na lista, menu com três pontos horizontais (•••).
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -2067,7 +2278,7 @@ fun AuroTrackRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(AuroHeight.TrackRow)
+            .height(52.dp)
             .graphicsLayer {
                 scaleX = pressScale
                 scaleY = pressScale
@@ -2089,13 +2300,13 @@ fun AuroTrackRow(
             .padding(horizontal = AuroSpace.ScreenMargin),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Indicador de Seleção Múltipla (Fase 4.3): 24dp à esquerda
+        // Indicador de Seleção Múltipla: 22dp à esquerda
         if (isSelectionMode) {
             Box(
                 modifier = Modifier
-                    .size(24.dp)
+                    .size(22.dp)
                     .clip(CircleShape)
-                    .background(if (isSelected) accent else Color.Transparent)
+                    .background(if (isSelected) Color.White else Color.Transparent)
                     .border(
                         width = if (isSelected) 0.dp else 1.5.dp,
                         color = if (isSelected) Color.Transparent else Color.White.copy(alpha = 0.30f),
@@ -2108,20 +2319,20 @@ fun AuroTrackRow(
                         imageVector = Icons.Rounded.Check,
                         contentDescription = null,
                         tint = Color.Black,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(14.dp)
                     )
                 }
             }
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(10.dp))
         }
 
         val coverBitmap = rememberTrackCover(track, 100)
 
         if (coverBitmap != null) {
-            // Com capa: miniatura de 44dp com raio 10dp
+            // Com capa: miniatura de 36dp com raio 8dp
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(36.dp)
                     .clip(RoundedCornerShape(AuroRadius.thumbnail)),
                 contentAlignment = Alignment.Center
             ) {
@@ -2140,28 +2351,28 @@ fun AuroTrackRow(
                     ) {
                         AuroEqualizerBars(
                             isPlaying = isAudioPlaying,
-                            color = accent
+                            color = Color.White
                         )
                     }
                 }
             }
         } else {
-            // Sem capa: sem caixa, só a nota musical a 55% de accent, ou barras quando tocando
+            // Sem capa
             Box(
-                modifier = Modifier.size(44.dp),
+                modifier = Modifier.size(36.dp),
                 contentAlignment = Alignment.Center
             ) {
                 if (isPlayingThis) {
                     AuroEqualizerBars(
                         isPlaying = isAudioPlaying,
-                        color = accent
+                        color = Color.White
                     )
                 } else {
                     Icon(
                         imageVector = Icons.Outlined.MusicNote,
                         contentDescription = null,
-                        tint = accent.copy(alpha = 0.55f),
-                        modifier = Modifier.size(22.dp)
+                        tint = Color.White.copy(alpha = 0.45f),
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -2180,27 +2391,28 @@ fun AuroTrackRow(
                         imageVector = Icons.Outlined.WarningAmber,
                         contentDescription = stringResource(R.string.cd_error_indicator),
                         tint = AuroColor.Danger,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(14.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                 }
                 Text(
                     text = track.title,
-                    style = AuroType.Body.copy(
-                        color = if (hasError) AuroColor.Danger else if (isPlayingThis) accent else AuroColor.TextPrimary,
-                        fontWeight = if (isPlayingThis) FontWeight.Bold else FontWeight.Medium
+                    style = AuroType.TrackTitle.copy(
+                        color = if (hasError) AuroColor.Danger else AuroColor.TextPrimary,
+                        fontWeight = if (isPlayingThis) FontWeight.SemiBold else FontWeight.Medium
                     ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(1.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "${track.artist} • ${track.album}",
-                    style = AuroType.Label.copy(color = AuroColor.TextSecondary),
+                    style = AuroType.Subtitle,
+                    color = AuroColor.TextSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false)
@@ -2210,8 +2422,8 @@ fun AuroTrackRow(
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "★ ${track.rating}",
-                        style = AuroType.Caption.copy(
-                            color = accent,
+                        style = AuroType.MicroLabel.copy(
+                            color = Color.White.copy(alpha = 0.65f),
                             fontFeatureSettings = "tnum"
                         )
                     )
@@ -2228,7 +2440,7 @@ fun AuroTrackRow(
                     .clip(RoundedCornerShape(3.dp))
                     .background(Color.White.copy(alpha = 0.08f))
                     .border(0.5.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(3.dp))
-                    .padding(horizontal = 4.dp, vertical = 1.dp)
+                .padding(horizontal = 4.dp, vertical = 1.dp)
             ) {
                 Text(
                     text = track.formatTag,
@@ -2245,7 +2457,7 @@ fun AuroTrackRow(
         // Duração da faixa
         Text(
             text = formatTimeMs(track.durationMs),
-            style = AuroType.Label.copy(
+            style = AuroType.MicroLabel.copy(
                 color = AuroColor.TextSecondary,
                 fontFamily = FontFamily.Monospace,
                 fontFeatureSettings = "tnum"
@@ -2253,15 +2465,15 @@ fun AuroTrackRow(
         )
 
         if (!isSelectionMode) {
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(2.dp))
 
-            // Menu da faixa (Outlined MoreVert)
+            // Menu da faixa: três pontos horizontais (•••)
             IconButton(
                 onClick = onMenuClick,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(36.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.MoreVert,
+                    imageVector = Icons.Rounded.MoreHoriz,
                     contentDescription = stringResource(R.string.cd_more_options),
                     tint = AuroColor.TextSecondary,
                     modifier = Modifier.size(20.dp)
@@ -2269,6 +2481,40 @@ fun AuroTrackRow(
             }
         }
     }
+}
+
+/**
+ * EDITORIAL TRACK ROW - Alias de AuroTrackRow
+ */
+@Composable
+fun EditorialTrackRow(
+    track: Track,
+    trackIndex: Int,
+    isPlayingThis: Boolean,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onMenuClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    hasError: Boolean = false,
+    isSelectionMode: Boolean = false,
+    isSelected: Boolean = false,
+    showFormatTag: Boolean = true,
+    isAudioPlaying: Boolean = LocalAuroIsPlaying.current
+) {
+    AuroTrackRow(
+        track = track,
+        trackIndex = trackIndex,
+        isPlayingThis = isPlayingThis,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        onMenuClick = onMenuClick,
+        modifier = modifier,
+        hasError = hasError,
+        isSelectionMode = isSelectionMode,
+        isSelected = isSelected,
+        showFormatTag = showFormatTag,
+        isAudioPlaying = isAudioPlaying
+    )
 }
 
 /**
@@ -2762,6 +3008,7 @@ fun AuroSlider(
 }
 
 
+
 === FILE: app/src/main/java/com/lucas/player/ui/components/AuroFeedback.kt ===
 package com.lucas.player.ui.components
 
@@ -3232,6 +3479,7 @@ fun AuroCoverPlaceholder(
         }
     }
 }
+
 === FILE: app/src/main/java/com/lucas/player/ui/components/AuroOverlay.kt ===
 package com.lucas.player.ui.components
 
@@ -3448,6 +3696,7 @@ fun AuroOverlay(
         }
     }
 }
+
 === FILE: app/src/main/java/com/lucas/player/ui/navigation/PlayerNav.kt ===
 package com.lucas.player.ui.navigation
 
@@ -3613,6 +3862,7 @@ class PlayerNavController(initialScreen: NavScreen = NavScreen.Home) {
         backStack.add(NavScreen.Home)
     }
 }
+
 === FILE: app/src/main/java/com/lucas/player/ui/GroupItem.kt ===
 package com.lucas.player.ui
 
@@ -3621,12 +3871,14 @@ data class GroupItem(
     val subtitle: String,
     val countText: String
 )
+
 === FILE: app/src/main/java/com/lucas/player/ui/screens/AuroHomeScreen.kt ===
 package com.lucas.player.ui.screens
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -3639,9 +3891,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.rounded.MusicOff
-import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -3649,8 +3899,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -3664,10 +3916,12 @@ import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.*
 
 /**
- * ABA INÍCIO (Apple Music Android 7.0.2 - Hub Offline)
- * - Large Title "Início" + botão flutuante de vidro superior direito (Menu/Configurações)
- * - Card Continuar Ouvindo com ações rápidas Reproduzir e Aleatório
- * - Carrosséis horizontais: Tocadas Recentemente, Mais Tocadas, Adicionadas Recentemente
+ * ABA INÍCIO (Editorial Dark OLED - Minimalista & Atmosférico)
+ * - Top greeting 2 linhas: "Recomendado\nPara Você Hoje"
+ * - Carrossel de Mixes rápidos (112dp × 68dp, raio 18dp) com gradientes atmosféricos
+ * - Adicionadas Recentemente em cartões horizontais (270dp × 112dp, raio 24dp)
+ * - Linha de Artistas (72dp × 72dp, raio 18dp)
+ * - Banner Coleções & Pastas (110dp, raio 24dp)
  */
 @Composable
 fun AuroHomeScreen(
@@ -3685,17 +3939,17 @@ fun AuroHomeScreen(
     onResumePlayback: () -> Unit,
     onOpenNowPlaying: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenLibrary: () -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
     modifier: Modifier = Modifier
 ) {
     val view = LocalView.current
-    val accent = LocalAuroAccent.current.a.value
     val bottomInset = LocalAuroBottomInset.current
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(AuroColor.Black)
+            .background(AuroColor.Canvas)
     ) {
         if (isLoading) {
             Column(
@@ -3722,204 +3976,200 @@ fun AuroHomeScreen(
                 modifier = Modifier.fillMaxSize()
             )
         } else {
+            val artists = remember(allTracks) {
+                allTracks.asSequence().map { it.artist }.filter { it.isNotEmpty() }.distinct().take(12).toList()
+            }
+
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
                     top = 16.dp,
-                    bottom = bottomInset + 24.dp
+                    bottom = bottomInset + 80.dp
                 )
             ) {
-                // Header com Large Title "Início" e botão circular flutuante de vidro no topo direito
-                item(key = "home_header") {
+                // Top Greeting & Settings Button
+                item(key = "home_greeting") {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .statusBarsPadding()
                             .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Top
                     ) {
                         Text(
-                            text = stringResource(R.string.home_title),
-                            style = AuroType.LargeTitle,
-                            maxLines = 1
+                            text = stringResource(R.string.home_greeting_recommended),
+                            style = AuroType.GreetingTitle,
+                            color = AuroColor.TextPrimary
                         )
 
-                        AuroGlass(
-                            kind = AuroGlassKind.Button,
-                            cornerRadius = 20.dp,
-                            modifier = Modifier.size(AuroHeight.GlassButton),
-                            onClick = {
-                                AuroHaptics.click(view)
-                                onOpenSettings()
-                            }
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(AuroColor.ControlGlass)
+                                .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                                .clickable {
+                                    AuroHaptics.click(view)
+                                    onOpenSettings()
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Outlined.MoreVert,
-                                    contentDescription = stringResource(R.string.cd_more_options),
-                                    tint = AuroColor.TextPrimary,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                            Icon(
+                                imageVector = Icons.Outlined.MoreVert,
+                                contentDescription = stringResource(R.string.cd_more_options),
+                                tint = AuroColor.TextPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                // Carrossel de Mixes rápidos (112dp × 68dp, raio 18dp)
+                item(key = "mixes_carousel") {
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        item {
+                            QuickMixCard(
+                                title = stringResource(R.string.home_mix_shuffle),
+                                icon = Icons.Rounded.Shuffle,
+                                gradientColors = listOf(Color(0xFF2A203F), Color(0xFF141416)),
+                                onClick = { onShuffleAll(allTracks) }
+                            )
+                        }
+                        item {
+                            QuickMixCard(
+                                title = stringResource(R.string.home_mix_most_played),
+                                icon = Icons.Rounded.Whatshot,
+                                gradientColors = listOf(Color(0xFF1B3533), Color(0xFF141416)),
+                                onClick = {
+                                    if (mostPlayed.isNotEmpty()) onPlayAll(mostPlayed)
+                                    else onPlayAll(allTracks)
+                                }
+                            )
+                        }
+                        item {
+                            QuickMixCard(
+                                title = stringResource(R.string.home_mix_favorites),
+                                icon = Icons.Rounded.Favorite,
+                                gradientColors = listOf(Color(0xFF3F1A24), Color(0xFF141416)),
+                                onClick = {
+                                    val favs = allTracks.filter { it.rating > 0 }
+                                    if (favs.isNotEmpty()) onPlayAll(favs)
+                                    else onShuffleAll(allTracks)
+                                }
+                            )
+                        }
+                        item {
+                            QuickMixCard(
+                                title = stringResource(R.string.home_mix_recent),
+                                icon = Icons.Rounded.History,
+                                gradientColors = listOf(Color(0xFF382C17), Color(0xFF141416)),
+                                onClick = {
+                                    if (recentlyPlayed.isNotEmpty()) onPlayAll(recentlyPlayed)
+                                    else onPlayAll(allTracks)
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // Seção: Adicionadas Recentemente (Cartões Horizontais 270dp × 112dp)
+                val displayAdded = if (recentlyAdded.isNotEmpty()) recentlyAdded else allTracks.take(10)
+                if (displayAdded.isNotEmpty()) {
+                    item(key = "featured_recent") {
+                        Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                            EditorialSectionHeader(
+                                title = stringResource(R.string.home_recently_added),
+                                actionLabel = stringResource(R.string.view_all),
+                                onAction = onOpenLibrary
+                            )
+
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                items(displayAdded.take(8), key = { it.id }) { track ->
+                                    FeaturedTrackCard(
+                                        track = track,
+                                        onPlay = {
+                                            onTrackClick(track)
+                                        }
+                                    )
+                                }
                             }
                         }
                     }
                 }
 
-                // Card Agrupado: Continuar Ouvindo
-                item(key = "continue_listening") {
-                    val activeTrack = currentTrack ?: recentlyPlayed.firstOrNull() ?: allTracks.firstOrNull()
-                    if (activeTrack != null) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = AuroSpace.ScreenMargin, vertical = 8.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.home_continue_listening),
-                                style = AuroType.SectionTitle,
-                                modifier = Modifier.padding(bottom = 12.dp)
+                // Seção: Artistas (72dp × 72dp, raio 18dp)
+                if (artists.isNotEmpty()) {
+                    item(key = "artists_row") {
+                        Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+                            EditorialSectionHeader(
+                                title = stringResource(R.string.category_artists),
+                                actionLabel = null,
+                                onAction = null
                             )
 
-                            val coverBitmap = rememberTrackCover(activeTrack, 150)
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(AuroRadius.card))
-                                    .background(AuroColor.SurfaceGrouped)
-                                    .clickable {
-                                        AuroHaptics.click(view)
-                                        if (currentTrack != null) {
-                                            onOpenNowPlaying()
-                                        } else {
-                                            onTrackClick(activeTrack)
-                                        }
-                                    }
-                                    .padding(16.dp)
+                            LazyRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
-                                Column {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        verticalAlignment = Alignment.CenterVertically
+                                items(artists) { artistName ->
+                                    val artistTrack = remember(artistName) {
+                                        allTracks.firstOrNull { it.artist == artistName }
+                                    }
+                                    val coverBitmap = rememberTrackCover(artistTrack, 120)
+
+                                    Column(
+                                        modifier = Modifier
+                                            .width(76.dp)
+                                            .clickable {
+                                                if (artistTrack != null) onTrackClick(artistTrack)
+                                            },
+                                        horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
-                                        // Capa da faixa
                                         Box(
                                             modifier = Modifier
-                                                .size(64.dp)
-                                                .clip(RoundedCornerShape(8.dp)),
+                                                .size(72.dp)
+                                                .clip(RoundedCornerShape(AuroRadius.artist))
+                                                .background(AuroColor.SurfaceCard)
+                                                .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(AuroRadius.artist)),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             if (coverBitmap != null) {
                                                 Image(
                                                     bitmap = coverBitmap.asImageBitmap(),
-                                                    contentDescription = null,
+                                                    contentDescription = artistName,
                                                     contentScale = ContentScale.Crop,
                                                     modifier = Modifier.fillMaxSize()
                                                 )
                                             } else {
-                                                AuroCoverPlaceholder(
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    glass = false,
-                                                    shape = RoundedCornerShape(8.dp)
-                                                )
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.width(14.dp))
-
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = activeTrack.title,
-                                                style = AuroType.CardTitle,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                            Spacer(modifier = Modifier.height(2.dp))
-                                            Text(
-                                                text = activeTrack.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                                                style = AuroType.Subtitle,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    // Ações Rápidas: Reproduzir e Aleatório
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .height(44.dp)
-                                                .clip(CircleShape)
-                                                .background(AuroColor.SurfaceElevated)
-                                                .clickable {
-                                                    AuroHaptics.click(view)
-                                                    onResumePlayback()
-                                                },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.Center
-                                            ) {
                                                 Icon(
-                                                    imageVector = if (isPlaying) Icons.Rounded.PlayArrow else Icons.Rounded.PlayArrow,
+                                                    imageVector = Icons.Rounded.Person,
                                                     contentDescription = null,
-                                                    tint = accent,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = stringResource(R.string.play),
-                                                    style = AuroType.Body.copy(
-                                                        fontSize = 15.sp,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        color = accent
-                                                    )
+                                                    tint = Color.White.copy(alpha = 0.40f),
+                                                    modifier = Modifier.size(32.dp)
                                                 )
                                             }
                                         }
-
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .height(44.dp)
-                                                .clip(CircleShape)
-                                                .background(AuroColor.SurfaceElevated)
-                                                .clickable {
-                                                    AuroHaptics.click(view)
-                                                    onShuffleAll(allTracks)
-                                                },
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.Shuffle,
-                                                    contentDescription = null,
-                                                    tint = accent,
-                                                    modifier = Modifier.size(18.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = stringResource(R.string.shuffle_all),
-                                                    style = AuroType.Body.copy(
-                                                        fontSize = 15.sp,
-                                                        fontWeight = FontWeight.SemiBold,
-                                                        color = accent
-                                                    )
-                                                )
-                                            }
-                                        }
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = artistName,
+                                            style = AuroType.MicroLabel,
+                                            color = AuroColor.TextSecondary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
                                     }
                                 }
                             }
@@ -3927,134 +4177,214 @@ fun AuroHomeScreen(
                     }
                 }
 
-                // Seção: Tocadas Recentemente
-                if (recentlyPlayed.isNotEmpty()) {
-                    item(key = "section_recently_played") {
-                        HomeMediaCarousel(
-                            title = stringResource(R.string.home_recently_played),
-                            tracks = recentlyPlayed,
-                            onTrackClick = onTrackClick
-                        )
-                    }
-                }
-
-                // Seção: Mais Tocadas
-                if (mostPlayed.isNotEmpty()) {
-                    item(key = "section_most_played") {
-                        HomeMediaCarousel(
-                            title = stringResource(R.string.home_most_played),
-                            tracks = mostPlayed,
-                            onTrackClick = onTrackClick
-                        )
-                    }
-                }
-
-                // Seção: Adicionadas Recentemente
-                if (recentlyAdded.isNotEmpty()) {
-                    item(key = "section_recently_added") {
-                        HomeMediaCarousel(
-                            title = stringResource(R.string.home_recently_added),
-                            tracks = recentlyAdded,
-                            onTrackClick = onTrackClick
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HomeMediaCarousel(
-    title: String,
-    tracks: List<Track>,
-    onTrackClick: (Track) -> Unit
-) {
-    val view = LocalView.current
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp)
-    ) {
-        Text(
-            text = title,
-            style = AuroType.SectionTitle,
-            modifier = Modifier.padding(horizontal = AuroSpace.ScreenMargin, vertical = 6.dp)
-        )
-
-        LazyRow(
-            modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            items(tracks.take(15), key = { it.id }) { track ->
-                val coverBitmap = rememberTrackCover(track, 180)
-
-                Column(
-                    modifier = Modifier
-                        .width(140.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = {
-                                AuroHaptics.click(view)
-                                onTrackClick(track)
-                            }
-                        )
-                ) {
+                // Banner: Coleções & Pastas (110dp, raio 24dp)
+                item(key = "collections_banner") {
                     Box(
                         modifier = Modifier
-                            .size(140.dp)
+                            .fillMaxWidth()
+                            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 20.dp)
+                            .height(110.dp)
                             .clip(RoundedCornerShape(AuroRadius.card))
-                            .background(AuroColor.SurfaceGrouped),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (coverBitmap != null) {
-                            Image(
-                                bitmap = coverBitmap.asImageBitmap(),
-                                contentDescription = track.title,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(Color(0xFF242428), Color(0xFF141416))
+                                )
                             )
-                        } else {
-                            AuroCoverPlaceholder(
-                                modifier = Modifier.fillMaxSize(),
-                                glass = false,
-                                shape = RoundedCornerShape(AuroRadius.card)
+                            .border(0.5.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(AuroRadius.card))
+                            .clickable {
+                                AuroHaptics.click(view)
+                                onOpenLibrary()
+                            }
+                            .padding(20.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(AuroColor.ControlGlass),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.LibraryMusic,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.home_banner_collections),
+                                    style = AuroType.SectionTitle,
+                                    color = AuroColor.TextPrimary
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = stringResource(R.string.tab_library),
+                                    style = AuroType.Subtitle,
+                                    color = AuroColor.TextSecondary
+                                )
+                            }
+
+                            Icon(
+                                imageVector = Icons.Rounded.ChevronRight,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.40f),
+                                modifier = Modifier.size(24.dp)
                             )
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = track.title,
-                        style = AuroType.Body.copy(
-                            fontSize = 14.sp,
-                            lineHeight = 18.sp,
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    Text(
-                        text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                        style = AuroType.Subtitle.copy(
-                            fontSize = 13.sp,
-                            lineHeight = 16.sp
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
                 }
             }
         }
     }
 }
+
+/**
+ * Card de Mix Rápido com gradiente atmosférico (112dp × 68dp, raio 18dp)
+ */
+@Composable
+private fun QuickMixCard(
+    title: String,
+    icon: ImageVector,
+    gradientColors: List<Color>,
+    onClick: () -> Unit
+) {
+    val view = LocalView.current
+    Box(
+        modifier = Modifier
+            .size(width = 112.dp, height = 68.dp)
+            .clip(RoundedCornerShape(AuroRadius.mix))
+            .background(Brush.linearGradient(gradientColors))
+            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(AuroRadius.mix))
+            .clickable {
+                AuroHaptics.click(view)
+                onClick()
+            }
+            .padding(8.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.70f),
+                    modifier = Modifier.size(16.dp)
+                )
+                TranslucentPlayButton(
+                    isPlaying = false,
+                    size = 22.dp,
+                    onClick = onClick
+                )
+            }
+            Text(
+                text = title,
+                style = AuroType.MicroLabel.copy(fontWeight = FontWeight.Medium),
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+/**
+ * Cartão de Faixa em Destaque (270dp × 112dp, raio 24dp)
+ */
+@Composable
+private fun FeaturedTrackCard(
+    track: Track,
+    onPlay: () -> Unit
+) {
+    val coverBitmap = rememberTrackCover(track, 180)
+    val view = LocalView.current
+
+    Box(
+        modifier = Modifier
+            .size(width = 270.dp, height = 112.dp)
+            .clip(RoundedCornerShape(AuroRadius.card))
+            .background(AuroColor.SurfaceCard)
+            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(AuroRadius.card))
+            .clickable {
+                AuroHaptics.click(view)
+                onPlay()
+            }
+            .padding(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Capa 84dp com raio 18dp + TranslucentPlayButton
+            Box(
+                modifier = Modifier
+                    .size(88.dp)
+                    .clip(RoundedCornerShape(AuroRadius.artist))
+                    .background(AuroColor.SurfaceGrouped),
+                contentAlignment = Alignment.Center
+            ) {
+                if (coverBitmap != null) {
+                    Image(
+                        bitmap = coverBitmap.asImageBitmap(),
+                        contentDescription = track.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    AuroCoverPlaceholder(
+                        modifier = Modifier.fillMaxSize(),
+                        glass = false,
+                        shape = RoundedCornerShape(AuroRadius.artist)
+                    )
+                }
+
+                // Play Button sobre a capa
+                TranslucentPlayButton(
+                    isPlaying = false,
+                    size = 32.dp,
+                    onClick = onPlay
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = track.title,
+                    style = AuroType.CardTitle,
+                    color = AuroColor.TextPrimary,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                    style = AuroType.Subtitle,
+                    color = AuroColor.TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
 === FILE: app/src/main/java/com/lucas/player/ui/screens/AuroLibraryRootScreen.kt ===
 package com.lucas.player.ui.screens
 
@@ -4162,7 +4492,7 @@ fun AuroLibraryRootScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(AuroColor.Black)
+            .background(AuroColor.Canvas)
     ) {
         if (totalTracksCount == 0 && !isLoading) {
             AuroEmptyState(
@@ -4393,13 +4723,6 @@ fun AuroLibraryRootScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                         }
-
-                        // Divisor Inset
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 54.dp),
-                            color = AuroColor.Separator,
-                            thickness = 0.5.dp
-                        )
                     }
                 }
 
@@ -4502,6 +4825,7 @@ fun AuroLibraryRootScreen(
         }
     }
 }
+
 === FILE: app/src/main/java/com/lucas/player/ui/screens/AuroCategoryListScreen.kt ===
 package com.lucas.player.ui.screens
 
@@ -4594,7 +4918,7 @@ fun AuroCategoryListScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(AuroColor.Black)
+            .background(AuroColor.Canvas)
     ) {
         AuroTopBar(
             title = stringResource(category.getTitleRes()),
@@ -4685,7 +5009,6 @@ fun AuroCategoryListScreen(
                     }
                 }
             }
-            HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
         }
 
         // Ação de Nova Lista de Reprodução
@@ -4712,7 +5035,6 @@ fun AuroCategoryListScreen(
                     )
                 )
             }
-            HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
         }
 
         val coroutineScope = rememberCoroutineScope()
@@ -4753,11 +5075,6 @@ fun AuroCategoryListScreen(
                                 },
                                 onLongClick = { onTrackLongClick(track) },
                                 onMenuClick = { onTrackMenuClick(track) }
-                            )
-                            HorizontalDivider(
-                                modifier = Modifier.padding(start = 80.dp),
-                                color = AuroColor.Hairline,
-                                thickness = 1.dp
                             )
                         }
                     }
@@ -4851,11 +5168,6 @@ fun AuroCategoryListScreen(
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
-                            HorizontalDivider(
-                                modifier = Modifier.padding(start = 66.dp),
-                                color = AuroColor.Hairline,
-                                thickness = 1.dp
-                            )
                         }
                     }
 
@@ -4884,12 +5196,14 @@ fun AuroCategoryListScreen(
         }
     }
 }
+
 === FILE: app/src/main/java/com/lucas/player/ui/screens/AuroDrilldownScreen.kt ===
 package com.lucas.player.ui.screens
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -4900,14 +5214,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.MusicOff
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Shuffle
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -4936,11 +5246,11 @@ import com.lucas.player.ui.theme.*
 import kotlinx.coroutines.launch
 
 /**
- * TELA DE DRILLDOWN (Apple Music Android 7.0.2 - Hero Header)
- * - Top bar transparente com botões circulares flutuantes de vidro (< e Fixar)
- * - Hero Header com capa centralizada 210dp (raio 12dp + sombra), título 22sp Bold,
- *   subtítulo na cor adaptativa, contagem/duração e 2 botões pílula lado a lado (48dp).
- * - Linhas de faixas estilo Apple Music + FastScroller na margem direita.
+ * TELA DE DRILLDOWN (Editorial Dark OLED - Hero Portrait & Zero Divisores)
+ * - Hero Portrait de 360dp com raio 32dp e TranslucentPlayButton (52dp) flutuando no canto inferior direito
+ * - Título em HeroName (30sp), subtítulo em TextSecondary
+ * - EditorialSectionHeader com ação Aleatório
+ * - Lista de faixas sem nenhum divisor
  */
 @Composable
 fun AuroDrilldownScreen(
@@ -4972,12 +5282,12 @@ fun AuroDrilldownScreen(
     val totalDurationMs = remember(tracks) { tracks.sumOf { it.durationMs } }
 
     val firstTrack = tracks.firstOrNull()
-    val heroCover = rememberTrackCover(firstTrack, 350)
+    val heroCover = rememberTrackCover(firstTrack, 400)
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(AuroColor.Black)
+            .background(AuroColor.Canvas)
     ) {
         if (tracks.isEmpty()) {
             AuroEmptyState(
@@ -4992,9 +5302,9 @@ fun AuroDrilldownScreen(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = bottomInset + 24.dp)
+                contentPadding = PaddingValues(bottom = bottomInset + 80.dp)
             ) {
-                // Hero Header Centralizado estilo Apple Music
+                // Hero Header Centralizado com Ambient Bleed
                 item(key = "hero_header") {
                     Column(
                         modifier = Modifier
@@ -5002,23 +5312,24 @@ fun AuroDrilldownScreen(
                             .background(
                                 Brush.verticalGradient(
                                     colors = listOf(
-                                        accent.copy(alpha = 0.16f),
+                                        accent.copy(alpha = 0.20f),
                                         Color.Transparent
                                     )
                                 )
                             )
                             .statusBarsPadding()
-                            .padding(top = 56.dp, bottom = 20.dp, start = AuroSpace.ScreenMargin, end = AuroSpace.ScreenMargin),
+                            .padding(top = 52.dp, bottom = 16.dp, start = AuroSpace.ScreenMargin, end = AuroSpace.ScreenMargin),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Capa Centralizada 210dp (12dp radius + sombra elegante)
+                        // Hero Portrait de até 300dp (raio 32dp) com PlayButton flutuando
                         Box(
                             modifier = Modifier
-                                .size(210.dp)
-                                .shadow(elevation = 18.dp, shape = RoundedCornerShape(AuroRadius.card), spotColor = accent.copy(alpha = 0.5f))
-                                .clip(RoundedCornerShape(AuroRadius.card))
-                                .background(AuroColor.SurfaceGrouped),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .heightIn(max = 300.dp)
+                                .aspectRatio(1f)
+                                .shadow(elevation = 24.dp, shape = RoundedCornerShape(AuroRadius.hero), spotColor = accent.copy(alpha = 0.45f))
+                                .clip(RoundedCornerShape(AuroRadius.hero))
+                                .background(AuroColor.SurfaceCard)
                         ) {
                             if (heroCover != null) {
                                 Image(
@@ -5031,17 +5342,28 @@ fun AuroDrilldownScreen(
                                 AuroCoverPlaceholder(
                                     modifier = Modifier.fillMaxSize(),
                                     glass = false,
-                                    shape = RoundedCornerShape(AuroRadius.card)
+                                    shape = RoundedCornerShape(AuroRadius.hero)
                                 )
                             }
+
+                            // TranslucentPlayButton (52dp) no canto inferior direito
+                            TranslucentPlayButton(
+                                isPlaying = false,
+                                size = 52.dp,
+                                onClick = onPlayAll,
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd)
+                                    .padding(16.dp)
+                            )
                         }
 
-                        Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
 
-                        // Título 22sp Bold
+                        // Nome Hero (30sp Bold)
                         Text(
                             text = groupTitle,
-                            style = AuroType.SectionTitle,
+                            style = AuroType.HeroName,
+                            color = AuroColor.TextPrimary,
                             textAlign = TextAlign.Center,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
@@ -5049,106 +5371,28 @@ fun AuroDrilldownScreen(
 
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        // Subtítulo na cor de acento adaptativa
+                        // Subtítulo e contagem
                         Text(
-                            text = stringResource(category.getTitleRes()),
+                            text = "${stringResource(category.getTitleRes())} • ${pluralStringResource(R.plurals.tracks_count, tracks.size, tracks.size)} • ${formatTimeMs(totalDurationMs)}",
                             style = AuroType.Subtitle.copy(
-                                color = accent,
-                                fontWeight = FontWeight.SemiBold
-                            ),
-                            textAlign = TextAlign.Center
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        // Contagem e duração total
-                        Text(
-                            text = "${pluralStringResource(R.plurals.tracks_count, tracks.size, tracks.size)} • ${formatTimeMs(totalDurationMs)}",
-                            style = AuroType.Caption.copy(
                                 color = AuroColor.TextSecondary,
-                                fontFamily = FontFamily.Monospace,
                                 fontFeatureSettings = "tnum"
                             ),
                             textAlign = TextAlign.Center
                         )
 
-                        Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                        // 2 Botões pílula lado a lado (48dp, #1C1C1E, ícone + texto na cor adaptativa)
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                                    .clip(CircleShape)
-                                    .background(AuroColor.SurfaceGrouped)
-                                    .clickable {
-                                        AuroHaptics.click(view)
-                                        onPlayAll()
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.PlayArrow,
-                                        contentDescription = null,
-                                        tint = accent,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = stringResource(R.string.play_all),
-                                        style = AuroType.Body.copy(
-                                            color = accent,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                }
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp)
-                                    .clip(CircleShape)
-                                    .background(AuroColor.SurfaceGrouped)
-                                    .clickable {
-                                        AuroHaptics.click(view)
-                                        onShuffleAll()
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Shuffle,
-                                        contentDescription = null,
-                                        tint = accent,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = stringResource(R.string.shuffle_all),
-                                        style = AuroType.Body.copy(
-                                            color = accent,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                }
-                            }
-                        }
+                        // Cabeçalho da seção com ação de Aleatório
+                        EditorialSectionHeader(
+                            title = stringResource(R.string.top_songs),
+                            actionLabel = stringResource(R.string.shuffle_all),
+                            onAction = onShuffleAll
+                        )
                     }
                 }
 
-                // Lista de Faixas com AuroTrackRow
+                // Lista de Faixas sem NENHUM divisor
                 itemsIndexed(tracks, key = { _, track -> track.id }) { index, track ->
                     AuroTrackRow(
                         track = track,
@@ -5174,15 +5418,10 @@ fun AuroDrilldownScreen(
                         },
                         onMenuClick = { onTrackMenuClick(track) }
                     )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = 72.dp),
-                        color = AuroColor.Separator,
-                        thickness = 0.5.dp
-                    )
                 }
             }
 
-            // Top Bar Transparente com botões circulares flutuantes de vidro
+            // Top Bar Transparente com botões circulares flutuantes
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -5191,42 +5430,44 @@ fun AuroDrilldownScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                AuroGlass(
-                    kind = AuroGlassKind.Button,
-                    cornerRadius = 20.dp,
-                    modifier = Modifier.size(AuroHeight.GlassButton),
-                    onClick = {
-                        AuroHaptics.click(view)
-                        onBackToCategoryList()
-                    }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(AuroColor.ControlGlass)
+                        .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                        .clickable {
+                            AuroHaptics.click(view)
+                            onBackToCategoryList()
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = stringResource(R.string.cd_back),
-                            tint = AuroColor.TextPrimary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = stringResource(R.string.cd_back),
+                        tint = AuroColor.TextPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
 
-                AuroGlass(
-                    kind = AuroGlassKind.Button,
-                    cornerRadius = 20.dp,
-                    modifier = Modifier.size(AuroHeight.GlassButton),
-                    onClick = {
-                        AuroHaptics.click(view)
-                        onTogglePin()
-                    }
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(AuroColor.ControlGlass)
+                        .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                        .clickable {
+                            AuroHaptics.click(view)
+                            onTogglePin()
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = if (isPinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
-                            contentDescription = stringResource(if (isPinned) R.string.action_unpin else R.string.action_pin),
-                            tint = if (isPinned) accent else AuroColor.TextPrimary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = if (isPinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
+                        contentDescription = stringResource(if (isPinned) R.string.action_unpin else R.string.action_pin),
+                        tint = if (isPinned) Color.White else AuroColor.TextSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 
@@ -5249,6 +5490,7 @@ fun AuroDrilldownScreen(
         }
     }
 }
+
 === FILE: app/src/main/java/com/lucas/player/ui/screens/AuroNowPlayingScreen.kt ===
 package com.lucas.player.ui.screens
 
@@ -5414,9 +5656,9 @@ fun AuroNowPlayingScreen(
         }
     }
 
-    // Viewport Fixo com Fundo Mesh Animado (Zero scroll do container principal)
-    LiquidMeshBackground(
-        isPlaying = isPlaying,
+    // Viewport com Fundo Ambient Bleed Suave
+    AmbientBleedBackground(
+        color = accent,
         modifier = modifier
             .fillMaxSize()
             .graphicsLayer {
@@ -5697,21 +5939,12 @@ fun AuroNowPlayingScreen(
                     )
                 }
 
-                // Play / Pause (Sem círculo branco no padrão Apple Music 7.0.2)
-                IconButton(
-                    onClick = {
-                        AuroHaptics.click(view)
-                        onPlayPause()
-                    },
-                    modifier = Modifier.size(64.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = if (isPlaying) stringResource(R.string.cd_pause) else stringResource(R.string.cd_play),
-                        tint = Color.White,
-                        modifier = Modifier.size(48.dp)
-                    )
-                }
+                // Play / Pause (TranslucentPlayButton no padrão Editorial Dark OLED)
+                TranslucentPlayButton(
+                    isPlaying = isPlaying,
+                    size = 56.dp,
+                    onClick = onPlayPause
+                )
 
                 // Próxima Faixa com toque curto (onNext) e hold (onBeginFastForward / onEndFastForward)
                 Box(
@@ -5941,7 +6174,7 @@ private fun ArtworkView(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // Título e Artista com botão de Estrela de Favorito
+        // Título e Artista com botão de Coração de Favorito
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -5950,46 +6183,39 @@ private fun ArtworkView(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = track.title,
-                    style = AuroType.SectionTitle.copy(
-                        fontSize = 22.sp,
-                        lineHeight = 26.sp,
-                        fontWeight = FontWeight.Bold
-                    ),
+                    style = AuroType.NowPlayingTitle,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                    style = AuroType.Subtitle.copy(
-                        fontSize = 17.sp,
-                        lineHeight = 22.sp,
-                        color = AuroColor.TextSecondary
-                    ),
+                    style = AuroType.Subtitle.copy(color = AuroColor.TextSecondary),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            // Botão de Favorito (★)
+            // Botão de Favorito (Coração)
             val isFavorite = track.rating > 0
-            AuroGlass(
-                kind = AuroGlassKind.Button,
-                cornerRadius = 20.dp,
-                modifier = Modifier.size(40.dp),
-                onClick = {
-                    val nextRating = if (isFavorite) 0 else 5
-                    onRatingChanged(nextRating)
-                }
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(AuroColor.ControlGlass)
+                    .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape)
+                    .clickable {
+                        val nextRating = if (isFavorite) 0 else 5
+                        onRatingChanged(nextRating)
+                    },
+                contentAlignment = Alignment.Center
             ) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                        contentDescription = stringResource(if (isFavorite) R.string.cd_unfavorite else R.string.cd_favorite),
-                        tint = if (isFavorite) AuroColor.FavoriteYellow else AuroColor.TextPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                Icon(
+                    imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    contentDescription = stringResource(if (isFavorite) R.string.cd_unfavorite else R.string.cd_favorite),
+                    tint = if (isFavorite) Color.White else AuroColor.TextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }
@@ -6523,6 +6749,7 @@ fun AppleScrubberBar(
         }
     }
 }
+
 === FILE: app/src/main/java/com/lucas/player/ui/screens/AuroQueueScreen.kt ===
 package com.lucas.player.ui.screens
 
@@ -6665,7 +6892,7 @@ fun AuroQueueScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(AuroColor.Black)
+            .background(AuroColor.Canvas)
     ) {
         AuroTopBar(
             title = stringResource(R.string.queue_breadcrumb),
@@ -6737,8 +6964,6 @@ fun AuroQueueScreen(
                     )
                 }
             }
-
-            HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
 
             Box(modifier = Modifier.weight(1f)) {
                 LazyColumn(
@@ -6847,11 +7072,6 @@ fun AuroQueueScreen(
                                 }
                             )
                         }
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 80.dp),
-                            color = AuroColor.Hairline,
-                            thickness = 1.dp
-                        )
                     }
                 }
 
@@ -6955,11 +7175,6 @@ fun AuroQueueScreen(
                                 }
                             )
                         }
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 80.dp),
-                            color = AuroColor.Hairline,
-                            thickness = 1.dp
-                        )
                     }
                 }
             }
@@ -7139,6 +7354,7 @@ private fun AuroQueueTrackRow(
         }
     }
 }
+
 === FILE: app/src/main/java/com/lucas/player/ui/screens/AuroSearchScreen.kt ===
 package com.lucas.player.ui.screens
 
@@ -7327,7 +7543,7 @@ fun AuroSearchScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(AuroColor.Black)
+            .background(AuroColor.Canvas)
             .statusBarsPadding()
             .imePadding()
             .padding(top = 12.dp)
@@ -7336,19 +7552,21 @@ fun AuroSearchScreen(
         Text(
             text = stringResource(R.string.tab_search),
             style = AuroType.LargeTitle,
+            color = AuroColor.TextPrimary,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = AuroSpace.ScreenMargin, vertical = 6.dp)
         )
 
-        // Campo de busca em pílula LiquidGlassSurface (48dp, CircleShape)
-        LiquidGlassSurface(
-            shape = CircleShape,
-            soft = LocalAuroSoft.current,
+        // Campo de busca em pílula (48dp, CircleShape)
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
                 .padding(horizontal = AuroSpace.ScreenMargin)
+                .clip(CircleShape)
+                .background(AuroColor.SurfaceCard)
+                .border(0.5.dp, Color.White.copy(alpha = 0.08f), CircleShape)
         ) {
             Row(
                 modifier = Modifier
@@ -7535,11 +7753,6 @@ fun AuroSearchScreen(
                                     )
                                 }
                             }
-                            HorizontalDivider(
-                                modifier = Modifier.padding(start = 54.dp),
-                                color = AuroColor.Hairline,
-                                thickness = 1.dp
-                            )
                         }
                     }
                     AuroTopFade(modifier = Modifier.align(Alignment.TopCenter))
@@ -7588,11 +7801,6 @@ fun AuroSearchScreen(
                                         onLongClick = { onTrackLongClick(track) },
                                         onMenuClick = { onTrackMenuClick(track) }
                                     )
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 80.dp),
-                                        color = AuroColor.Hairline,
-                                        thickness = 1.dp
-                                    )
                                 }
                             }
 
@@ -7613,11 +7821,6 @@ fun AuroSearchScreen(
                                             keyboardController?.hide()
                                             onAlbumClick(album.name)
                                         }
-                                    )
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 80.dp),
-                                        color = AuroColor.Hairline,
-                                        thickness = 1.dp
                                     )
                                 }
                             }
@@ -7640,11 +7843,6 @@ fun AuroSearchScreen(
                                             onArtistClick(artist.name)
                                         }
                                     )
-                                    HorizontalDivider(
-                                        modifier = Modifier.padding(start = 80.dp),
-                                        color = AuroColor.Hairline,
-                                        thickness = 1.dp
-                                    )
                                 }
                             }
                         }
@@ -7664,11 +7862,6 @@ fun AuroSearchScreen(
                                     onLongClick = { onTrackLongClick(track) },
                                     onMenuClick = { onTrackMenuClick(track) }
                                 )
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(start = 80.dp),
-                                    color = AuroColor.Hairline,
-                                    thickness = 1.dp
-                                )
                             }
                         }
 
@@ -7682,11 +7875,6 @@ fun AuroSearchScreen(
                                         onAlbumClick(album.name)
                                     }
                                 )
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(start = 80.dp),
-                                    color = AuroColor.Hairline,
-                                    thickness = 1.dp
-                                )
                             }
                         }
 
@@ -7699,11 +7887,6 @@ fun AuroSearchScreen(
                                         keyboardController?.hide()
                                         onArtistClick(artist.name)
                                     }
-                                )
-                                HorizontalDivider(
-                                    modifier = Modifier.padding(start = 80.dp),
-                                    color = AuroColor.Hairline,
-                                    thickness = 1.dp
                                 )
                             }
                         }
@@ -7880,6 +8063,7 @@ private fun SearchArtistRow(
         )
     }
 }
+
 === FILE: app/src/main/java/com/lucas/player/ui/screens/AuroEqualizerScreen.kt ===
 package com.lucas.player.ui.screens
 
@@ -7996,7 +8180,7 @@ fun AuroEqualizerScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(AuroColor.Black)
+            .background(AuroColor.Canvas)
     ) {
         AuroTopBar(
             title = stringResource(R.string.equalizer_breadcrumb),
@@ -8710,6 +8894,7 @@ private fun AuroSpatialSliderRow(
         )
     }
 }
+
 === FILE: app/src/main/java/com/lucas/player/ui/screens/AuroSettingsScreen.kt ===
 package com.lucas.player.ui.screens
 
@@ -8799,7 +8984,7 @@ fun AuroSettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(AuroColor.Black)
+            .background(AuroColor.Canvas)
     ) {
         AuroTopBar(
             title = stringResource(R.string.settings_title),
@@ -9503,6 +9688,7 @@ private fun SettingsClickableRow(
         trailingContent?.invoke()
     }
 }
+
 === FILE: app/src/main/java/com/lucas/player/ui/screens/AuroOverlays.kt ===
 package com.lucas.player.ui.screens
 
@@ -10641,6 +10827,7 @@ private fun AuroInfoRow(label: String, value: String) {
         )
     }
 }
+
 === FILE: app/src/main/java/com/lucas/player/MainActivity.kt ===
 package com.lucas.player
 
@@ -11111,21 +11298,17 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 ) {
                     val reduceMotion = rememberReduceMotion()
                     val navBarBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                    val floatingBarsHeight = 62.dp + 10.dp + (if (currentTrack != null) 56.dp + 8.dp else 0.dp)
+                    val floatingBarsHeight = 56.dp + 12.dp + (if (currentTrack != null) 52.dp + 8.dp else 0.dp)
                     val activeBottomInset = if (currentScreen is NavScreen.NowPlaying) 0.dp else (floatingBarsHeight + navBarBottomInset)
-                    val backdropLayer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        rememberBackdropGraphicsLayer()
-                    } else null
 
                     CompositionLocalProvider(
                         LocalAuroBottomInset provides activeBottomInset,
-                        LocalAuroIsPlaying provides isPlaying,
-                        LocalBackdropLayer provides null
+                        LocalAuroIsPlaying provides isPlaying
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(AuroColor.Black)
+                                .background(AuroColor.Canvas)
                         ) {
                         // Barra Superior de Seleção Múltipla (Fase 4.3)
                         if (isSelectionModeState.value) {
@@ -11252,23 +11435,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                     // Conteúdo Principal de Acordo com a Tela Ativa (Fase 5.4: insets medidos via LocalAuroBottomInset)
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(
-                                if (backdropLayer != null) {
-                                    Modifier.drawWithContent {
-                                        backdropLayer.record {
-                                            this@drawWithContent.drawContent()
-                                        }
-                                        drawLayer(backdropLayer)
-                                    }
-                                } else Modifier
-                            )
+                        modifier = Modifier.fillMaxSize()
                     ) {
-                        CompositionLocalProvider(
-                            LocalBackdropLayer provides null
-                        ) {
-                            AnimatedContent(
+                        AnimatedContent(
                             targetState = currentScreen,
                             transitionSpec = {
                                 if (reduceMotion) {
@@ -12064,14 +12233,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
-                            }
                         }
                     }
-                }
 
-                CompositionLocalProvider(
-                    LocalBackdropLayer provides backdropLayer
-                ) {
                     // AuroSnackbarHost posicionado acima do mini player / navbar (Fase 5.4: insets medidos)
                     val snackbarBottomPadding = if (currentScreen is NavScreen.NowPlaying) {
                         16.dp
@@ -12087,17 +12251,17 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             .padding(bottom = snackbarBottomPadding)
                     )
 
-                    // Duas Barras Flutuantes Independentes (Padrão Apple Music Android 7.0.2)
+                    // Duas Barras Flutuantes Independentes (Editorial Dark OLED)
                     if (currentScreen !is NavScreen.NowPlaying) {
                         Column(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .padding(bottom = 10.dp)
+                                .padding(bottom = 12.dp)
                                 .navigationBarsPadding(),
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             if (currentTrack != null) {
-                                AppleMiniPlayer(
+                                EditorialMiniPlayer(
                                     track = currentTrack,
                                     isPlaying = isPlaying,
                                     progressMs = progressMsState.longValue,
@@ -12110,12 +12274,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 )
                             }
 
-                            AppleFloatingTabBar(
+                            EditorialFloatingNavbar(
                                 currentScreen = currentScreen,
                                 onHomeClick = { navController.toggleHome() },
+                                onSearchClick = { navController.toggleSearch() },
                                 onLibraryClick = { navController.toggleLibrary() },
-                                onQueueClick = { navController.toggleQueue() },
-                                onSearchClick = { navController.toggleSearch() }
+                                onTuneClick = { navController.navigateTo(NavScreen.Equalizer) }
                             )
                         }
                     }
@@ -12327,13 +12491,13 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             onDismiss = { deletePresetTargetState.value = null }
                         )
                     }
-                    }
                 }
             }
         }
             }
         }
     }
+}
 
     private fun resetEqualizerToFlat() {
         val service = playbackService ?: return
@@ -12697,6 +12861,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         }
     }
 }
+
 === FILE: app/src/main/res/values/strings.xml ===
 <resources>
     <string name="app_name">Aurō Player</string>
@@ -12971,6 +13136,16 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     <string name="tab_library">Biblioteca</string>
     <string name="tab_search">Buscar</string>
     <string name="tab_menu">Menu</string>
+    <string name="tab_tune">Áudio &amp; Ajustes</string>
+    <string name="home_greeting_recommended">Recomendado\nPara Você Hoje</string>
+    <string name="home_mix_shuffle">Aleatório</string>
+    <string name="home_mix_most_played">Mais Tocadas</string>
+    <string name="home_mix_favorites">Favoritas</string>
+    <string name="home_mix_recent">Recentes</string>
+    <string name="home_banner_collections">Coleções</string>
+    <string name="view_all">Ver tudo</string>
+    <string name="hub_title">Áudio &amp; Ajustes</string>
+    <string name="top_songs">Principais músicas</string>
 
     <!-- Equalizador (Fase 5.3) -->
     <string name="eq_presets_header">PRESETS</string>
@@ -13068,6 +13243,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     <string name="snackbar_rating_set">Classificada com %1$d estrelas</string>
     <string name="snackbar_rating_removed">Classificação removida</string>
 </resources>
+
 === FILE: app/src/main/res/values-en/strings.xml ===
 <resources>
     <string name="app_name">Aurō Player</string>
@@ -13341,6 +13517,16 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     <string name="tab_library">Library</string>
     <string name="tab_search">Search</string>
     <string name="tab_menu">Menu</string>
+    <string name="tab_tune">Audio &amp; Settings</string>
+    <string name="home_greeting_recommended">Recommended\nFor You Today</string>
+    <string name="home_mix_shuffle">Shuffle</string>
+    <string name="home_mix_most_played">Most Played</string>
+    <string name="home_mix_favorites">Favorites</string>
+    <string name="home_mix_recent">Recent</string>
+    <string name="home_banner_collections">Collections</string>
+    <string name="view_all">View all</string>
+    <string name="hub_title">Audio &amp; Settings</string>
+    <string name="top_songs">Top Songs</string>
 
     <!-- Equalizer (Phase 5.3) -->
     <string name="eq_presets_header">PRESETS</string>
@@ -13438,14 +13624,16 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     <string name="snackbar_rating_set">Rated %1$d stars</string>
     <string name="snackbar_rating_removed">Rating removed</string>
 </resources>
+
 === FILE: app/src/main/res/values/themes.xml ===
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Player" parent="android:Theme.DeviceDefault.NoActionBar">
-        <item name="android:statusBarColor">#000000</item>
-        <item name="android:windowBackground">#000000</item>
+        <item name="android:statusBarColor">#050505</item>
+        <item name="android:windowBackground">#050505</item>
     </style>
 </resources>
+
 === FILE: app/src/test/java/com/lucas/player/ui/theme/AuroTiltTest.kt ===
 package com.lucas.player.ui.theme
 
@@ -13509,3 +13697,4 @@ class AuroTiltTest {
         assertEquals(1.0f, len, 1e-4f)
     }
 }
+

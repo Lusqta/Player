@@ -139,7 +139,7 @@ fun AuroQueueScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(AuroColor.Black)
+            .background(AuroColor.Canvas)
     ) {
         AuroTopBar(
             title = stringResource(R.string.queue_breadcrumb),
@@ -211,8 +211,6 @@ fun AuroQueueScreen(
                     )
                 }
             }
-
-            HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
 
             Box(modifier = Modifier.weight(1f)) {
                 LazyColumn(
@@ -321,11 +319,6 @@ fun AuroQueueScreen(
                                 }
                             )
                         }
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 80.dp),
-                            color = AuroColor.Hairline,
-                            thickness = 1.dp
-                        )
                     }
                 }
 
@@ -429,11 +422,6 @@ fun AuroQueueScreen(
                                 }
                             )
                         }
-                        HorizontalDivider(
-                            modifier = Modifier.padding(start = 80.dp),
-                            color = AuroColor.Hairline,
-                            thickness = 1.dp
-                        )
                     }
                 }
             }

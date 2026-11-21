@@ -271,6 +271,16 @@
     <string name="tab_library">Biblioteca</string>
     <string name="tab_search">Buscar</string>
     <string name="tab_menu">Menu</string>
+    <string name="tab_tune">Áudio &amp; Ajustes</string>
+    <string name="home_greeting_recommended">Recomendado\nPara Você Hoje</string>
+    <string name="home_mix_shuffle">Aleatório</string>
+    <string name="home_mix_most_played">Mais Tocadas</string>
+    <string name="home_mix_favorites">Favoritas</string>
+    <string name="home_mix_recent">Recentes</string>
+    <string name="home_banner_collections">Coleções</string>
+    <string name="view_all">Ver tudo</string>
+    <string name="hub_title">Áudio &amp; Ajustes</string>
+    <string name="top_songs">Principais músicas</string>
 
     <!-- Equalizador (Fase 5.3) -->
     <string name="eq_presets_header">PRESETS</string>
