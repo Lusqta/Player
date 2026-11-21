@@ -84,12 +84,26 @@ fun AuroDrilldownScreen(
 
     val firstTrack = tracks.firstOrNull()
     val heroCover = rememberTrackCover(firstTrack, 400)
+    var groupAccent by remember { mutableStateOf(AuroAccent.Neutral) }
+    LaunchedEffect(heroCover) {
+        groupAccent = CoverGlow.from(heroCover)
+    }
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(AuroColor.Canvas)
     ) {
+        // Fundo animado de 2 cores borradas da capa do próprio grupo atrás do Hero (igual à tela Joji)
+        AnimatedDualColorBackground(
+            color1 = groupAccent.mesh1,
+            color2 = groupAccent.mesh2,
+            isPlaying = false,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(520.dp)
+        )
+
         if (tracks.isEmpty()) {
             AuroEmptyState(
                 icon = Icons.Rounded.MusicOff,
@@ -110,14 +124,6 @@ fun AuroDrilldownScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        accent.copy(alpha = 0.22f),
-                                        Color.Transparent
-                                    )
-                                )
-                            )
                             .statusBarsPadding()
                             .padding(top = 56.dp, bottom = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -128,7 +134,7 @@ fun AuroDrilldownScreen(
                                 .fillMaxWidth()
                                 .padding(horizontal = 14.dp)
                                 .height(340.dp)
-                                .shadow(elevation = 24.dp, shape = RoundedCornerShape(32.dp), spotColor = accent.copy(alpha = 0.45f))
+                                .shadow(elevation = 24.dp, shape = RoundedCornerShape(32.dp), spotColor = groupAccent.mesh1.copy(alpha = 0.45f))
                                 .clip(RoundedCornerShape(32.dp))
                                 .background(AuroColor.SurfaceCard)
                         ) {

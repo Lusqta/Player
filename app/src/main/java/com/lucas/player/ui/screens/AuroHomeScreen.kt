@@ -298,12 +298,12 @@ fun AuroHomeScreen(
                                 drawRect(
                                     brush = Brush.radialGradient(
                                         colors = listOf(
-                                            warmGlow.copy(alpha = 0.40f),
-                                            warmGlow.copy(alpha = 0.14f),
+                                            warmGlow.copy(alpha = 0.62f),
+                                            warmGlow.copy(alpha = 0.25f),
                                             Color.Transparent
                                         ),
                                         center = Offset(size.width / 2f, size.height * 0.85f),
-                                        radius = size.width * 0.45f
+                                        radius = size.width * 0.55f
                                     )
                                 )
                             }

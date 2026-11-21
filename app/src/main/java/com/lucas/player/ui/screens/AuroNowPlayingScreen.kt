@@ -1,10 +1,11 @@
-package com.lucas.player.ui.screens
+﻿package com.lucas.player.ui.screens
 
 import android.graphics.Bitmap
 import androidx.activity.BackEventCompat
 import androidx.activity.compose.PredictiveBackHandler
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,14 +22,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.automirrored.outlined.QueueMusic
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -37,7 +38,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -60,14 +60,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
-/**
- * NOW PLAYING (Editorial Dark OLED - Fidelidade Total à Referência)
- * - Fundo Borrado Animado de 2 Cores reais da capa (AnimatedDualColorBackground)
- * - Capa 100% largura da tela (0.dp padding horizontal) com chevron v flutuando no topo esquerdo
- * - Estrutura de camada única com estado contínuo expandProgress (0f = Player, 1f = Letras expandidas)
- * - Aba de Letras expansível por toque e arrasto contínuo (largura total da tela)
- * - Controles 100% Branco Puro / Acromático
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuroNowPlayingScreen(
@@ -133,51 +125,41 @@ fun AuroNowPlayingScreen(
     val reduceMotion = rememberReduceMotion()
     val coroutineScope = rememberCoroutineScope()
 
-    // Estado contínuo de expansão (0f = Player, 1f = Letras expandidas)
     val expandProgress = remember { Animatable(0f) }
     var showOptionsMenu by remember { mutableStateOf(false) }
     var showQueueSheet by remember { mutableStateOf(false) }
 
-    // Carregamento de Letras Locais (.LRC / ID3)
     var lyricsData by remember(track.id) { mutableStateOf<LyricsManager.Lyrics?>(null) }
     LaunchedEffect(track.id) {
         lyricsData = LyricsManager.loadLyrics(context, track)
     }
 
-    // Predictive Back Gesture
     val backProgress = remember { Animatable(0f) }
     PredictiveBackHandler(enabled = true) { progressFlow: Flow<BackEventCompat> ->
         try {
             progressFlow.collect { event ->
-                if (!reduceMotion) {
-                    backProgress.snapTo(event.progress)
-                }
+                if (!reduceMotion) backProgress.snapTo(event.progress)
             }
             if (expandProgress.value > 0.05f) {
                 coroutineScope.launch {
-                    expandProgress.animateTo(0f, spring(dampingRatio = 0.86f, stiffness = 340f))
+                    expandProgress.animateTo(0f, spring(dampingRatio = 0.84f, stiffness = 320f))
                 }
             } else {
                 onCollapse()
             }
         } catch (_: CancellationException) {
-            if (!reduceMotion) {
-                backProgress.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = 300f))
-            }
+            if (!reduceMotion) backProgress.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = 300f))
         } finally {
-            if (!reduceMotion) {
-                backProgress.snapTo(0f)
-            }
+            if (!reduceMotion) backProgress.snapTo(0f)
         }
     }
 
     val coverScale by animateFloatAsState(
-        targetValue = if (isPlaying) 1.0f else 0.94f,
-        animationSpec = spring(dampingRatio = 0.75f, stiffness = 280f),
-        label = "nowPlayingCoverScale"
+        targetValue = if (isPlaying) 1.0f else 0.96f,
+        animationSpec = spring(dampingRatio = 0.78f, stiffness = 280f),
+        label = "coverScale"
     )
 
-    // Viewport com Fundo Borrado Animado de 2 Cores do Álbum
     AnimatedDualColorBackground(
         color1 = color1,
         color2 = color2,
@@ -195,68 +177,72 @@ fun AuroNowPlayingScreen(
     ) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val screenHeight = maxHeight
-            val navBarBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-            val statusBarTopInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+            val navBarInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+            val statusBarInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
-            val progress = expandProgress.value
+            val progress = expandProgress.value.coerceIn(0f, 1f)
             val playerAlpha = (1f - progress * 2.2f).coerceIn(0f, 1f)
-            val compactHeaderAlpha = ((progress - 0.35f) * 1.54f).coerceIn(0f, 1f)
+            val compactAlpha = ((progress - 0.30f) * 1.43f).coerceIn(0f, 1f)
 
-            // Posição vertical da aba de Letras (interpolação contínua)
-            val collapsedHeight = 56.dp + navBarBottomInset
-            val collapsedTop = screenHeight - collapsedHeight
-            val expandedTop = statusBarTopInset + 104.dp
+            // Geometria interpolada da Aba Expansível de Letras:
+            // Recolhida (0f): pílula flutuante (padding 16dp, altura 50dp, raio 25dp) igual à referência
+            // Expandida (1f): largura total 100% da tela (0dp lateral/inferior), deixando só o topo da faixa
+            val collapsedPillHeight = 50.dp
+            val collapsedBottomGap = navBarInset + 10.dp
+            val collapsedTop = screenHeight - collapsedPillHeight - collapsedBottomGap
+            val expandedTop = statusBarInset + 114.dp
             val currentTop = lerp(collapsedTop, expandedTop, progress)
+            val sheetHorizontalPadding = lerp(16.dp, 0.dp, progress)
+            val sheetBottomPadding = lerp(collapsedBottomGap, 0.dp, progress)
+            val sheetTopRadius = lerp(25.dp, 28.dp, progress)
+            val sheetBottomRadius = lerp(25.dp, 0.dp, progress)
 
-            // ─────────────────────── CAMADA 1: PLAYER (Capa + Metadados + Transporte) ───────────────────────
+            // ─────────── CAMADA 1: PLAYER (Capa 100% largura + Metadados + Transporte + Scrubber) ───────────
             if (playerAlpha > 0f) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {
                             alpha = playerAlpha
-                            scaleX = 1f - 0.05f * progress
-                            scaleY = 1f - 0.05f * progress
+                            scaleX = 1f - 0.04f * progress
+                            scaleY = 1f - 0.04f * progress
                         },
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // 1. Capa Largura Total (100% largura da tela, 0.dp padding horizontal, ~54% altura)
+                    // Capa ocupando 100% da largura da tela sem deformar/cortar as laterais
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(screenHeight * 0.54f)
+                            .aspectRatio(1f)
+                            .heightIn(max = screenHeight * 0.56f)
                             .graphicsLayer {
                                 scaleX = coverScale
                                 scaleY = coverScale
                             }
+                            .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
                             .pointerInput(Unit) {
-                                var totalDragX = 0f
-                                var totalDragY = 0f
+                                var dx = 0f
+                                var dy = 0f
                                 detectDragGestures(
-                                    onDragStart = { totalDragX = 0f; totalDragY = 0f },
+                                    onDragStart = { dx = 0f; dy = 0f },
                                     onDragEnd = {
-                                        if (totalDragY < -40f && abs(totalDragY) > abs(totalDragX)) {
+                                        if (dy < -45f && abs(dy) > abs(dx)) {
                                             AuroHaptics.click(view)
                                             coroutineScope.launch {
-                                                expandProgress.animateTo(1f, spring(0.86f, 340f))
+                                                expandProgress.animateTo(1f, spring(0.84f, 320f))
                                             }
-                                        } else if (totalDragY > 50f && abs(totalDragY) > abs(totalDragX)) {
+                                        } else if (dy > 55f && abs(dy) > abs(dx)) {
                                             AuroHaptics.click(view)
                                             onCollapse()
-                                        } else if (abs(totalDragX) > 40f) {
-                                            if (totalDragX < 0) {
-                                                AuroHaptics.click(view)
-                                                onNext()
-                                            } else {
-                                                AuroHaptics.click(view)
-                                                onPrevious()
-                                            }
+                                        } else if (abs(dx) > 45f) {
+                                            AuroHaptics.click(view)
+                                            if (dx < 0) onNext() else onPrevious()
                                         }
                                     }
-                                ) { change, dragAmount ->
+                                ) { change, drag ->
                                     change.consume()
-                                    totalDragX += dragAmount.x
-                                    totalDragY += dragAmount.y
+                                    dx += drag.x
+                                    dy += drag.y
                                 }
                             }
                     ) {
@@ -270,34 +256,42 @@ fun AuroNowPlayingScreen(
                         } else {
                             AuroCoverPlaceholder(
                                 modifier = Modifier.fillMaxSize(),
-                                glass = false,
-                                shape = RoundedCornerShape(0.dp)
+                                shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
                             )
                         }
 
-                        // Gradiente suave nos 22% inferiores fundindo no fundo borrado de 2 cores
+                        // Fade sutil no topo para o chevron e status bar
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .fillMaxHeight(0.24f)
-                                .align(Alignment.BottomCenter)
+                                .height(88.dp)
+                                .align(Alignment.TopCenter)
                                 .background(
                                     Brush.verticalGradient(
-                                        colors = listOf(
-                                            Color.Transparent,
-                                            Color(0xFF050505).copy(alpha = 0.45f),
-                                            Color(0xFF050505).copy(alpha = 0.95f)
-                                        )
+                                        listOf(Color.Black.copy(alpha = 0.42f), Color.Transparent)
                                     )
                                 )
                         )
 
-                        // Chevron v flutuando no canto superior esquerdo (SEM CÍRCULO)
+                        // Fade inferior fundindo a capa no fundo borrado de 2 cores
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .fillMaxHeight(0.28f)
+                                .align(Alignment.BottomCenter)
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f))
+                                    )
+                                )
+                        )
+
+                        // Chevron v limpo no canto superior esquerdo (fiel à referência)
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
                                 .statusBarsPadding()
-                                .padding(start = 16.dp, top = 8.dp)
+                                .padding(start = 12.dp, top = 6.dp)
                                 .size(44.dp)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
@@ -311,58 +305,31 @@ fun AuroNowPlayingScreen(
                             Icon(
                                 imageVector = Icons.Rounded.KeyboardArrowDown,
                                 contentDescription = stringResource(R.string.cd_collapse),
-                                tint = Color.White.copy(alpha = 0.85f),
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-
-                        // Ícone discreto de Fila no canto superior direito
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .statusBarsPadding()
-                                .padding(end = 16.dp, top = 8.dp)
-                                .size(44.dp)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    AuroHaptics.click(view)
-                                    showQueueSheet = true
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.QueueMusic,
-                                contentDescription = stringResource(R.string.now_playing_mode_queue),
-                                tint = Color.White.copy(alpha = 0.70f),
-                                modifier = Modifier.size(22.dp)
+                                tint = Color.White.copy(alpha = 0.90f),
+                                modifier = Modifier.size(28.dp)
                             )
                         }
                     }
 
-                    // Controles abaixo da capa (com padding horizontal = 20.dp)
+                    // Bloco inferior de controles (acima da pílula Letras ^)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp)
-                            .padding(bottom = collapsedHeight + 8.dp)
+                            .weight(1f)
+                            .padding(horizontal = 22.dp)
+                            .padding(bottom = collapsedPillHeight + collapsedBottomGap + 14.dp),
+                        verticalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        // 2. Linha Título/Artista + Coração ♡ e ••• (Sem círculos)
+                        // Título / Artista + ♡ e •••
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = track.title,
-                                    style = AuroType.NowPlayingTitle.copy(
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Medium
-                                    ),
+                                    style = AuroType.NowPlayingTitle,
                                     color = Color.White,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
@@ -370,10 +337,8 @@ fun AuroNowPlayingScreen(
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                                    style = AuroType.Subtitle.copy(
-                                        fontSize = 14.sp,
-                                        color = Color.White.copy(alpha = 0.55f)
-                                    ),
+                                    style = AuroType.Subtitle.copy(fontSize = 14.sp),
+                                    color = Color.White.copy(alpha = 0.58f),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -381,12 +346,12 @@ fun AuroNowPlayingScreen(
 
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 val isFavorite = track.rating > 0
                                 Box(
                                     modifier = Modifier
-                                        .size(44.dp)
+                                        .size(40.dp)
                                         .clickable(
                                             interactionSource = remember { MutableInteractionSource() },
                                             indication = null
@@ -399,14 +364,14 @@ fun AuroNowPlayingScreen(
                                     Icon(
                                         imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                                         contentDescription = stringResource(if (isFavorite) R.string.cd_unfavorite else R.string.cd_favorite),
-                                        tint = if (isFavorite) Color.White else Color.White.copy(alpha = 0.75f),
+                                        tint = if (isFavorite) Color.White else Color.White.copy(alpha = 0.72f),
                                         modifier = Modifier.size(22.dp)
                                     )
                                 }
 
                                 Box(
                                     modifier = Modifier
-                                        .size(44.dp)
+                                        .size(40.dp)
                                         .clickable(
                                             interactionSource = remember { MutableInteractionSource() },
                                             indication = null
@@ -419,27 +384,22 @@ fun AuroNowPlayingScreen(
                                     Icon(
                                         imageVector = Icons.Rounded.MoreHoriz,
                                         contentDescription = stringResource(R.string.cd_more_options),
-                                        tint = Color.White.copy(alpha = 0.60f),
+                                        tint = Color.White.copy(alpha = 0.65f),
                                         modifier = Modifier.size(22.dp)
                                     )
                                 }
                             }
                         }
 
-                        // 3. Transporte: Shuffle · Prev · Play(56dp) · Next · Repeat (Acima do Scrubber)
+                        // Transporte: Shuffle · Prev · Play (58dp) · Next · Repeat
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 10.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             val isShuffleActive = shuffleMode != ShuffleMode.OFF
                             IconButton(
-                                onClick = {
-                                    AuroHaptics.click(view)
-                                    onToggleShuffle()
-                                },
+                                onClick = { AuroHaptics.click(view); onToggleShuffle() },
                                 modifier = Modifier.size(40.dp)
                             ) {
                                 Icon(
@@ -483,13 +443,13 @@ fun AuroNowPlayingScreen(
                                     imageVector = Icons.Rounded.SkipPrevious,
                                     contentDescription = stringResource(R.string.cd_previous),
                                     tint = Color.White,
-                                    modifier = Modifier.size(26.dp)
+                                    modifier = Modifier.size(28.dp)
                                 )
                             }
 
                             TranslucentPlayButton(
                                 isPlaying = isPlaying,
-                                size = 56.dp,
+                                size = 58.dp,
                                 onClick = onPlayPause
                             )
 
@@ -526,16 +486,13 @@ fun AuroNowPlayingScreen(
                                     imageVector = Icons.Rounded.SkipNext,
                                     contentDescription = stringResource(R.string.cd_next),
                                     tint = Color.White,
-                                    modifier = Modifier.size(26.dp)
+                                    modifier = Modifier.size(28.dp)
                                 )
                             }
 
                             val isRepeatActive = repeatMode != RepeatMode.OFF
                             IconButton(
-                                onClick = {
-                                    AuroHaptics.click(view)
-                                    onToggleRepeat()
-                                },
+                                onClick = { AuroHaptics.click(view); onToggleRepeat() },
                                 modifier = Modifier.size(40.dp)
                             ) {
                                 Icon(
@@ -547,13 +504,12 @@ fun AuroNowPlayingScreen(
                             }
                         }
 
-                        // 4. EditorialScrubber (Linha 2.5dp + thumb 10dp)
+                        // Scrubber fino branco
                         EditorialScrubber(
                             progressMs = progressMs,
                             durationMs = durationMs,
                             onSeek = { ms ->
-                                val frac = if (durationMs > 0) ms.toFloat() / durationMs.toFloat() else 0f
-                                onSeek(frac)
+                                onSeek(if (durationMs > 0) ms.toFloat() / durationMs.toFloat() else 0f)
                             },
                             showTimestampsOnlyWhenDragging = true,
                             modifier = Modifier.fillMaxWidth()
@@ -562,52 +518,44 @@ fun AuroNowPlayingScreen(
                 }
             }
 
-            // ─────────────────────── CAMADA 2: CABEÇALHO COMPACTO (Apenas quando Letras Expandidas) ───────────────────────
-            if (compactHeaderAlpha > 0f) {
+            // ─────────── CAMADA 2: TOPO COMPACTO DA FAIXA (Arrastar para baixo volta ao player) ───────────
+            if (compactAlpha > 0f) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(horizontal = 20.dp, vertical = 6.dp)
+                        .padding(horizontal = 22.dp, vertical = 10.dp)
                         .graphicsLayer {
-                            alpha = compactHeaderAlpha
-                            translationY = (-16.dp * (1f - progress)).toPx()
+                            alpha = compactAlpha
+                            translationY = (-12.dp * (1f - progress)).toPx()
                         }
                         .pointerInput(screenHeight) {
-                            // Arrastar esse cabeçalho do topo para baixo reduz expandProgress em tempo real
-                            val totalDistance = (collapsedTop - expandedTop).toPx()
+                            val totalDist = (collapsedTop - expandedTop).toPx().coerceAtLeast(1f)
                             detectDragGestures(
                                 onDragEnd = {
-                                    val target = if (expandProgress.value < 0.75f) 0f else 1f
+                                    val target = if (expandProgress.value < 0.78f) 0f else 1f
                                     coroutineScope.launch {
-                                        expandProgress.animateTo(target, spring(0.86f, 340f))
+                                        expandProgress.animateTo(target, spring(0.84f, 320f))
                                     }
                                 }
-                            ) { change, dragAmount ->
+                            ) { change, drag ->
                                 change.consume()
-                                if (totalDistance > 0f) {
-                                    val delta = -dragAmount.y / totalDistance
-                                    coroutineScope.launch {
-                                        expandProgress.snapTo((expandProgress.value + delta).coerceIn(0f, 1f))
-                                    }
+                                val delta = -drag.y / totalDist
+                                coroutineScope.launch {
+                                    expandProgress.snapTo((expandProgress.value + delta).coerceIn(0f, 1f))
                                 }
                             }
                         }
                 ) {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 6.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = track.title,
-                                style = AuroType.CardTitle.copy(
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Medium
-                                ),
+                                style = AuroType.NowPlayingTitle.copy(fontSize = 18.sp),
                                 color = Color.White,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -615,15 +563,13 @@ fun AuroNowPlayingScreen(
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                                style = AuroType.Subtitle.copy(
-                                    fontSize = 13.sp,
-                                    color = Color.White.copy(alpha = 0.55f)
-                                ),
+                                style = AuroType.Subtitle.copy(fontSize = 13.sp),
+                                color = Color.White.copy(alpha = 0.58f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
-
+                        Spacer(modifier = Modifier.width(12.dp))
                         TranslucentPlayButton(
                             isPlaying = isPlaying,
                             size = 38.dp,
@@ -631,12 +577,13 @@ fun AuroNowPlayingScreen(
                         )
                     }
 
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     EditorialScrubber(
                         progressMs = progressMs,
                         durationMs = durationMs,
                         onSeek = { ms ->
-                            val frac = if (durationMs > 0) ms.toFloat() / durationMs.toFloat() else 0f
-                            onSeek(frac)
+                            onSeek(if (durationMs > 0) ms.toFloat() / durationMs.toFloat() else 0f)
                         },
                         showTimestampsOnlyWhenDragging = true,
                         modifier = Modifier.fillMaxWidth()
@@ -644,41 +591,33 @@ fun AuroNowPlayingScreen(
                 }
             }
 
-            // ─────────────────────── CAMADA 3: ABA EXPANSÍVEL DE LETRAS (Largura Total da Tela) ───────────────────────
+            // ─────────── CAMADA 3: ABA EXPANSÍVEL DE LETRAS (Pílula -> Largura Total) ───────────
+            val sheetShape = RoundedCornerShape(
+                topStart = sheetTopRadius,
+                topEnd = sheetTopRadius,
+                bottomStart = sheetBottomRadius,
+                bottomEnd = sheetBottomRadius
+            )
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(screenHeight - currentTop)
+                    .padding(horizontal = sheetHorizontalPadding)
                     .offset(y = currentTop)
-                    .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                    .background(Color(0xFF1C1C1E).copy(alpha = 0.82f + 0.12f * progress))
-                    .drawBehind {
-                        // Textura sutil das 2 cores da capa (14%)
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                colors = listOf(
-                                    color1.copy(alpha = 0.14f),
-                                    color2.copy(alpha = 0.08f),
-                                    Color.Transparent
-                                )
-                            )
-                        )
-                    }
-                    .border(
-                        0.5.dp,
-                        Color.White.copy(alpha = 0.08f),
-                        RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-                    )
+                    .height((screenHeight - currentTop - sheetBottomPadding).coerceAtLeast(collapsedPillHeight))
+                    .clip(sheetShape)
+                    .background(Color.White.copy(alpha = 0.08f + 0.04f * progress))
+                    .background(Color(0xFF0E0E10).copy(alpha = 0.55f + 0.10f * progress))
+                    .border(0.5.dp, Color.White.copy(alpha = 0.10f), sheetShape)
             ) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Handle / Header de Letras (Sem pílula, indication = null, toque ou arraste contínuo)
+                    // Cabeçalho da aba (toque ou arrasto contínuo expande/recolhe)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(52.dp)
+                            .height(collapsedPillHeight)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
@@ -686,25 +625,23 @@ fun AuroNowPlayingScreen(
                                 AuroHaptics.click(view)
                                 val target = if (progress < 0.5f) 1f else 0f
                                 coroutineScope.launch {
-                                    expandProgress.animateTo(target, spring(0.86f, 340f))
+                                    expandProgress.animateTo(target, spring(0.84f, 320f))
                                 }
                             }
                             .pointerInput(screenHeight) {
-                                val totalDistance = (collapsedTop - expandedTop).toPx()
+                                val totalDist = (collapsedTop - expandedTop).toPx().coerceAtLeast(1f)
                                 detectDragGestures(
                                     onDragEnd = {
-                                        val target = if (expandProgress.value > 0.25f) 1f else 0f
+                                        val target = if (expandProgress.value > 0.22f) 1f else 0f
                                         coroutineScope.launch {
-                                            expandProgress.animateTo(target, spring(0.86f, 340f))
+                                            expandProgress.animateTo(target, spring(0.84f, 320f))
                                         }
                                     }
-                                ) { change, dragAmount ->
+                                ) { change, drag ->
                                     change.consume()
-                                    if (totalDistance > 0f) {
-                                        val delta = -dragAmount.y / totalDistance
-                                        coroutineScope.launch {
-                                            expandProgress.snapTo((expandProgress.value + delta).coerceIn(0f, 1f))
-                                        }
+                                    val delta = -drag.y / totalDist
+                                    coroutineScope.launch {
+                                        expandProgress.snapTo((expandProgress.value + delta).coerceIn(0f, 1f))
                                     }
                                 }
                             },
@@ -717,44 +654,47 @@ fun AuroNowPlayingScreen(
                             Text(
                                 text = stringResource(R.string.lyrics_label),
                                 style = AuroType.MicroLabel.copy(
-                                    fontSize = 13.sp,
+                                    fontSize = 13.5.sp,
                                     fontWeight = FontWeight.Medium
                                 ),
-                                color = Color.White
+                                color = Color.White.copy(alpha = 0.80f)
                             )
                             Spacer(modifier = Modifier.width(5.dp))
                             Icon(
                                 imageVector = if (progress >= 0.5f) Icons.Rounded.KeyboardArrowDown else Icons.Rounded.KeyboardArrowUp,
                                 contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.70f),
+                                tint = Color.White.copy(alpha = 0.65f),
                                 modifier = Modifier.size(16.dp)
                             )
                         }
                     }
 
-                    // Conteúdo das Letras centralizadas (ativo quando expandido)
-                    LyricsContentView(
-                        lyrics = lyricsData,
-                        progressMs = progressMs,
-                        durationMs = durationMs,
-                        onSeek = onSeek,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .padding(horizontal = 24.dp)
-                    )
+                    if (progress > 0.08f) {
+                        LyricsContentView(
+                            lyrics = lyricsData,
+                            progressMs = progressMs,
+                            durationMs = durationMs,
+                            onSeek = onSeek,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .navigationBarsPadding()
+                                .padding(horizontal = 24.dp)
+                                .graphicsLayer { alpha = ((progress - 0.1f) * 1.2f).coerceIn(0f, 1f) }
+                        )
+                    }
                 }
             }
         }
     }
 
-    // ─────────────────────── Bottom Sheet: Menu ••• (Opções Rápidas) ───────────────────────
+    // ─────────── Bottom Sheet: Menu ••• ───────────
     if (showOptionsMenu) {
         ModalBottomSheet(
             onDismissRequest = { showOptionsMenu = false },
             containerColor = AuroColor.SurfaceGrouped,
             scrimColor = Color.Black.copy(alpha = 0.65f),
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             dragHandle = {
                 Box(
                     modifier = Modifier
@@ -773,66 +713,32 @@ fun AuroNowPlayingScreen(
                     .padding(bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                // Fila de Reprodução
-                QuickMenuItem(
-                    icon = Icons.AutoMirrored.Outlined.QueueMusic,
-                    title = stringResource(R.string.menu_queue),
-                    onClick = {
-                        showOptionsMenu = false
-                        showQueueSheet = true
-                    }
-                )
-
-                // Equalizador & Áudio Espacial
-                QuickMenuItem(
-                    icon = Icons.Rounded.GraphicEq,
-                    title = stringResource(R.string.menu_equalizer_spatial),
-                    onClick = {
-                        showOptionsMenu = false
-                        onOpenEqualizer()
-                    }
-                )
-
-                // Adicionar à Playlist
-                QuickMenuItem(
-                    icon = Icons.AutoMirrored.Outlined.PlaylistAdd,
-                    title = stringResource(R.string.selection_add_playlist),
-                    onClick = {
-                        showOptionsMenu = false
-                        onAddToPlaylist()
-                    }
-                )
-
-                // Temporizador
-                QuickMenuItem(
-                    icon = Icons.Rounded.Timer,
-                    title = stringResource(R.string.menu_sleep_timer),
-                    onClick = {
-                        showOptionsMenu = false
-                        onOpenSleepTimer()
-                    }
-                )
-
-                // Informações da Faixa
-                QuickMenuItem(
-                    icon = Icons.Rounded.Info,
-                    title = stringResource(R.string.context_track_info),
-                    onClick = {
-                        showOptionsMenu = false
-                        onOpenTrackInfo()
-                    }
-                )
+                QuickMenuItem(Icons.AutoMirrored.Outlined.QueueMusic, stringResource(R.string.menu_queue)) {
+                    showOptionsMenu = false; showQueueSheet = true
+                }
+                QuickMenuItem(Icons.Rounded.GraphicEq, stringResource(R.string.menu_equalizer_spatial)) {
+                    showOptionsMenu = false; onOpenEqualizer()
+                }
+                QuickMenuItem(Icons.AutoMirrored.Outlined.PlaylistAdd, stringResource(R.string.selection_add_playlist)) {
+                    showOptionsMenu = false; onAddToPlaylist()
+                }
+                QuickMenuItem(Icons.Rounded.Timer, stringResource(R.string.menu_sleep_timer)) {
+                    showOptionsMenu = false; onOpenSleepTimer()
+                }
+                QuickMenuItem(Icons.Rounded.Info, stringResource(R.string.context_track_info)) {
+                    showOptionsMenu = false; onOpenTrackInfo()
+                }
             }
         }
     }
 
-    // ─────────────────────── Bottom Sheet: Fila de Reprodução ───────────────────────
+    // ─────────── Bottom Sheet: Fila ───────────
     if (showQueueSheet) {
         ModalBottomSheet(
             onDismissRequest = { showQueueSheet = false },
             containerColor = AuroColor.SurfaceGrouped,
             scrimColor = Color.Black.copy(alpha = 0.65f),
-            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             dragHandle = {
                 Box(
                     modifier = Modifier

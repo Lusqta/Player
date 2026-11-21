@@ -297,8 +297,8 @@ data class AuroAccent(
         val Neutral = AuroAccent(
             a = AppleBlue,
             b = Color(0xFF0071E3),
-            mesh1 = Color(0xFF3D1214),
-            mesh2 = Color(0xFF160D18),
+            mesh1 = Color(0xFF6B181A),
+            mesh2 = Color(0xFF241126),
             mesh3 = Color(0xFF2A1015),
             mesh4 = Color(0xFF120A14)
         )
@@ -335,8 +335,8 @@ object GlowTone {
         val b = (argb and 0xFF) / 255f
         val hsl = rgbToHsl(r, g, b)
         val h = hsl[0]
-        val s = hsl[1].coerceIn(0.35f, 0.78f)
-        val l = hsl[2].coerceIn(0.10f, 0.28f) // Tons escuros/atmosféricos para ambient bleed de 2 cores
+        val s = hsl[1].coerceIn(0.45f, 0.85f)
+        val l = hsl[2].coerceIn(0.18f, 0.34f)
         return Color(hslToArgb(h, s, l))
     }
 
@@ -404,9 +404,14 @@ object CoverGlow {
                 0xFF9A1D1D.toInt() to 0xFF3D1214.toInt()
             }
 
-            // 4 cores para o mesh animado do Now Playing (fallback neutro quente escuro #3D1214 e #160D18)
-            val m1 = GlowTone.fitMeshColor(p.vibrantSwatch?.rgb ?: seed?.rgb ?: 0xFF3D1214.toInt())
-            val m2 = GlowTone.fitMeshColor(p.darkVibrantSwatch?.rgb ?: p.dominantSwatch?.rgb ?: 0xFF160D18.toInt())
+            // 4 cores para o mesh animado do Now Playing (fallback neutro quente escuro #6B181A e #241126)
+            val m1 = GlowTone.fitMeshColor(p.vibrantSwatch?.rgb ?: seed?.rgb ?: 0xFF6B181A.toInt())
+            var m2 = GlowTone.fitMeshColor(p.darkVibrantSwatch?.rgb ?: p.dominantSwatch?.rgb ?: 0xFF241126.toInt())
+            if (m2 == m1) {
+                val hsl = GlowTone.rgbToHsl(m1.red, m1.green, m1.blue)
+                val hShifted = (hsl[0] + 35f / 360f) % 1f
+                m2 = Color(GlowTone.hslToArgb(hShifted, hsl[1], hsl[2]))
+            }
             val m3 = GlowTone.fitMeshColor(p.lightVibrantSwatch?.rgb ?: p.mutedSwatch?.rgb ?: 0xFF2A1015.toInt())
             val m4 = GlowTone.fitMeshColor(seed?.rgb ?: 0xFF120A14.toInt())
 
@@ -769,75 +774,106 @@ fun AnimatedDualColorBackground(
     content: @Composable BoxScope.() -> Unit = {}
 ) {
     val reduceMotion = rememberReduceMotion()
-
-    val animColor1 by animateColorAsState(
+    val animC1 by animateColorAsState(
         targetValue = color1,
         animationSpec = tween(AuroMotion.ColorMs, easing = AuroMotion.Emphasized),
         label = "dualBgColor1"
     )
-    val animColor2 by animateColorAsState(
+    val animC2 by animateColorAsState(
         targetValue = color2,
         animationSpec = tween(AuroMotion.ColorMs, easing = AuroMotion.Emphasized),
         label = "dualBgColor2"
     )
-
     val transition = rememberInfiniteTransition(label = "dualColorOrbit")
-    val orbitPhase by transition.animateFloat(
+    val phase by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(16000, easing = LinearEasing),
+            animation = tween(14000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "orbitPhase"
     )
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(0xFF050505))
-            .drawBehind {
-                val t = if (isPlaying && !reduceMotion) (orbitPhase * 2f * PI).toFloat() else 0f
-                val w = size.width
-                val h = size.height
-
-                // Mancha 1: órbita suave no quadrante superior/central
-                val c1X = w * (0.45f + 0.22f * cos(t))
-                val c1Y = h * (0.32f + 0.14f * sin(t))
-                val r1 = max(w, h) * 0.78f
-
-                drawRect(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            animColor1.copy(alpha = 0.58f),
-                            animColor1.copy(alpha = 0.22f),
-                            Color.Transparent
-                        ),
-                        center = Offset(c1X, c1Y),
-                        radius = r1
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val shader = remember { RuntimeShader(DUAL_COLOR_BLUR_AGSL) }
+        val brush = remember(shader) { ShaderBrush(shader) }
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .drawBehind {
+                    val t = if (isPlaying && !reduceMotion) (phase * 2f * PI).toFloat() else 0f
+                    shader.setFloatUniform("uSize", size.width, size.height)
+                    shader.setFloatUniform("uTime", t)
+                    shader.setFloatUniform("uColor1", animC1.red, animC1.green, animC1.blue)
+                    shader.setFloatUniform("uColor2", animC2.red, animC2.green, animC2.blue)
+                    drawRect(brush)
+                },
+            content = content
+        )
+    } else {
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color(0xFF050505))
+                .drawBehind {
+                    val t = if (isPlaying && !reduceMotion) (phase * 2f * PI).toFloat() else 0f
+                    val w = size.width
+                    val h = size.height
+                    drawRect(
+                        Brush.radialGradient(
+                            colors = listOf(animC1.copy(alpha = 0.72f), animC1.copy(alpha = 0.28f), Color.Transparent),
+                            center = Offset(w * (0.35f + 0.28f * cos(t)), h * (0.28f + 0.16f * sin(t))),
+                            radius = max(w, h) * 0.85f
+                        )
                     )
-                )
-
-                // Mancha 2: órbita suave no quadrante médio/inferior em fase oposta
-                val c2X = w * (0.55f + 0.22f * cos(-t + 2.4f))
-                val c2Y = h * (0.58f + 0.16f * sin(-t + 2.4f))
-                val r2 = max(w, h) * 0.82f
-
-                drawRect(
-                    brush = Brush.radialGradient(
-                        colors = listOf(
-                            animColor2.copy(alpha = 0.52f),
-                            animColor2.copy(alpha = 0.18f),
-                            Color.Transparent
-                        ),
-                        center = Offset(c2X, c2Y),
-                        radius = r2
+                    drawRect(
+                        Brush.radialGradient(
+                            colors = listOf(animC2.copy(alpha = 0.65f), animC2.copy(alpha = 0.24f), Color.Transparent),
+                            center = Offset(w * (0.65f + 0.26f * cos(-t + 2.1f)), h * (0.62f + 0.18f * sin(-t + 2.1f))),
+                            radius = max(w, h) * 0.90f
+                        )
                     )
-                )
-            },
-        content = content
-    )
+                },
+            content = content
+        )
+    }
 }
+
+private const val DUAL_COLOR_BLUR_AGSL = """
+uniform float2 uSize;
+uniform float  uTime;
+uniform float3 uColor1;
+uniform float3 uColor2;
+
+half4 main(float2 fragCoord) {
+    float2 uv = fragCoord / uSize;
+    float2 aspect = float2(uSize.x / max(uSize.y, 1.0), 1.0);
+
+    // 2 núcleos borrados em órbita orgânica suave
+    float2 p1 = float2(0.38 + 0.28 * cos(uTime), 0.28 + 0.15 * sin(uTime * 0.9));
+    float2 p2 = float2(0.62 + 0.28 * cos(-uTime + 2.2), 0.62 + 0.18 * sin(-uTime * 0.8 + 1.4));
+    float2 p3 = float2(0.50 + 0.22 * sin(uTime * 0.7 + 1.0), 0.85 + 0.10 * cos(uTime));
+
+    float d1 = length((uv - p1) * aspect);
+    float d2 = length((uv - p2) * aspect);
+    float d3 = length((uv - p3) * aspect);
+
+    // Queda gaussiana ultra suave (efeito blur real sem bandas)
+    float w1 = exp(-d1 * d1 * 2.2);
+    float w2 = exp(-d2 * d2 * 2.0);
+    float w3 = exp(-d3 * d3 * 2.8) * 0.45;
+
+    float3 base = float3(0.025, 0.025, 0.030);
+    float3 col = base + uColor1 * (w1 * 0.95 + w3 * 0.5) + uColor2 * (w2 * 0.90);
+
+    // Vinheta discreta nas bordas para contraste dos controles brancos
+    float vig = 1.0 - smoothstep(0.55, 1.35, length((uv - float2(0.5, 0.48)) * float2(1.0, 1.15))) * 0.45;
+    col *= vig;
+
+    return half4(half3(col), 1.0);
+}
+"""
 
 /**
  * Fundo com Ambient Bleed suave extraído da capa:
