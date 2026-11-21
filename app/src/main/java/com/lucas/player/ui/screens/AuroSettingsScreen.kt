@@ -7,6 +7,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
@@ -70,6 +71,8 @@ fun AuroSettingsScreen(
     var reflectionSoftness by remember { mutableFloatStateOf(preferencesManager.getReflectionSoftness()) }
     var reduceMotionMode by remember { mutableIntStateOf(preferencesManager.getReduceMotionMode()) }
     var showFileFormat by remember { mutableStateOf(preferencesManager.isShowFileFormatEnabled()) }
+    var reduceTransparency by remember { mutableStateOf(preferencesManager.isReduceTransparencyEnabled()) }
+    var accentColorMode by remember { mutableIntStateOf(preferencesManager.getAccentColorMode()) }
 
     var ignoreShorterThanSec by remember { mutableIntStateOf(preferencesManager.getIgnoreShorterThanSeconds()) }
 
@@ -388,6 +391,46 @@ fun AuroSettingsScreen(
             // ─────────────────────────────────────────────────────────────
             item {
                 SettingsSectionHeader(stringResource(R.string.settings_section_appearance))
+            }
+
+            item {
+                SettingsSwitchRow(
+                    title = stringResource(R.string.settings_reduce_transparency),
+                    subtitle = stringResource(R.string.settings_reduce_transparency_desc),
+                    checked = reduceTransparency,
+                    onCheckedChange = {
+                        reduceTransparency = it
+                        preferencesManager.setReduceTransparencyEnabled(it)
+                        onSettingsChanged()
+                    }
+                )
+                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+            }
+
+            item {
+                val accentModeLabel = when (accentColorMode) {
+                    1 -> stringResource(R.string.settings_accent_apple_blue)
+                    else -> stringResource(R.string.settings_accent_adaptive)
+                }
+                SettingsClickableRow(
+                    title = stringResource(R.string.settings_accent_color_mode),
+                    subtitle = accentModeLabel,
+                    onClick = {
+                        val next = if (accentColorMode == 0) 1 else 0
+                        accentColorMode = next
+                        preferencesManager.setAccentColorMode(next)
+                        onSettingsChanged()
+                    },
+                    trailingContent = {
+                        Box(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clip(CircleShape)
+                                .background(if (accentColorMode == 1) AuroColor.AppleBlueFallback else accent)
+                        )
+                    }
+                )
+                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
             }
 
             item {

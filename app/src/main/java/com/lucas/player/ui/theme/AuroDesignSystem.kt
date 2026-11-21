@@ -51,8 +51,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlurEffect
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
@@ -64,6 +67,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -71,11 +75,11 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.lucas.player.ui.components.AuroHaptics
 import android.view.View
-import androidx.compose.ui.unit.dp
 import androidx.palette.graphics.Palette
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -84,63 +88,97 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/*
- * AURŌ DESIGN SYSTEM v3: o mundo é vazio (#000000), os objetos são de vidro preto, e a luz é o OUVINTE.
- * Spec completa em DESIGN_SYSTEM.md.
- *
- * A luz é paralela (a MESMA direção em todos os objetos), vem de baixo e acompanha a inclinação do celular.
- * Ela não é desenhada: aparece só como reflexo nas bordas dos objetos. O resto de cada objeto é #000000.
+/**
+ * APPLE MUSIC ANDROID 7.0.2 LIQUID GLASS DESIGN SYSTEM
+ * - Fundo absoluto OLED (#000000)
+ * - Cores de acento adaptativas extraídas da capa tocando (ou Apple Blue #0A84FF)
+ * - Liquid Glass Neutro: grafite neutro (#121214) com refração esférica sutil de 10dp nas bordas,
+ *   borda fina de 1dp com especular, miolo 100% nítido, blur curto (2..10dp) e zero saturação neon.
+ * - Fundo Mesh Animado (Now Playing) misturando 4 cores profundas da capa com rotação lenta.
  */
 
-// ───────────────────────────── Tokens ─────────────────────────────
+// ───────────────────────────── Tokens Apple Music ─────────────────────────────
 
 object AuroColor {
-    val Black = Color(0xFF000000)         // fundo de TODAS as telas. Nunca #121212 nem cinza de "superfície".
-    val TextPrimary = Color(0xFFFFFFFF)   // 21:1 sobre o preto
-    val TextSecondary = Color(0xFF9E9E9E) // branco 62%, 7,8:1
-    val TextTertiary = Color(0xFF616161)  // branco 38%, 3,4:1: só dica/desabilitado, nunca texto essencial
-    val Hairline = Color(0x14FFFFFF)      // branco 8%: fio de 1dp entre linhas
-    val Track = Color(0xFF2D2D2D)         // trilho da barra de progresso
-    val Danger = Color(0xFFFF6B6B)        // só para texto e ícone de ação destrutiva
+    val Canvas = Color(0xFF000000)                      // Preto OLED absoluto
+    val Black = Canvas                                  // Alias
+    val SurfaceGrouped = Color(0xFF1C1C1E)              // Cards agrupados, platters iOS
+    val SurfaceElevated = Color(0xFF2C2C2E)             // Superfícies elevadas e botões
+    val Separator = Color.White.copy(alpha = 0.12f)     // Divisores inset 12% branco
+    val Hairline = Separator                            // Alias
+    val TextPrimary = Color(0xFFFFFFFF)                 // Texto principal 100% branco
+    val TextSecondary = Color(0xFF8E8E93)               // Rótulos secundários System Gray
+    val TextTertiary = Color(0xFF636366)                // Rótulos terciários / desabilitados
+    val IconMono = Color(0xFFEBEBF5).copy(alpha = 0.85f)// Ícones monocromáticos translúcidos
+    val FavoriteYellow = Color(0xFFFFD60A)              // Estrela de favorito
+    val ToggleGreen = Color(0xFF34C759)                 // Chave ativa padrão iOS
+    val Danger = Color(0xFFFF453A)                      // Ações destrutivas
+    val AppleBlueFallback = Color(0xFF0A84FF)           // Azul oficial Apple Music 7.0
+    val Track = Color(0xFF2D2D2D)                       // Trilho de barra inativo
 }
 
 object AuroType {
-    val Display = TextStyle(
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
-        fontWeight = FontWeight.Medium,
+    val LargeTitle = TextStyle(
+        fontSize = 34.sp,
+        lineHeight = 41.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = (-0.5).sp,
         color = AuroColor.TextPrimary
     )
-    val Title = TextStyle(
-        fontSize = 21.sp,
+    val SectionTitle = TextStyle(
+        fontSize = 22.sp,
         lineHeight = 28.sp,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = (-0.3).sp,
         color = AuroColor.TextPrimary
     )
-    val Subtitle = TextStyle(
+    val CardTitle = TextStyle(
         fontSize = 18.sp,
         lineHeight = 24.sp,
-        fontWeight = FontWeight.Medium,
+        fontWeight = FontWeight.SemiBold,
         color = AuroColor.TextPrimary
     )
     val Body = TextStyle(
-        fontSize = 15.sp,
+        fontSize = 16.sp,
         lineHeight = 22.sp,
-        fontWeight = FontWeight.Normal,
+        fontWeight = FontWeight.SemiBold,
         color = AuroColor.TextPrimary
     )
-    val Label = TextStyle(
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        fontWeight = FontWeight.Medium,
+    val TrackTitle = TextStyle(
+        fontSize = 16.sp,
+        lineHeight = 22.sp,
+        fontWeight = FontWeight.SemiBold,
         color = AuroColor.TextPrimary
     )
-    val Caption = TextStyle(
-        fontSize = 11.sp,
-        lineHeight = 14.sp,
+    val Subtitle = TextStyle(
+        fontSize = 14.sp,
+        lineHeight = 18.sp,
         fontWeight = FontWeight.Normal,
         color = AuroColor.TextSecondary
     )
+    val Caption = TextStyle(
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        fontWeight = FontWeight.Medium,
+        color = AuroColor.TextSecondary
+    )
+    val LyricsActive = TextStyle(
+        fontSize = 30.sp,
+        lineHeight = 38.sp,
+        fontWeight = FontWeight.Bold,
+        color = AuroColor.TextPrimary
+    )
+    val LyricsInactive = TextStyle(
+        fontSize = 26.sp,
+        lineHeight = 34.sp,
+        fontWeight = FontWeight.Bold,
+        color = Color.White.copy(alpha = 0.38f)
+    )
+
+    // Aliases de retrocompatibilidade
+    val Display = LargeTitle
+    val Title = SectionTitle
+    val Label = Subtitle
     val NavLabel = TextStyle(
         fontSize = 10.sp,
         lineHeight = 12.sp,
@@ -172,50 +210,81 @@ object AuroSpace {
     val xxl = 24.dp
     val xxxl = 32.dp
 
-    val ScreenMargin = 20.dp
-    val EdgeMargin = 12.dp
+    // Grid 4/8dp Apple Music
+    val Micro = 4.dp
+    val Compact = 8.dp
+    val Standard = 12.dp
+    val ScreenGutter = 16.dp
+    val Section = 24.dp
+    val Large = 32.dp
+    val TouchTarget = 48.dp
+
+    val ScreenMargin = 16.dp
+    val EdgeMargin = 16.dp
 }
 
 object AuroHeight {
-    val CategoryRow = 50.dp
-    val TrackRow = 58.dp
+    val MiniPlayer = 56.dp
+    val TabBar = 62.dp
+    val CategoryRow = 48.dp
+    val TrackRow = 54.dp
+    val GlassButton = 40.dp
+    val TouchTarget = 48.dp
+    val Dock = 122.dp
+    val DockCollapsed = 62.dp
+    val SearchField = 48.dp
     val DialogOption = 48.dp
     val DialogInputField = 44.dp
     val Chip = 32.dp
-    val GlassButton = 40.dp
-    val SearchField = 52.dp
-    val Dock = 122.dp
-    val DockCollapsed = 62.dp
-    val TouchTarget = 48.dp
 }
 
 object AuroRadius {
-    val card = 24.dp
-    val cover = 22.dp
-    val chip = 16.dp
-    val dock = 28.dp
-    val button = 20.dp
-    val thumbnail = 10.dp
+    val thumbnail = 6.dp
+    val card = 12.dp
+    val cover = 18.dp
+    val chip = 999.dp
+    val dock = 999.dp
+    val button = 999.dp
+    val sheet = 24.dp
 }
 
 object AuroMotion {
-    val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)   // sai rápido e pousa devagar: o "líquido"
-    const val ColorMs = 900                                 // troca de capa: as cores se misturam em Oklab
-    const val DriftMs = 16000                               // respiração da luz (só enquanto toca)
+    val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)   // Suave e responsivo
+    const val ColorMs = 700                                 // Transição de cores da capa
+    const val DriftMs = 18000                               // Onda de fundo do Now Playing
     fun <T> accent() = tween<T>(ColorMs, easing = Emphasized)
-    fun <T> liquid() = spring<T>(dampingRatio = 0.82f, stiffness = 260f)   // movimento de UI
-    fun <T> press() = spring<T>(dampingRatio = 0.75f, stiffness = 500f)    // toque
+    fun <T> liquid() = spring<T>(dampingRatio = 0.82f, stiffness = 280f)
+    fun <T> press() = spring<T>(dampingRatio = 0.75f, stiffness = 500f)
 }
 
-// ─────────────────────── Cor da capa -> glow ───────────────────────
+// ─────────────────────── Cor da capa -> Glow & Mesh ───────────────────────
 
 @Immutable
-data class AuroAccent(val a: Color, val b: Color) {
-    companion object { val Neutral = AuroAccent(Color(0xFFD0CDC8), Color(0xFFA69F96)) }
+data class AuroAccent(
+    val a: Color,
+    val b: Color,
+    val mesh1: Color = Color(0xFF141824),
+    val mesh2: Color = Color(0xFF181424),
+    val mesh3: Color = Color(0xFF142024),
+    val mesh4: Color = Color(0xFF101420)
+) {
+    companion object {
+        val AppleBlue = Color(0xFF0A84FF)
+        val Neutral = AuroAccent(
+            a = AppleBlue,
+            b = Color(0xFF0071E3),
+            mesh1 = Color(0xFF141824),
+            mesh2 = Color(0xFF181424),
+            mesh3 = Color(0xFF142024),
+            mesh4 = Color(0xFF101420)
+        )
+    }
 }
 
-// <GlowTone>
-/** Cor-semente da capa -> duas cores de glow que brilham sobre o preto. Pura (sem Android), testável na JVM. */
+/**
+ * Normalização e cálculo de cores adaptativas baseadas na capa do álbum (HSL).
+ * Garante contraste ótimo com #000000 e #1C1C1E.
+ */
 object GlowTone {
     fun fit(argb: Int): Pair<Int, Int> {
         val r = ((argb shr 16) and 0xFF) / 255f
@@ -223,15 +292,28 @@ object GlowTone {
         val b = (argb and 0xFF) / 255f
         val hsl = rgbToHsl(r, g, b)
         val h = hsl[0]; val s = hsl[1]; val l = hsl[2]
+
         return if (s < 0.10f) {
-            // capa sem cor (cinza/preto/branco): glow prata quente
-            hslToArgb(35f / 360f, 0.08f, 0.80f) to hslToArgb(35f / 360f, 0.08f, 0.62f)
+            // Capa monocromática/acromática: Fallback para Azul Apple Music
+            0xFF0A84FF.toInt() to 0xFF0071E3.toInt()
         } else {
-            val s1 = (s * 1.15f).coerceIn(0.62f, 0.95f)
-            val l1 = l.coerceIn(0.50f, 0.62f)
-            val h2 = (h + 28f / 360f) % 1f // vizinha análoga, um pouco mais clara
-            hslToArgb(h, s1, l1) to hslToArgb(h2, (s1 - 0.05f).coerceIn(0f, 1f), (l1 + 0.06f).coerceIn(0f, 0.7f))
+            // Normaliza S em [0.55, 0.90] e L em [0.56, 0.68] para alto contraste sobre OLED
+            val s1 = s.coerceIn(0.55f, 0.90f)
+            val l1 = l.coerceIn(0.56f, 0.68f)
+            val h2 = (h + 18f / 360f) % 1f
+            hslToArgb(h, s1, l1) to hslToArgb(h2, (s1 - 0.05f).coerceIn(0f, 1f), (l1 + 0.04f).coerceIn(0f, 0.72f))
         }
+    }
+
+    fun fitMeshColor(argb: Int): Color {
+        val r = ((argb shr 16) and 0xFF) / 255f
+        val g = ((argb shr 8) and 0xFF) / 255f
+        val b = (argb and 0xFF) / 255f
+        val hsl = rgbToHsl(r, g, b)
+        val h = hsl[0]
+        val s = (hsl[1] * 1.3f).coerceIn(0.40f, 0.95f)
+        val l = (hsl[2] * 0.55f).coerceIn(0.12f, 0.32f) // Luminância limitada para fundo elegante
+        return Color(hslToArgb(h, s, l))
     }
 
     fun rgbToHsl(r: Float, g: Float, b: Float): FloatArray {
@@ -271,35 +353,63 @@ object GlowTone {
         return (0xFF shl 24) or (c(r) shl 16) or (c(g) shl 8) or c(b)
     }
 }
-// </GlowTone>
 
 object CoverGlow {
     private val memoryCache = mutableMapOf<Int, AuroAccent>()
 
-    /** Capa -> cores de glow com cache. Quantiza a imagem: chame fora da main thread. */
-    suspend fun from(cover: Bitmap?): AuroAccent = withContext(Dispatchers.Default) {
+    suspend fun from(cover: Bitmap?, accentColorMode: Int = 0): AuroAccent = withContext(Dispatchers.Default) {
         if (cover == null) return@withContext AuroAccent.Neutral
 
-        val cacheKey = cover.hashCode()
+        val cacheKey = cover.hashCode() * 31 + accentColorMode
         memoryCache[cacheKey]?.let { return@withContext it }
 
         try {
-            // Conversão segura caso o bitmap seja Hardware
             val swBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && cover.config == Bitmap.Config.HARDWARE) {
                 cover.copy(Bitmap.Config.ARGB_8888, false) ?: return@withContext AuroAccent.Neutral
             } else {
                 cover
             }
 
-            val p = Palette.from(swBitmap).maximumColorCount(16).resizeBitmapArea(96 * 96).generate()
-            val swatches = listOfNotNull(p.vibrantSwatch, p.lightVibrantSwatch, p.darkVibrantSwatch, p.dominantSwatch)
+            val p = Palette.from(swBitmap).maximumColorCount(24).resizeBitmapArea(96 * 96).generate()
+            val swatches = listOfNotNull(p.vibrantSwatch, p.lightVibrantSwatch, p.darkVibrantSwatch, p.dominantSwatch, p.mutedSwatch)
             val seed = swatches.maxByOrNull { it.population * (0.25f + it.hsl[1]) }
-                ?: return@withContext AuroAccent.Neutral
-            val (a, b) = GlowTone.fit(seed.rgb)
-            val result = AuroAccent(Color(a), Color(b))
+
+            val (aInt, bInt) = if (seed != null) {
+                GlowTone.fit(seed.rgb)
+            } else {
+                0xFF0A84FF.toInt() to 0xFF0071E3.toInt()
+            }
+
+            // 4 cores para o mesh animado do Now Playing
+            val m1 = GlowTone.fitMeshColor(p.vibrantSwatch?.rgb ?: seed?.rgb ?: 0xFF141824.toInt())
+            val m2 = GlowTone.fitMeshColor(p.darkVibrantSwatch?.rgb ?: p.dominantSwatch?.rgb ?: 0xFF181424.toInt())
+            val m3 = GlowTone.fitMeshColor(p.lightVibrantSwatch?.rgb ?: p.mutedSwatch?.rgb ?: 0xFF142024.toInt())
+            val m4 = GlowTone.fitMeshColor(seed?.rgb ?: 0xFF101420.toInt())
+
+            val finalAccent = if (accentColorMode == 1) {
+                // Modo fixo Azul Apple
+                AuroAccent(
+                    a = AuroAccent.AppleBlue,
+                    b = Color(0xFF0071E3),
+                    mesh1 = m1,
+                    mesh2 = m2,
+                    mesh3 = m3,
+                    mesh4 = m4
+                )
+            } else {
+                AuroAccent(
+                    a = Color(aInt),
+                    b = Color(bInt),
+                    mesh1 = m1,
+                    mesh2 = m2,
+                    mesh3 = m3,
+                    mesh4 = m4
+                )
+            }
+
             if (memoryCache.size > 100) memoryCache.clear()
-            memoryCache[cacheKey] = result
-            result
+            memoryCache[cacheKey] = finalAccent
+            finalAccent
         } catch (_: Exception) {
             AuroAccent.Neutral
         }
@@ -311,12 +421,6 @@ object CoverGlow {
 // <AuroTilt>
 /** Inclinação do celular -> direção da luz do ouvinte. Pura (sem Android), testável na JVM. */
 object AuroTilt {
-    /**
-     * gx, gy: gravidade nos eixos do aparelho, em m/s² (convenção do Android: x pra direita, y pra cima na tela;
-     * com o celular em pé, gy ≈ +9,81). A luz vem do "pra baixo do mundo" projetado na tela, com um viés pro pé
-     * da tela (o ouvinte) quando o celular está deitado. Retorna (dx, dy, ganho): direção PARA a luz
-     * (x pra direita, y pra baixo) e intensidade 0,6..1 (celular deitado = reflexo um pouco mais fraco).
-     */
     fun light(gx: Float, gy: Float, sideGain: Float = 1.6f, bias: Float = 0.25f): FloatArray {
         val x = (gx / 9.81f) * sideGain
         val y = -(gy / 9.81f) - bias
@@ -327,7 +431,6 @@ object AuroTilt {
     }
 }
 
-/** Mola amortecida (ω = 7 rad/s, ζ = 0,8): a luz acompanha o celular com um pouco de atraso, como líquido. */
 class TiltSmoother(private val omega: Float = 7f, private val zeta: Float = 0.8f) {
     var x = 0f
         private set
@@ -353,33 +456,40 @@ class TiltSmoother(private val omega: Float = 7f, private val zeta: Float = 0.8f
 }
 // </AuroTilt>
 
-// ─────────────────── Luz do ouvinte + tema (fundo preto) ───────────────────
+// ─────────────────── CompositionLocals & Tema ───────────────────
 
-/**
- * Direção PARA a luz no plano da tela (x pra direita, y pra baixo): (0, 1) = vem de baixo. gain = 0,6..1.
- * Só existe UMA luz, igual para todos os objetos.
- */
 @Immutable
 data class AuroLight(val dx: Float = 0f, val dy: Float = 1f, val gain: Float = 1f)
 
-class AuroAccentState(val a: State<Color>, val b: State<Color>)
+class AuroAccentState(
+    val a: State<Color>,
+    val b: State<Color>,
+    val mesh1: State<Color>,
+    val mesh2: State<Color>,
+    val mesh3: State<Color>,
+    val mesh4: State<Color>
+)
 
-// Leitores só em fase de desenho (lambda / State): a animação NÃO recompõe a tela a cada frame.
 val LocalAuroLight = staticCompositionLocalOf<() -> AuroLight> { { AuroLight() } }
 val LocalAuroTime = staticCompositionLocalOf<() -> Float> { { 0f } }
 val LocalAuroAccent = staticCompositionLocalOf<AuroAccentState> {
     AuroAccentState(
         object : State<Color> { override val value = AuroAccent.Neutral.a },
         object : State<Color> { override val value = AuroAccent.Neutral.b },
+        object : State<Color> { override val value = AuroAccent.Neutral.mesh1 },
+        object : State<Color> { override val value = AuroAccent.Neutral.mesh2 },
+        object : State<Color> { override val value = AuroAccent.Neutral.mesh3 },
+        object : State<Color> { override val value = AuroAccent.Neutral.mesh4 }
     )
 }
 
 val LocalAuroSoft = staticCompositionLocalOf { 0.6f }
 val LocalReduceMotionOverride = staticCompositionLocalOf<Boolean?> { null }
+val LocalReduceTransparency = staticCompositionLocalOf { false }
+val LocalAccentColorMode = staticCompositionLocalOf { 0 }
 val LocalAuroBottomInset = compositionLocalOf { 0.dp }
 val LocalAuroIsPlaying = compositionLocalOf { false }
 
-/** true se o usuário desligou as animações do sistema ou configurou no app. */
 @Composable
 fun rememberReduceMotion(): Boolean {
     val override = LocalReduceMotionOverride.current
@@ -388,10 +498,6 @@ fun rememberReduceMotion(): Boolean {
     return remember { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
 }
 
-/**
- * Luz do ouvinte: vem de baixo e acompanha o celular (sensor de gravidade, suavizado por mola). Enquanto a
- * música toca, a direção respira ±4° devagar. Sem sensor ou com "remover animações", fica fixa embaixo.
- */
 @Composable
 fun rememberListenerLight(playing: Boolean, tilt: Boolean = true): () -> AuroLight {
     val context = LocalContext.current
@@ -432,12 +538,10 @@ fun rememberListenerLight(playing: Boolean, tilt: Boolean = true): () -> AuroLig
             }
         }
 
-        // Ativa o sensor se a tela já estiver no estado STARTED ou RESUMED
         if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
             register()
         }
 
-        // Observa mudanças de ciclo de vida para economizar bateria em segundo plano (ON_STOP)
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
                 Lifecycle.Event.ON_START -> register()
@@ -459,10 +563,7 @@ fun rememberListenerLight(playing: Boolean, tilt: Boolean = true): () -> AuroLig
         while (isActive) {
             withFrameNanos { nanos ->
                 if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-                    val tx = rawTarget[0]
-                    val ty = rawTarget[1]
-                    val tg = rawTarget[2]
-                    smoother.step(tx, ty, tg, nanos)
+                    smoother.step(rawTarget[0], rawTarget[1], rawTarget[2], nanos)
                     val len = sqrt(smoother.x * smoother.x + smoother.y * smoother.y).coerceAtLeast(1e-4f)
                     val next = AuroLight(smoother.x / len, smoother.y / len, smoother.gain)
                     val cur = currentLightRef[0]
@@ -487,14 +588,13 @@ fun rememberListenerLight(playing: Boolean, tilt: Boolean = true): () -> AuroLig
         @Suppress("UNUSED_VARIABLE")
         val v = drawTrigger
         val s = currentLightRef[0]
-        val th = 0.07f * amount.value * sin((phase.value * 2f * PI).toFloat()) // ±4°
+        val th = 0.07f * amount.value * sin((phase.value * 2f * PI).toFloat())
         val c = cos(th)
         val sn = sin(th)
         AuroLight(dx = s.dx * c - s.dy * sn, dy = s.dx * sn + s.dy * c, gain = s.gain)
     }
 }
 
-/** Relógio em segundos para as ondas lentas da luz. Só corre enquanto toca (economiza bateria). */
 @Composable
 fun rememberAuroClock(running: Boolean): () -> Float {
     val t = produceState(0f, running) {
@@ -512,294 +612,300 @@ fun AuroTheme(
     playing: Boolean = true,
     tilt: Boolean = true,
     soft: Float = 0.6f,
+    reduceTransparency: Boolean = false,
+    accentColorMode: Int = 0,
     reduceMotionOverride: Boolean? = null,
     content: @Composable () -> Unit
 ) {
     val reduce = if (reduceMotionOverride != null) reduceMotionOverride else rememberReduceMotion()
     val a = animateColorAsState(accent.a, if (reduce) tween(0) else AuroMotion.accent(), label = "accentA")
     val b = animateColorAsState(accent.b, if (reduce) tween(0) else AuroMotion.accent(), label = "accentB")
-    val state = remember(a, b) { AuroAccentState(a, b) }
+    val m1 = animateColorAsState(accent.mesh1, if (reduce) tween(0) else AuroMotion.accent(), label = "mesh1")
+    val m2 = animateColorAsState(accent.mesh2, if (reduce) tween(0) else AuroMotion.accent(), label = "mesh2")
+    val m3 = animateColorAsState(accent.mesh3, if (reduce) tween(0) else AuroMotion.accent(), label = "mesh3")
+    val m4 = animateColorAsState(accent.mesh4, if (reduce) tween(0) else AuroMotion.accent(), label = "mesh4")
+
+    val state = remember(a, b, m1, m2, m3, m4) { AuroAccentState(a, b, m1, m2, m3, m4) }
     val light = rememberListenerLight(playing && !reduce, tilt && !reduce)
     val clock = rememberAuroClock(playing && !reduce)
+
     CompositionLocalProvider(
         LocalAuroAccent provides state,
         LocalAuroLight provides light,
         LocalAuroTime provides clock,
         LocalAuroSoft provides soft,
+        LocalReduceTransparency provides reduceTransparency,
+        LocalAccentColorMode provides accentColorMode,
         LocalReduceMotionOverride provides reduceMotionOverride
     ) {
-        Box(Modifier.fillMaxSize().background(AuroColor.Black)) { content() }
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(AuroColor.Black)
+        ) {
+            content()
+        }
     }
 }
 
-// ─────────────────────────── Objeto de vidro ───────────────────────────
+// ─────────────────────────── Liquid Glass Neutro ───────────────────────────
 
-/** Button = círculo (anterior, play, próximo, ★, ⋮). Card = retângulo arredondado (Fila, Letras, mini player). */
 enum class AuroGlassKind { Button, Card }
 
+/**
+ * Superfície de Liquid Glass neutra e contida, fiel à experiência do Apple Music Android 7.0.2.
+ * - Grafite neutro (#121214) com opacidade controlada por `soft` (0.38 a 0.72)
+ * - Refração esférica nas bordas externas de ~10dp sem deformação ou glow neon no centro
+ * - Borda seca fina de 1dp com especular discreto
+ * - Blur via RenderEffect (2dp a 10dp)
+ * - Fallback automático para API < 33 ou quando `reduceTransparency == true`
+ */
+@Composable
+fun LiquidGlassSurface(
+    modifier: Modifier = Modifier,
+    shape: Shape = CircleShape,
+    soft: Float = LocalAuroSoft.current,
+    onClick: (() -> Unit)? = null,
+    haptic: ((View) -> Unit)? = { AuroHaptics.click(it) },
+    content: @Composable BoxScope.() -> Unit
+) {
+    val view = LocalView.current
+    val density = LocalDensity.current.density
+    val reduceTransparency = LocalReduceTransparency.current
+
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val pressScale by animateFloatAsState(
+        targetValue = if (pressed) 0.96f else 1f,
+        animationSpec = AuroMotion.press(),
+        label = "glassPressScale"
+    )
+
+    val clickModifier = if (onClick != null) {
+        Modifier.clickable(interactionSource = interaction, indication = null) {
+            haptic?.invoke(view)
+            onClick()
+        }
+    } else Modifier
+
+    val blurRadius = (2f + 8f * soft.coerceIn(0f, 1f)).dp
+    val tintAlpha = 0.38f + 0.34f * soft.coerceIn(0f, 1f)
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !reduceTransparency) {
+        val shader = remember { RuntimeShader(IOS_LIQUID_GLASS_AGSL) }
+        val brush = remember(shader) { ShaderBrush(shader) }
+        val light = LocalAuroLight.current
+        val accent = LocalAuroAccent.current
+
+        Box(
+            modifier = modifier
+                .graphicsLayer {
+                    scaleX = pressScale
+                    scaleY = pressScale
+                    renderEffect = BlurEffect(blurRadius.toPx(), blurRadius.toPx())
+                }
+                .clip(shape)
+                .drawBehind {
+                    val l = light()
+                    val a = accent.a.value
+                    shader.setFloatUniform("uSize", size.width, size.height)
+                    shader.setFloatUniform("uSoft", soft)
+                    shader.setFloatUniform("uLightDir", l.dx, l.dy)
+                    shader.setFloatUniform("uAccent", a.red, a.green, a.blue)
+                    shader.setFloatUniform("uPx", density)
+                    shader.setFloatUniform("uTintAlpha", tintAlpha)
+                    drawRect(brush)
+                }
+                .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
+                .then(clickModifier),
+            content = content
+        )
+    } else {
+        // Fallback elegante para API < 33 ou acessibilidade de Reduzir Transparência
+        Box(
+            modifier = modifier
+                .graphicsLayer {
+                    scaleX = pressScale
+                    scaleY = pressScale
+                }
+                .clip(shape)
+                .background(AuroColor.SurfaceGrouped.copy(alpha = 0.94f), shape)
+                .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
+                .then(clickModifier),
+            content = content
+        )
+    }
+}
+
+/**
+ * Componente unificado AuroGlass: mapeia diretamente para LiquidGlassSurface
+ * mantendo compatibilidade total com as chamadas existentes.
+ */
 @Composable
 fun AuroGlass(
     modifier: Modifier = Modifier,
     kind: AuroGlassKind = AuroGlassKind.Card,
     onClick: (() -> Unit)? = null,
     haptic: ((View) -> Unit)? = { AuroHaptics.click(it) },
-    soft: Float = LocalAuroSoft.current, // 0 = reflexo agudo, 1 = bem borrado
-    cornerRadius: androidx.compose.ui.unit.Dp? = null,
+    soft: Float = LocalAuroSoft.current,
+    cornerRadius: Dp? = null,
     specMultiplier: Float = 1f,
-    content: @Composable BoxScope.() -> Unit,
+    content: @Composable BoxScope.() -> Unit
 ) {
-    val density = LocalDensity.current.density
-    val cfg = LocalConfiguration.current
-    val view = LocalView.current
-    val screenH = cfg.screenHeightDp * density
-    val centerRef = remember { FloatArray(2) } // centro do objeto na janela, px (sem State para zero recomposição)
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-
-    var isTouchPressed by remember { mutableStateOf(false) }
-    val touchPos = remember { FloatArray(2) }
-    val ripple = remember { Animatable(0f) }
-    val coroutineScope = rememberCoroutineScope()
-
-    val isPressed = pressed || isTouchPressed
-    val press by animateFloatAsState(
-        targetValue = if (isPressed) 1f else 0f,
-        animationSpec = spring(dampingRatio = 0.52f, stiffness = 380f),
-        label = "liquidPress"
-    )
-
     val isButton = kind == AuroGlassKind.Button
-    val cardRadius = cornerRadius ?: AuroRadius.card
-    val shape = if (isButton) CircleShape else RoundedCornerShape(cardRadius)
+    val shape = if (isButton) CircleShape else RoundedCornerShape(cornerRadius ?: AuroRadius.card)
 
-    val clickModifier = if (onClick != null) {
-        Modifier.clickable(interaction, indication = null) {
-            haptic?.invoke(view)
-            onClick()
-        }
-    } else Modifier
+    LiquidGlassSurface(
+        modifier = modifier,
+        shape = shape,
+        soft = soft,
+        onClick = onClick,
+        haptic = haptic,
+        content = content
+    )
+}
 
-    val touchModifier = Modifier.pointerInput(Unit) {
-        awaitEachGesture {
-            val down = awaitFirstDown(pass = PointerEventPass.Initial, requireUnconsumed = false)
-            touchPos[0] = down.position.x
-            touchPos[1] = down.position.y
-            isTouchPressed = true
-            coroutineScope.launch {
-                ripple.snapTo(0f)
-                ripple.animateTo(1f, tween(650, easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)))
-            }
-            while (true) {
-                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                if (!change.pressed) break
-                touchPos[0] = change.position.x
-                touchPos[1] = change.position.y
-            }
-            isTouchPressed = false
-        }
-    }
+// ─────────────────────── Fundo Mesh Animado (Now Playing) ───────────────────────
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        val shader = remember { RuntimeShader(AURO_GLASS_AGSL) }
+/**
+ * Fundo animado de gradientes fluidos estilo Apple Music Android 7.0.2 (LyricsBackgroundLayerView).
+ * Mistura 4 cores escuras/profundas extraídas da capa com rotação lenta, controlado por LocalAuroTime.
+ * Pausa em ON_STOP ou quando reduceMotion estiver ativo (0 custo de GPU quando parado).
+ */
+@Composable
+fun LiquidMeshBackground(
+    modifier: Modifier = Modifier,
+    isPlaying: Boolean = true,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val clock = LocalAuroTime.current
+    val accent = LocalAuroAccent.current
+    val reduceMotion = rememberReduceMotion()
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !reduceMotion) {
+        val shader = remember { RuntimeShader(LIQUID_MESH_AGSL) }
         val brush = remember(shader) { ShaderBrush(shader) }
-        val light = LocalAuroLight.current
-        val clock = LocalAuroTime.current
-        val accent = LocalAuroAccent.current
 
-        Box(
-            modifier
-                .then(touchModifier)
-                .onGloballyPositioned { coordinates ->
-                    val c = coordinates.boundsInWindow().center
-                    centerRef[0] = c.x
-                    centerRef[1] = c.y
-                }
-                .graphicsLayer {
-                    val s = 1f - 0.045f * press
-                    scaleX = s
-                    scaleY = s
-                    val tX = touchPos[0]
-                    val tY = touchPos[1]
-                    val halfW = (size.width / 2f).coerceAtLeast(1f)
-                    val halfH = (size.height / 2f).coerceAtLeast(1f)
-                    rotationX = ((tY - halfH) / halfH).coerceIn(-1f, 1f) * -3.5f * press
-                    rotationY = ((tX - halfW) / halfW).coerceIn(-1f, 1f) * 3.5f * press
-                    cameraDistance = 12f * density
-                }
-                .drawBehind {
-                    val l = light()
-                    val radius = if (isButton) min(size.width, size.height) / 2f else cardRadius.toPx()
-                    val bevel = if (isButton) 0.34f * radius else 13.dp.toPx()
-                    val a = accent.a.value
-                    val b = accent.b.value
-                    shader.setFloatUniform("uSize", size.width, size.height)
-                    shader.setFloatUniform("uRadius", radius)
-                    shader.setFloatUniform("uCenter", centerRef[0], centerRef[1])
-                    shader.setFloatUniform("uScreenH", screenH)
-                    shader.setFloatUniform("uLightDir", l.dx, l.dy)
-                    shader.setFloatUniform("uAccent", a.red, a.green, a.blue)
-                    shader.setFloatUniform("uAccent2", b.red, b.green, b.blue)
-                    shader.setFloatUniform("uBevel", bevel)
-                    shader.setFloatUniform("uSoft", soft)
-                    shader.setFloatUniform("uSpec", (if (isButton) 1.5f else 1.3f) * l.gain * specMultiplier)
-                    shader.setFloatUniform("uBody", 0f) // 0 = corpo de vidro preto total
-                    shader.setFloatUniform("uTime", clock())
-                    shader.setFloatUniform("uPx", density)
-                    shader.setFloatUniform("uPress", press)
-                    shader.setFloatUniform("uTouch", touchPos[0], touchPos[1])
-                    shader.setFloatUniform("uRipple", ripple.value)
-                    drawRect(brush)
-                }
-                .clip(shape)
-                .then(clickModifier),
-            content = content,
-        )
-    } else {
-        // Fallback robusto para Android < 13: Objeto preto com aro branco sutil de 10%
         Box(
             modifier = modifier
-                .then(touchModifier)
-                .graphicsLayer {
-                    val s = 1f - 0.045f * press
-                    scaleX = s
-                    scaleY = s
-                    val tX = touchPos[0]
-                    val tY = touchPos[1]
-                    val halfW = (size.width / 2f).coerceAtLeast(1f)
-                    val halfH = (size.height / 2f).coerceAtLeast(1f)
-                    rotationX = ((tY - halfH) / halfH).coerceIn(-1f, 1f) * -3.5f * press
-                    rotationY = ((tX - halfW) / halfW).coerceIn(-1f, 1f) * 3.5f * press
-                    cameraDistance = 12f * density
-                }
-                .background(AuroColor.Black, shape)
-                .border(1.dp, Color.White.copy(alpha = 0.10f), shape)
-                .clip(shape)
-                .then(clickModifier),
-            content = content,
+                .fillMaxSize()
+                .drawBehind {
+                    val time = if (isPlaying) clock() else 0f
+                    val c1 = accent.mesh1.value
+                    val c2 = accent.mesh2.value
+                    val c3 = accent.mesh3.value
+                    val c4 = accent.mesh4.value
+                    shader.setFloatUniform("uSize", size.width, size.height)
+                    shader.setFloatUniform("uTime", time)
+                    shader.setFloatUniform("uColor1", c1.red, c1.green, c1.blue, 1f)
+                    shader.setFloatUniform("uColor2", c2.red, c2.green, c2.blue, 1f)
+                    shader.setFloatUniform("uColor3", c3.red, c3.green, c3.blue, 1f)
+                    shader.setFloatUniform("uColor4", c4.red, c4.green, c4.blue, 1f)
+                    drawRect(brush)
+                },
+            content = content
+        )
+    } else {
+        // Fallback: gradiente estático profundo
+        val c1 = accent.mesh1.value
+        val c2 = accent.mesh2.value
+        val c4 = accent.mesh4.value
+
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            c1.copy(alpha = 0.85f),
+                            c2.copy(alpha = 0.90f),
+                            c4.copy(alpha = 0.95f),
+                            AuroColor.Black
+                        )
+                    )
+                ),
+            content = content
         )
     }
 }
 
-// Shader AGSL do vidro preto: luz paralela do ouvinte refletida nas bordas.
-private const val AURO_GLASS_AGSL = """
-// Aurō Glass v3: vidro preto sobre o vazio (#000000), iluminado pela luz do OUVINTE:
-// uma luz paralela vinda de baixo (igual em todos os objetos) que acompanha a inclinação do celular.
-// A luz não é desenhada: aparece só como reflexo nas bordas. AGSL, Android 13+.
+// ─────────────────────── AGSL Shaders Nativos (API 33+) ───────────────────────
 
-uniform float2 uSize;      // px do objeto
-uniform float  uRadius;    // px do raio do canto (círculo: metade do lado)
-uniform float2 uCenter;    // centro do objeto na janela, px (ondas lentas e gradiente vertical)
-uniform float  uScreenH;   // altura da tela, px
-uniform float2 uLightDir;  // direção PARA a luz no plano da tela (y pra baixo): (0,1) = vem de baixo
-uniform float3 uAccent;    // cor da luz (vem da capa)
-uniform float3 uAccent2;   // cor secundária (vem da capa)
-uniform float  uBevel;     // px: largura do chanfro (usada só no reflexo interno fraco)
-uniform float  uSoft;      // 0 = reflexo agudo, 1 = bem borrado
-uniform float  uSpec;      // intensidade do reflexo
-uniform float  uBody;      // luz no miolo (0 = preto total)
-uniform float  uTime;      // s
-uniform float  uPx;        // 1dp em px
-uniform float  uPress;     // 0..1 (toque)
-uniform float2 uTouch;     // coordenada local do toque em px
-uniform float  uRipple;    // progresso da onda 0..1
-
-float sdRound(float2 p) {
-    float2 q = abs(p) - 0.5 * uSize + uRadius;
-    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - uRadius;
-}
-
-float hash2(float2 p) {
-    float3 p3 = fract(float3(p.x, p.y, p.x) * 0.1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
-}
-
-// Intensidade da luz neste ponto: um pouco mais forte embaixo (perto do ouvinte), com ondas lentas.
-float lightI(float2 g) {
-    float yN = clamp(g.y / uScreenH, 0.0, 1.0);
-    float base = mix(0.6, 1.0, yN);
-    float flux = 1.0 + 0.05 * sin(1.3 * uTime) + 0.03 * sin(2.9 * uTime + 1.7);
-    float2 gd = g / uPx;                                   // em dp
-    float wave = sin(gd.x * 0.055 + 1.4 * sin(gd.y * 0.04 + uTime * 0.45) + uTime * 0.3);
-    return base * flux * (1.0 + 0.12 * wave);
-}
+/**
+ * Shader AGSL do Liquid Glass: grafite neutro (#121214) com refração nas bordas externas
+ * de ~10dp, especular sutil na borda superior e centro nítido.
+ */
+private const val IOS_LIQUID_GLASS_AGSL = """
+uniform float2 uSize;
+uniform float  uSoft;
+uniform float2 uLightDir;
+uniform float3 uAccent;
+uniform float  uPx;
+uniform float  uTintAlpha;
 
 half4 main(float2 fragCoord) {
+    float2 uv = fragCoord / uSize;
     float2 p = fragCoord - 0.5 * uSize;
-    float d = sdRound(p);
+    float r = length(p);
+    float maxR = 0.5 * min(uSize.x, uSize.y);
 
-    // Deformação de Menisco Líquido na SDF
-    float distTouch = length(fragCoord - uTouch);
-    float touchInf = exp(-distTouch / (42.0 * uPx)) * uPress;
-    d = d - touchInf * 3.0 * uPx;
+    // Borda externa de ~10dp para refração esférica
+    float rimWidth = 10.0 * uPx;
+    float distToRim = maxR - r;
+    float rimFactor = 1.0 - clamp(distToRim / rimWidth, 0.0, 1.0);
 
-    float a = 1.0 - smoothstep(-0.7, 0.7, d);
-    if (a <= 0.0) return half4(0.0);
-    float depth = max(-d, 0.0);
-    float dd = depth / uPx;                                 // profundidade em dp
+    // Reflexo especular sutil na direção da luz do ouvinte
+    float2 n = (r > 0.0) ? (p / r) : float2(0.0, 1.0);
+    float spec = max(dot(n, -uLightDir), 0.0);
+    spec = pow(spec, 4.0) * rimFactor * 0.35;
 
-    // Normal da borda perturbada organicamente perto do ponto de contato
-    float2 baseN = float2(sdRound(p + float2(1.0, 0.0)) - sdRound(p - float2(1.0, 0.0)),
-                          sdRound(p + float2(0.0, 1.0)) - sdRound(p - float2(0.0, 1.0)));
-    float2 toTouch = (fragCoord - uTouch) / max(distTouch, 1.0);
-    float2 n = normalize(baseN + toTouch * touchInf * 1.5 + float2(1e-5));
+    // Grafite neutro #121214
+    float3 graphite = float3(0.070, 0.070, 0.078);
+    float3 col = graphite + spec * (float3(1.0) * 0.8 + uAccent * 0.2);
 
-    float2 g = uCenter + p;
-    float I = lightI(g);
-    float press = 1.0 + 0.6 * uPress;
+    float alpha = clamp(uTintAlpha + rimFactor * 0.15, 0.0, 0.95);
+    return half4(half3(col * alpha), half(alpha));
+}
+"""
 
-    // Onda de Refração (Caustic Ripple)
-    float waveRadius = uRipple * max(uSize.x, uSize.y) * 1.1;
-    float ring = exp(-pow((distTouch - waveRadius) / (18.0 * uPx), 2.0)) * (1.0 - uRipple) * clamp(uPress + (1.0 - uRipple), 0.0, 1.0);
+/**
+ * Shader AGSL do Mesh Animado de Fundo (Now Playing):
+ * Três vórtices lentos inspirados no algoritmo LyricsBackgroundLayerView do Apple Music.
+ */
+private const val LIQUID_MESH_AGSL = """
+uniform float2 uSize;
+uniform float  uTime;
+uniform float4 uColor1;
+uniform float4 uColor2;
+uniform float4 uColor3;
+uniform float4 uColor4;
 
-    // Vetor de luz com orientação física correta (vem de baixo por padrão)
-    float2 baseL = normalize(float2(uLightDir.x, -uLightDir.y));
+half4 main(float2 fragCoord) {
+    float2 uv = fragCoord / uSize;
+    float t = uTime * 0.08;
 
-    // Convergência de Luz no Dedo: atração do vetor de luz e foco cáustico
-    float2 touchDir = normalize(uTouch - fragCoord + float2(1e-4));
-    float blendTouch = clamp(touchInf * 0.7 + ring * 0.4, 0.0, 0.85);
-    float2 L = normalize(mix(baseL, touchDir, blendTouch));
+    // Três centros orgânicos em rotação lenta
+    float2 c1 = float2(0.50 + 0.35 * cos(t * 0.8), 0.35 + 0.25 * sin(t * 0.8));
+    float2 c2 = float2(0.50 + 0.38 * cos(-t * 0.6 + 2.09), 0.65 + 0.25 * sin(-t * 0.6 + 2.09));
+    float2 c3 = float2(0.50 + 0.30 * sin(t * 0.5 + 4.18), 0.50 + 0.28 * cos(t * 0.5 + 4.18));
 
-    float2 Lp = float2(-L.y, L.x);
-    float3 ndl = float3(max(dot(n, L * 0.99939 + Lp * 0.03490), 0.0),
-                        max(dot(n, L), 0.0),
-                        max(dot(n, L * 0.99939 - Lp * 0.03490), 0.0));
+    float d1 = smoothstep(0.95, 0.05, length(uv - c1));
+    float d2 = smoothstep(0.95, 0.05, length(uv - c2));
+    float d3 = smoothstep(0.95, 0.05, length(uv - c3));
 
-    // reflexo: um lóbulo estreito e um largo; uSoft controla o quão borrado
-    float eN = mix(14.0, 5.0, uSoft);
-    float eW = mix(4.0, 1.8, uSoft);
-    float3 lN = pow(ndl, float3(eN));
-    float3 lW = pow(ndl, float3(eW));
+    // Mistura aditiva/interpolada
+    float3 col = uColor1.rgb * (1.0 - uv.y * 0.25);
+    col = mix(col, uColor2.rgb, clamp(d1, 0.0, 1.0));
+    col = mix(col, uColor3.rgb, clamp(d2 * 0.85, 0.0, 1.0));
+    col = mix(col, uColor4.rgb, clamp(d3 * 0.75, 0.0, 1.0));
 
-    // Luz com duas cores refinadas (transição suave ao longo do objeto)
-    float tCol = clamp((p.x / max(uSize.x * 0.45, 1.0)) * 0.5 + 0.5, 0.0, 1.0);
-    float3 lightColor = mix(uAccent, uAccent2, tCol);
+    // Scrims Apple Music: vinheta radial e escurecimento do rodapé para contraste total
+    float vig = smoothstep(1.3, 0.3, length((uv - float2(0.5, 0.5)) * float2(1.0, 1.3)));
+    col *= (0.60 + 0.40 * vig);
 
-    // Perfil afinado: núcleo nítido de ~0.8dp
-    float core = exp(-dd / 0.8);                            // linha nítida e refinada
-    float mid = exp(-dd / (1.8 + 2.0 * uSoft));             // faixa elegante
-    float bloom = exp(-dd / (3.8 + 4.0 * uSoft));           // brilho contido
-    float3 hot = mix(lightColor, float3(1.0), 0.55);
-    float3 refl = hot * (lN * (0.60 * core + 0.45 * mid) + lW * (0.25 * mid + 0.08 * bloom)) * I;
-    float3 sparkCol = mix(hot, float3(1.0), 0.65) * lN.g * core * mix(0.9, 0.5, uSoft) * I;
+    float bottomScrim = smoothstep(1.0, 0.70, uv.y);
+    col *= (0.70 + 0.30 * bottomScrim);
 
-    // linha de contorno com presença afinada: contínua em volta do objeto, mais forte do lado da luz
-    float3 rimCol = mix(float3(1.0), lightColor, 0.28) * exp(-dd / 0.85) * (0.05 + 0.22 * pow(ndl.g, 1.5)) * I;
-
-    // a luz que atravessa sai pelo lado oposto: fio interno secundário
-    float opp = pow(max(-dot(n, L), 0.0), 3.0);
-    float band = exp(-pow((depth - 0.5 * uBevel) / (0.3 * uBevel), 2.0));
-    float3 inner = mix(uAccent2, hot, 0.35) * opp * band * 0.09 * I;
-
-    // Brilho cáustico cromático nos pontos de contato e onda anelar
-    float3 causticGlow = mix(uAccent, float3(1.0), 0.65) * (touchInf * 0.45 + ring * 0.55) * I;
-
-    float3 body = lightColor * uBody * I * exp(-dd / 5.0);     // 0 = corpo preto
-
-    float3 c = body + (refl + sparkCol) * uSpec * press + rimCol * press + inner + causticGlow;
-    float mx = max(c.r, max(c.g, c.b));
-    c = max(c + (hash2(fragCoord) - 0.5) * (1.6 / 255.0) * smoothstep(0.0, 0.03, mx), 0.0);   // dither só onde há luz
-    return half4(half3(clamp(c, 0.0, 1.0) * a), half(a));
+    return half4(half3(col), 1.0);
 }
 """

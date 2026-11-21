@@ -153,6 +153,48 @@ class PreferencesManager(context: Context) {
 
     // --- Configurações Gerais (Fase 4.2) ---
 
+    fun getPinnedGroups(): Set<String> {
+        return prefs.getStringSet(KEY_PINNED_GROUPS, emptySet()) ?: emptySet()
+    }
+
+    fun setPinnedGroups(pins: Set<String>) {
+        prefs.edit().putStringSet(KEY_PINNED_GROUPS, pins).apply()
+    }
+
+    fun togglePinnedGroup(groupKey: String): Boolean {
+        val current = getPinnedGroups().toMutableSet()
+        val isNowPinned = if (current.contains(groupKey)) {
+            current.remove(groupKey)
+            false
+        } else {
+            current.add(groupKey)
+            true
+        }
+        setPinnedGroups(current)
+        return isNowPinned
+    }
+
+    fun isGroupPinned(groupKey: String): Boolean {
+        return getPinnedGroups().contains(groupKey)
+    }
+
+    fun isReduceTransparencyEnabled(): Boolean {
+        return prefs.getBoolean(KEY_REDUCE_TRANSPARENCY, false)
+    }
+
+    fun setReduceTransparencyEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_REDUCE_TRANSPARENCY, enabled).apply()
+    }
+
+    fun getAccentColorMode(): Int {
+        // 0 = Capa Adaptativa (padrão), 1 = Azul Apple (#0A84FF)
+        return prefs.getInt(KEY_ACCENT_COLOR_MODE, 0)
+    }
+
+    fun setAccentColorMode(mode: Int) {
+        prefs.edit().putInt(KEY_ACCENT_COLOR_MODE, mode).apply()
+    }
+
     fun isPauseOnHeadsetDisconnectEnabled(): Boolean {
         return prefs.getBoolean(KEY_PAUSE_ON_HEADSET_DISCONNECT, true)
     }
@@ -309,6 +351,9 @@ class PreferencesManager(context: Context) {
 
     companion object {
         private const val SEARCH_DELIMITER = "\u001F"
+        private const val KEY_PINNED_GROUPS = "pinned_groups"
+        private const val KEY_REDUCE_TRANSPARENCY = "reduce_transparency"
+        private const val KEY_ACCENT_COLOR_MODE = "accent_color_mode"
         private const val KEY_RECENT_SEARCHES = "recent_searches"
         private const val KEY_PROMPTED_NOTIFICATION = "prompted_notification"
         private const val KEY_REQUESTED_AUDIO_PERM = "requested_audio_perm"

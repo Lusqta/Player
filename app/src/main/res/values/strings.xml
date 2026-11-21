@@ -239,6 +239,28 @@
     <string name="queue_section_normal">REPRODUÇÃO NORMAL</string>
 
     <!-- Biblioteca & Navegação (Fase 5.3) -->
+    <string name="tab_home">Início</string>
+    <string name="tab_queue">Fila</string>
+    <string name="home_title">Início</string>
+    <string name="home_continue_listening">Continuar Ouvindo</string>
+    <string name="home_recently_played">Tocadas Recentemente</string>
+    <string name="home_most_played">Mais Tocadas</string>
+    <string name="home_recently_added">Adicionadas Recentemente</string>
+    <string name="library_pins_title">Fixados</string>
+    <string name="action_pin">Fixar na Biblioteca</string>
+    <string name="action_unpin">Desafixar</string>
+    <string name="settings_reduce_transparency">Reduzir Transparência</string>
+    <string name="settings_reduce_transparency_desc">Substitui vidros translúcidos por superfície sólida</string>
+    <string name="settings_accent_color_mode">Cor de Destaque</string>
+    <string name="settings_accent_adaptive">Adaptativa da Capa</string>
+    <string name="settings_accent_apple_blue">Azul Apple Music</string>
+    <string name="settings_transparency_label">Aparência do Vidro</string>
+    <string name="settings_transparency_crystal">Cristal</string>
+    <string name="settings_transparency_frosted">Fosco</string>
+    <string name="volume_label">Volume</string>
+    <string name="now_playing_mode_artwork">Capa</string>
+    <string name="now_playing_mode_lyrics">Letras</string>
+    <string name="now_playing_mode_queue">Fila</string>
     <string name="play_all">Tocar Todas</string>
     <string name="shuffle_all">Aleatório</string>
     <string name="action_resume">Continuar</string>

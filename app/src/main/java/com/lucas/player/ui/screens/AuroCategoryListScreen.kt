@@ -8,6 +8,8 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -108,19 +110,22 @@ fun AuroCategoryListScreen(
 
         // Banner de Ações Rápidas em categorias baseadas em faixas
         if (isTrackListCategory && displayedTracks.isNotEmpty()) {
+            val accent = LocalAuroAccent.current.a.value
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = AuroSpace.ScreenMargin, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    .padding(horizontal = AuroSpace.ScreenMargin, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                AuroGlass(
-                    kind = AuroGlassKind.Card,
-                    onClick = onPlayAll,
+                Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(42.dp)
+                        .height(48.dp)
+                        .clip(CircleShape)
+                        .background(AuroColor.SurfaceGrouped)
+                        .clickable { onPlayAll() },
+                    contentAlignment = Alignment.Center
                 ) {
                     Row(
                         modifier = Modifier.fillMaxSize(),
@@ -130,23 +135,28 @@ fun AuroCategoryListScreen(
                         Icon(
                             imageVector = Icons.Rounded.PlayArrow,
                             contentDescription = null,
-                            tint = AuroColor.TextPrimary,
-                            modifier = Modifier.size(18.dp)
+                            tint = accent,
+                            modifier = Modifier.size(20.dp)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = stringResource(R.string.play_all),
-                            style = AuroType.Label
+                            style = AuroType.Body.copy(
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         )
                     }
                 }
 
-                AuroGlass(
-                    kind = AuroGlassKind.Card,
-                    onClick = onShuffleAll,
+                Box(
                     modifier = Modifier
                         .weight(1f)
-                        .height(42.dp)
+                        .height(48.dp)
+                        .clip(CircleShape)
+                        .background(AuroColor.SurfaceGrouped)
+                        .clickable { onShuffleAll() },
+                    contentAlignment = Alignment.Center
                 ) {
                     Row(
                         modifier = Modifier.fillMaxSize(),
@@ -156,13 +166,16 @@ fun AuroCategoryListScreen(
                         Icon(
                             imageVector = Icons.Rounded.Shuffle,
                             contentDescription = null,
-                            tint = AuroColor.TextPrimary,
-                            modifier = Modifier.size(16.dp)
+                            tint = accent,
+                            modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = stringResource(R.string.shuffle_all),
-                            style = AuroType.Label
+                            style = AuroType.Body.copy(
+                                color = accent,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         )
                     }
                 }

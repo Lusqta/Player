@@ -12,6 +12,7 @@ import com.lucas.player.model.LibraryCategory
  * - Telas de utilidade: Equalizador (cmd_nav_to_eq), Busca (cmd_nav_to_search), Fila
  */
 sealed class NavScreen {
+    object Home : NavScreen()
     object NowPlaying : NavScreen()
     object LibraryRoot : NavScreen()
     data class CategoryList(val category: LibraryCategory) : NavScreen()
@@ -27,14 +28,14 @@ sealed class NavScreen {
 }
 
 /**
- * Controlador de navegação com pilha de histórico (backstack) e comportamentos
- * idênticos aos observados na engenharia reversa do Poweramp.
+ * Controlador de navegação com pilha de histórico (backstack) no padrão Apple Music 7.0.2:
+ * 4 abas principais: Início, Biblioteca, Fila, Buscar.
  */
-class PlayerNavController(initialScreen: NavScreen = NavScreen.LibraryRoot) {
+class PlayerNavController(initialScreen: NavScreen = NavScreen.Home) {
     private val backStack = mutableStateListOf<NavScreen>(initialScreen)
 
     val currentScreen: NavScreen
-        get() = backStack.lastOrNull() ?: NavScreen.LibraryRoot
+        get() = backStack.lastOrNull() ?: NavScreen.Home
 
     val canNavigateUp: Boolean
         get() = backStack.size > 1
@@ -50,7 +51,7 @@ class PlayerNavController(initialScreen: NavScreen = NavScreen.LibraryRoot) {
     }
 
     /**
-     * Volta um nível na hierarquia de navegação (Equivalente ao cmd_list_up_nav do Poweramp).
+     * Volta um nível na hierarquia de navegação.
      * @return true se desempilhou, false se estava na raiz.
      */
     fun navigateUp(): Boolean {
@@ -63,26 +64,21 @@ class PlayerNavController(initialScreen: NavScreen = NavScreen.LibraryRoot) {
     }
 
     /**
-     * Comportamento do botão "Biblioteca" na barra inferior do Poweramp:
-     * - Se estiver no NowPlaying -> Volta para a última lista da biblioteca ou para a Raiz.
-     * - Se estiver em um Drilldown -> Sobe para a lista da categoria.
-     * - Se estiver na lista de categoria -> Sobe para a Raiz da biblioteca.
-     * - Se já estiver na Raiz da biblioteca -> Alterna (toggle) de volta para o NowPlaying!
+     * Comportamento da aba "Início" na barra flutuante:
+     */
+    fun toggleHome() {
+        if (currentScreen is NavScreen.Home) {
+            // Já está no início
+        } else {
+            navigateTo(NavScreen.Home)
+        }
+    }
+
+    /**
+     * Comportamento da aba "Biblioteca" na barra flutuante:
      */
     fun toggleLibrary() {
         when (val curr = currentScreen) {
-            is NavScreen.NowPlaying -> {
-                // Tenta achar a tela de biblioteca anterior no histórico
-                val lastLibIndex = backStack.indexOfLast { it != NavScreen.NowPlaying && it != NavScreen.Equalizer && it != NavScreen.Search }
-                if (lastLibIndex >= 0) {
-                    // Mantém o histórico até lá
-                    while (backStack.size > lastLibIndex + 1) {
-                        backStack.removeAt(backStack.size - 1)
-                    }
-                } else {
-                    navigateTo(NavScreen.LibraryRoot)
-                }
-            }
             is NavScreen.Drilldown -> {
                 navigateTo(NavScreen.CategoryList(curr.category))
             }
@@ -90,7 +86,7 @@ class PlayerNavController(initialScreen: NavScreen = NavScreen.LibraryRoot) {
                 navigateTo(NavScreen.LibraryRoot)
             }
             is NavScreen.LibraryRoot -> {
-                navigateTo(NavScreen.NowPlaying)
+                // Já está na raiz da biblioteca
             }
             else -> {
                 navigateTo(NavScreen.LibraryRoot)
@@ -99,25 +95,35 @@ class PlayerNavController(initialScreen: NavScreen = NavScreen.LibraryRoot) {
     }
 
     /**
-     * Comportamento do botão "Equalizador" na barra inferior do Poweramp:
-     * Toca no EQ -> Abre EQ; Toca de novo -> Retorna para a tela anterior.
+     * Comportamento da aba "Fila" na barra flutuante:
      */
-    fun toggleEqualizer() {
-        if (currentScreen is NavScreen.Equalizer) {
+    fun toggleQueue() {
+        if (currentScreen is NavScreen.Queue) {
             navigateUp()
         } else {
-            navigateTo(NavScreen.Equalizer)
+            navigateTo(NavScreen.Queue)
         }
     }
 
     /**
-     * Comportamento do botão "Buscar" na barra inferior do Poweramp:
+     * Comportamento da aba "Buscar" na barra flutuante:
      */
     fun toggleSearch() {
         if (currentScreen is NavScreen.Search) {
             navigateUp()
         } else {
             navigateTo(NavScreen.Search)
+        }
+    }
+
+    /**
+     * Abre a tela do Equalizador a partir do NowPlaying ou Configurações.
+     */
+    fun toggleEqualizer() {
+        if (currentScreen is NavScreen.Equalizer) {
+            navigateUp()
+        } else {
+            navigateTo(NavScreen.Equalizer)
         }
     }
 
@@ -146,5 +152,13 @@ class PlayerNavController(initialScreen: NavScreen = NavScreen.LibraryRoot) {
     fun resetToLibraryRoot() {
         backStack.clear()
         backStack.add(NavScreen.LibraryRoot)
+    }
+
+    /**
+     * Reseta a navegação diretamente para a Tela Inicial (Início).
+     */
+    fun resetToHome() {
+        backStack.clear()
+        backStack.add(NavScreen.Home)
     }
 }

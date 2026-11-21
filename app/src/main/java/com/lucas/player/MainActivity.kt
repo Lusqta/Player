@@ -12,8 +12,10 @@ import android.os.Bundle
 import android.os.IBinder
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -76,18 +78,19 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     private var isBound = false
     private val snackbarState = AuroSnackbarState()
 
-    // Controlador de Navegação com Pilha de Histórico estilo Poweramp
-    private val navController = PlayerNavController(NavScreen.LibraryRoot)
+    // Controlador de Navegação com Pilha de Histórico estilo Apple Music 7.0.2
+    private val navController = PlayerNavController(NavScreen.Home)
 
     private fun screenDepth(screen: NavScreen): Int = when (screen) {
-        is NavScreen.LibraryRoot -> 0
+        is NavScreen.Home -> 0
+        is NavScreen.LibraryRoot -> 1
         is NavScreen.CategoryList,
         is NavScreen.Search,
         is NavScreen.Equalizer,
         is NavScreen.Queue,
-        is NavScreen.Settings -> 1
-        is NavScreen.Drilldown -> 2
-        is NavScreen.NowPlaying -> 3
+        is NavScreen.Settings -> 2
+        is NavScreen.Drilldown -> 3
+        is NavScreen.NowPlaying -> 4
     }
 
     // Estados Reativos do Player
@@ -298,6 +301,10 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+        )
         enableHighRefreshRate()
         AuroHaptics.init(this)
         LibraryRepository.init(this)
@@ -364,8 +371,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             val miniPlayerCover = rememberTrackCover(currentTrack, 120)
 
             var currentAccent by remember { mutableStateOf(AuroAccent.Neutral) }
-            LaunchedEffect(currentCover) {
-                currentAccent = CoverGlow.from(currentCover)
+            LaunchedEffect(currentCover, preferencesManager.getAccentColorMode()) {
+                currentAccent = CoverGlow.from(currentCover, preferencesManager.getAccentColorMode())
             }
 
             LaunchedEffect(currentScreen) {
@@ -448,6 +455,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                     playing = isPlaying,
                     tilt = preferencesManager.isLightReactionTiltEnabled(),
                     soft = preferencesManager.getReflectionSoftness(),
+                    reduceTransparency = preferencesManager.isReduceTransparencyEnabled(),
+                    accentColorMode = preferencesManager.getAccentColorMode(),
                     reduceMotionOverride = when (preferencesManager.getReduceMotionMode()) {
                         1 -> true
                         2 -> false
@@ -456,8 +465,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 ) {
                     val reduceMotion = rememberReduceMotion()
                     val navBarBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                    val dockHeight = if (currentTrack != null) AuroHeight.Dock else AuroHeight.DockCollapsed
-                    val activeBottomInset = if (currentScreen is NavScreen.NowPlaying) 0.dp else (dockHeight + AuroSpace.EdgeMargin + navBarBottomInset)
+                    val floatingBarsHeight = 62.dp + 10.dp + (if (currentTrack != null) 56.dp + 8.dp else 0.dp)
+                    val activeBottomInset = if (currentScreen is NavScreen.NowPlaying) 0.dp else (floatingBarsHeight + navBarBottomInset)
 
                     CompositionLocalProvider(
                         LocalAuroBottomInset provides activeBottomInset,
@@ -645,12 +654,67 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             modifier = Modifier.fillMaxSize()
                         ) { activeScreen ->
                             when (activeScreen) {
+                            is NavScreen.Home -> {
+                                val all = libraryRepo.getAllTracks()
+                                val recent = libraryRepo.getRecentlyPlayed().take(20)
+                                val most = libraryRepo.getMostPlayed().take(20)
+                                val added = libraryRepo.getRecentlyAdded().take(20)
+                                AuroHomeScreen(
+                                    currentTrack = currentTrack,
+                                    isPlaying = isPlaying,
+                                    recentlyPlayed = recent,
+                                    mostPlayed = most,
+                                    recentlyAdded = added,
+                                    allTracks = all,
+                                    isLoading = isLoadingLibrary,
+                                    loadingCount = loadingTracksCount,
+                                    listState = getScrollState("home"),
+                                    onTrackClick = { track ->
+                                        val idx = all.indexOfFirst { it.id == track.id }.takeIf { it != -1 } ?: 0
+                                        playbackService?.playQueue(all, idx)
+                                        navController.openNowPlaying()
+                                    },
+                                    onPlayAll = { tracks ->
+                                        if (tracks.isNotEmpty()) {
+                                            playbackService?.playQueue(tracks, 0)
+                                            navController.openNowPlaying()
+                                        }
+                                    },
+                                    onShuffleAll = { tracks ->
+                                        if (tracks.isNotEmpty()) {
+                                            playbackService?.queueManager?.setShuffleMode(ShuffleMode.ALL_TRACKS)
+                                            shuffleModeState.value = ShuffleMode.ALL_TRACKS
+                                            playbackService?.playQueue(tracks.shuffled(), 0)
+                                            navController.openNowPlaying()
+                                        }
+                                    },
+                                    onResumePlayback = {
+                                        if (currentTrack != null) {
+                                            if (!isPlaying) playbackService?.play()
+                                        } else {
+                                            if (all.isNotEmpty()) playbackService?.playQueue(all, 0)
+                                        }
+                                    },
+                                    onOpenNowPlaying = { navController.openNowPlaying() },
+                                    onOpenSettings = { showMenuSheetState.value = true },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+
                             is NavScreen.LibraryRoot -> {
+                                val all = libraryRepo.getAllTracks()
+                                val pinnedKeys = preferencesManager.getPinnedGroups()
+                                val pinnedItems = displayedGroups.filter { pinnedKeys.contains(it.title) }
+                                val recentAdded = libraryRepo.getRecentlyAdded().take(10)
                                 AuroLibraryRootScreen(
                                     totalTracksCount = totalTracksCount,
                                     isLoading = isLoadingLibrary,
                                     loadingCount = loadingTracksCount,
                                     listState = getScrollState("library_root"),
+                                    pinnedGroups = pinnedKeys,
+                                    pinnedItems = pinnedItems,
+                                    recentlyAddedTracks = recentAdded,
+                                    coverTrackFinder = { group -> all.firstOrNull { it.album.equals(group.title, ignoreCase = true) || it.artist.equals(group.title, ignoreCase = true) } },
                                     onShuffleAll = {
                                         val all = libraryRepo.getAllTracks()
                                         if (all.isNotEmpty()) {
@@ -670,8 +734,25 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         selectCategory(cat)
                                         navController.navigateTo(NavScreen.CategoryList(cat))
                                     },
+                                    onGroupClick = { group ->
+                                        drillDownGroup(LibraryCategory.ALBUMS, group.title)
+                                        navController.navigateTo(
+                                            NavScreen.Drilldown(
+                                                category = LibraryCategory.ALBUMS,
+                                                title = group.title,
+                                                subtitle = group.subtitle
+                                            )
+                                        )
+                                    },
+                                    onTrackClick = { track ->
+                                        val all = libraryRepo.getAllTracks()
+                                        val idx = all.indexOfFirst { it.id == track.id }.takeIf { it != -1 } ?: 0
+                                        playbackService?.playQueue(all, idx)
+                                        navController.openNowPlaying()
+                                    },
                                     onSortClick = { showSortOrderState.value = true },
                                     onRescanClick = { loadLibrary() },
+                                    onSettingsClick = { showMenuSheetState.value = true },
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -800,15 +881,21 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             }
 
                             is NavScreen.Drilldown -> {
+                                val groupKey = "${activeScreen.category.name}_${activeScreen.title}"
+                                val isPinned = preferencesManager.isGroupPinned(groupKey)
                                 AuroDrilldownScreen(
                                     category = activeScreen.category,
                                     groupTitle = activeScreen.title,
-                                    listState = getScrollState("drilldown_${activeScreen.category.name}_${activeScreen.title}"),
+                                    listState = getScrollState("drilldown_$groupKey"),
                                     tracks = drilldownTracks,
                                     currentPlayingId = currentTrack?.id ?: -1L,
                                     errorTrackIds = errorTrackIds.toSet(),
                                     isSelectionMode = isSelectionModeState.value,
                                     selectedTrackIds = selectedTrackIdsState.toSet(),
+                                    isPinned = isPinned,
+                                    onTogglePin = {
+                                        preferencesManager.togglePinnedGroup(groupKey)
+                                    },
                                     onToggleSelectTrack = { track ->
                                         if (selectedTrackIdsState.contains(track.id)) {
                                             selectedTrackIdsState.remove(track.id)
@@ -1312,29 +1399,37 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             .padding(bottom = snackbarBottomPadding)
                     )
 
-                    // Dock Único de Vidro (AuroDock - Substitui AuroNavbar e AuroMiniPlayer)
+                    // Duas Barras Flutuantes Independentes (Padrão Apple Music Android 7.0.2)
                     if (currentScreen !is NavScreen.NowPlaying) {
-                        AuroDock(
-                            currentScreen = currentScreen,
-                            currentTrack = currentTrack,
-                            isPlaying = isPlaying,
-                            progressMs = progressMsState.longValue,
-                            durationMs = durationMs,
-                            coverBitmap = miniPlayerCover,
-                            onOpenNowPlaying = { navController.openNowPlaying() },
-                            onPlayPause = { playbackService?.togglePlayPause() },
-                            onNext = { playbackService?.playNext() },
-                            onPrevious = { playbackService?.playPrevious() },
-                            onEqClick = { navController.toggleEqualizer() },
-                            onLibraryClick = { navController.toggleLibrary() },
-                            onSearchClick = { navController.toggleSearch() },
-                            onMenuClick = { showMenuSheetState.value = true },
+                        Column(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .padding(horizontal = AuroSpace.EdgeMargin)
-                                .padding(bottom = AuroSpace.EdgeMargin)
-                                .navigationBarsPadding()
-                        )
+                                .padding(bottom = 10.dp)
+                                .navigationBarsPadding(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            if (currentTrack != null) {
+                                AppleMiniPlayer(
+                                    track = currentTrack,
+                                    isPlaying = isPlaying,
+                                    progressMs = progressMsState.longValue,
+                                    durationMs = durationMs,
+                                    coverBitmap = miniPlayerCover,
+                                    onOpenNowPlaying = { navController.openNowPlaying() },
+                                    onPlayPause = { playbackService?.togglePlayPause() },
+                                    onNext = { playbackService?.playNext() },
+                                    onPrevious = { playbackService?.playPrevious() }
+                                )
+                            }
+
+                            AppleFloatingTabBar(
+                                currentScreen = currentScreen,
+                                onHomeClick = { navController.toggleHome() },
+                                onLibraryClick = { navController.toggleLibrary() },
+                                onQueueClick = { navController.toggleQueue() },
+                                onSearchClick = { navController.toggleSearch() }
+                            )
+                        }
                     }
 
                     // Diálogos Modais Funcionais e Limpos
