@@ -253,7 +253,6 @@
     <string name="settings_reduce_transparency_desc">Substitui vidros translúcidos por superfície sólida</string>
     <string name="settings_accent_color_mode">Cor de Destaque</string>
     <string name="settings_accent_adaptive">Adaptativa da Capa</string>
-    <string name="settings_accent_apple_blue">Azul Apple Music</string>
     <string name="settings_transparency_label">Aparência do Vidro</string>
     <string name="settings_transparency_crystal">Cristal</string>
     <string name="settings_transparency_frosted">Fosco</string>

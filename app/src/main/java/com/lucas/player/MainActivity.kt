@@ -468,8 +468,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 ) {
                     val reduceMotion = rememberReduceMotion()
                     val navBarBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                    val floatingBarsHeight = 56.dp + 12.dp + (if (currentTrack != null) 52.dp + 8.dp else 0.dp)
-                    val activeBottomInset = if (currentScreen is NavScreen.NowPlaying) 0.dp else (floatingBarsHeight + navBarBottomInset)
+                    val barsHeight = 56.dp + (if (currentTrack != null) 60.dp else 0.dp)
+                    val activeBottomInset = if (currentScreen is NavScreen.NowPlaying) 0.dp else (barsHeight + navBarBottomInset)
 
                     CompositionLocalProvider(
                         LocalAuroBottomInset provides activeBottomInset,
@@ -1438,30 +1438,24 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             .padding(bottom = snackbarBottomPadding)
                     )
 
-                    // Duas Barras Flutuantes Independentes com gradiente de fade inferior (Editorial Dark OLED)
+                    // Dock Inferior Colado na Borda (Editorial Dark OLED)
                     if (currentScreen !is NavScreen.NowPlaying) {
-                        Box(
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth()
                                 .align(Alignment.BottomCenter)
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(
-                                            Color.Transparent,
-                                            Color(0xE6050505),
-                                            Color(0xFF050505)
-                                        )
-                                    )
-                                )
-                                .padding(top = 20.dp, bottom = 12.dp)
-                                .navigationBarsPadding()
+                                .fillMaxWidth()
                         ) {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                if (currentTrack != null) {
+                            if (currentTrack != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(
+                                            Brush.verticalGradient(
+                                                listOf(Color.Transparent, Color(0xCC050505), Color(0xF2121214))
+                                            )
+                                        )
+                                        .padding(top = 8.dp, bottom = 8.dp)
+                                ) {
                                     EditorialMiniPlayer(
                                         track = currentTrack,
                                         isPlaying = isPlaying,
@@ -1474,15 +1468,15 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         onPrevious = { playbackService?.playPrevious() }
                                     )
                                 }
-
-                                EditorialFloatingNavbar(
-                                    currentScreen = currentScreen,
-                                    onHomeClick = { navController.toggleHome() },
-                                    onSearchClick = { navController.toggleSearch() },
-                                    onLibraryClick = { navController.toggleLibrary() },
-                                    onTuneClick = { showMenuSheetState.value = true }
-                                )
                             }
+
+                            EditorialFloatingNavbar(
+                                currentScreen = currentScreen,
+                                onHomeClick = { navController.toggleHome() },
+                                onSearchClick = { navController.toggleSearch() },
+                                onLibraryClick = { navController.toggleLibrary() },
+                                onTuneClick = { showMenuSheetState.value = true }
+                            )
                         }
                     }
 

@@ -253,7 +253,6 @@
     <string name="settings_reduce_transparency_desc">Replace translucent glass surfaces with solid background</string>
     <string name="settings_accent_color_mode">Accent Color</string>
     <string name="settings_accent_adaptive">Adaptive from Artwork</string>
-    <string name="settings_accent_apple_blue">Apple Music Blue</string>
     <string name="settings_transparency_label">Glass Appearance</string>
     <string name="settings_transparency_crystal">Crystal</string>
     <string name="settings_transparency_frosted">Frosted</string>

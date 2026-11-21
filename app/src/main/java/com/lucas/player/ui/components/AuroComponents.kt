@@ -274,18 +274,20 @@ fun EditorialFloatingNavbar(
     onTuneClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .height(56.dp)
-            .clip(CircleShape)
-            .background(AuroColor.NavBarBg)
-            .border(0.5.dp, AuroColor.NavBarBorder, CircleShape)
+            .background(Color(0xF2121214))
+            .navigationBarsPadding()
     ) {
+        HorizontalDivider(
+            thickness = 0.5.dp,
+            color = Color.White.copy(alpha = 0.08f)
+        )
         Row(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
+                .height(56.dp)
                 .padding(horizontal = 12.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
@@ -308,14 +310,17 @@ fun EditorialFloatingNavbar(
                 activeIcon = Icons.Rounded.Favorite,
                 inactiveIcon = Icons.Outlined.FavoriteBorder,
                 contentDescription = stringResource(R.string.tab_library),
-                isActive = currentScreen is NavScreen.LibraryRoot || currentScreen is NavScreen.CategoryList || currentScreen is NavScreen.Drilldown,
+                isActive = currentScreen is NavScreen.LibraryRoot ||
+                    currentScreen is NavScreen.CategoryList ||
+                    currentScreen is NavScreen.Drilldown,
                 onClick = onLibraryClick
             )
             EditorialNavIcon(
                 activeIcon = Icons.Rounded.Tune,
                 inactiveIcon = Icons.Outlined.Tune,
                 contentDescription = stringResource(R.string.tab_tune),
-                isActive = currentScreen is NavScreen.Equalizer || currentScreen is NavScreen.Settings,
+                isActive = currentScreen is NavScreen.Equalizer ||
+                    currentScreen is NavScreen.Settings,
                 onClick = onTuneClick
             )
         }
