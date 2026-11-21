@@ -18,6 +18,7 @@ import androidx.compose.material.icons.rounded.MusicOff
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -112,23 +113,23 @@ fun AuroDrilldownScreen(
                             .background(
                                 Brush.verticalGradient(
                                     colors = listOf(
-                                        accent.copy(alpha = 0.20f),
+                                        accent.copy(alpha = 0.22f),
                                         Color.Transparent
                                     )
                                 )
                             )
                             .statusBarsPadding()
-                            .padding(top = 52.dp, bottom = 16.dp, start = AuroSpace.ScreenMargin, end = AuroSpace.ScreenMargin),
+                            .padding(top = 56.dp, bottom = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Hero Portrait de até 300dp (raio 32dp) com PlayButton flutuando
+                        // Hero Portrait (altura 340dp, raio 32dp, padding horizontal 14dp)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = 300.dp)
-                                .aspectRatio(1f)
-                                .shadow(elevation = 24.dp, shape = RoundedCornerShape(AuroRadius.hero), spotColor = accent.copy(alpha = 0.45f))
-                                .clip(RoundedCornerShape(AuroRadius.hero))
+                                .padding(horizontal = 14.dp)
+                                .height(340.dp)
+                                .shadow(elevation = 24.dp, shape = RoundedCornerShape(32.dp), spotColor = accent.copy(alpha = 0.45f))
+                                .clip(RoundedCornerShape(32.dp))
                                 .background(AuroColor.SurfaceCard)
                         ) {
                             if (heroCover != null) {
@@ -142,7 +143,7 @@ fun AuroDrilldownScreen(
                                 AuroCoverPlaceholder(
                                     modifier = Modifier.fillMaxSize(),
                                     glass = false,
-                                    shape = RoundedCornerShape(AuroRadius.hero)
+                                    shape = RoundedCornerShape(32.dp)
                                 )
                             }
 
@@ -153,20 +154,24 @@ fun AuroDrilldownScreen(
                                 onClick = onPlayAll,
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
-                                    .padding(16.dp)
+                                    .padding(14.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(20.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
-                        // Nome Hero (30sp Bold)
+                        // Nome Hero (30sp SemiBold) abaixo da imagem (zero sobreposição)
                         Text(
                             text = groupTitle,
-                            style = AuroType.HeroName,
+                            style = AuroType.HeroName.copy(
+                                fontSize = 30.sp,
+                                fontWeight = FontWeight.SemiBold
+                            ),
                             color = AuroColor.TextPrimary,
                             textAlign = TextAlign.Center,
                             maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 20.dp)
                         )
 
                         Spacer(modifier = Modifier.height(4.dp))
@@ -178,10 +183,11 @@ fun AuroDrilldownScreen(
                                 color = AuroColor.TextSecondary,
                                 fontFeatureSettings = "tnum"
                             ),
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 20.dp)
                         )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         // Cabeçalho da seção com ação de Aleatório
                         EditorialSectionHeader(
@@ -221,58 +227,48 @@ fun AuroDrilldownScreen(
                 }
             }
 
-            // Top Bar Transparente com botões circulares flutuantes
+            // Top Bar Limpa: Botão voltar (<) e Fixar (Pin) sem círculos
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = AuroSpace.ScreenMargin, vertical = 8.dp),
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(AuroColor.ControlGlass)
-                        .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape)
-                        .clickable {
-                            AuroHaptics.click(view)
-                            onBackToCategoryList()
-                        },
-                    contentAlignment = Alignment.Center
+                IconButton(
+                    onClick = {
+                        AuroHaptics.click(view)
+                        onBackToCategoryList()
+                    },
+                    modifier = Modifier.size(44.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = stringResource(R.string.cd_back),
                         tint = AuroColor.TextPrimary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(AuroColor.ControlGlass)
-                        .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape)
-                        .clickable {
-                            AuroHaptics.click(view)
-                            onTogglePin()
-                        },
-                    contentAlignment = Alignment.Center
+                IconButton(
+                    onClick = {
+                        AuroHaptics.click(view)
+                        onTogglePin()
+                    },
+                    modifier = Modifier.size(44.dp)
                 ) {
                     Icon(
                         imageVector = if (isPinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
                         contentDescription = stringResource(if (isPinned) R.string.action_unpin else R.string.action_pin),
-                        tint = if (isPinned) Color.White else AuroColor.TextSecondary,
-                        modifier = Modifier.size(20.dp)
+                        tint = if (isPinned) Color.White else Color.White.copy(alpha = 0.55f),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
 
-            // FastScroller translúcido na margem direita
-            if (tracks.size >= 12) {
+            // FastScroller translúcido na margem direita (abaixo do Hero, apenas se houver 20+ faixas)
+            if (tracks.size >= 20) {
                 AuroAlphabetFastScroller(
                     onLetterSelected = { letter ->
                         val targetIndex = tracks.indexOfFirst { matchesFirstLetter(it.title, letter) }
@@ -284,7 +280,7 @@ fun AuroDrilldownScreen(
                     },
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .padding(top = 100.dp, bottom = bottomInset + 30.dp, end = 2.dp)
+                        .padding(top = 460.dp, bottom = bottomInset + 30.dp, end = 2.dp)
                 )
             }
         }

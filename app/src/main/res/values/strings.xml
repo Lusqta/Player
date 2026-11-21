@@ -207,7 +207,7 @@
     <string name="sleep_timer_active_desc">ATIVO: %1$dm %2$ds restantes</string>
     <string name="sleep_timer_stop_at_end">Tocar até o fim da faixa</string>
     <string name="menu_sheet_title">MENU</string>
-    <string name="audio_engine_title">MOTOR DE ÁUDIO NATIVO</string>
+    <string name="audio_engine_title">Motor de áudio nativo</string>
     <string name="audio_engine_pipeline">Pipeline</string>
     <string name="audio_engine_pipeline_val">Google Oboe (C++ High-Performance)</string>
     <string name="audio_engine_driver">Driver Nativo</string>

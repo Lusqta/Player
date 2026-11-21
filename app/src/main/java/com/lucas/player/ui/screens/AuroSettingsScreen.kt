@@ -74,7 +74,6 @@ fun AuroSettingsScreen(
     var reduceMotionMode by remember { mutableIntStateOf(preferencesManager.getReduceMotionMode()) }
     var showFileFormat by remember { mutableStateOf(preferencesManager.isShowFileFormatEnabled()) }
     var reduceTransparency by remember { mutableStateOf(preferencesManager.isReduceTransparencyEnabled()) }
-    var accentColorMode by remember { mutableIntStateOf(preferencesManager.getAccentColorMode()) }
 
     var ignoreShorterThanSec by remember { mutableIntStateOf(preferencesManager.getIgnoreShorterThanSeconds()) }
 
@@ -364,29 +363,6 @@ fun AuroSettingsScreen(
             item {
                 SettingsSectionHeader(stringResource(R.string.settings_section_appearance))
                 SettingsCard {
-                    val accentModeLabel = when (accentColorMode) {
-                        1 -> stringResource(R.string.settings_accent_apple_blue)
-                        else -> stringResource(R.string.settings_accent_adaptive)
-                    }
-                    SettingsClickableRow(
-                        title = stringResource(R.string.settings_accent_color_mode),
-                        subtitle = accentModeLabel,
-                        onClick = {
-                            val next = if (accentColorMode == 0) 1 else 0
-                            accentColorMode = next
-                            preferencesManager.setAccentColorMode(next)
-                            onSettingsChanged()
-                        },
-                        trailingContent = {
-                            Box(
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .clip(CircleShape)
-                                    .background(if (accentColorMode == 1) AuroColor.AppleBlueFallback else accent)
-                            )
-                        }
-                    )
-                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
                     val motionLabel = when (reduceMotionMode) {
                         1 -> stringResource(R.string.settings_reduce_motion_always)
                         2 -> stringResource(R.string.settings_reduce_motion_never)

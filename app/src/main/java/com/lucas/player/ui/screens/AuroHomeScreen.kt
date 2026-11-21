@@ -118,39 +118,17 @@ fun AuroHomeScreen(
             ) {
                 // Top Greeting & Settings Button
                 item(key = "home_greeting") {
-                    Row(
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .statusBarsPadding()
-                            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
+                            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
                     ) {
                         Text(
                             text = stringResource(R.string.home_greeting_recommended),
                             style = AuroType.GreetingTitle,
                             color = AuroColor.TextPrimary
                         )
-
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(AuroColor.ControlGlass)
-                                .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape)
-                                .clickable {
-                                    AuroHaptics.click(view)
-                                    onOpenSettings()
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.MoreVert,
-                                contentDescription = stringResource(R.string.cd_more_options),
-                                tint = AuroColor.TextPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
                     }
                 }
 
@@ -167,7 +145,7 @@ fun AuroHomeScreen(
                             QuickMixCard(
                                 title = stringResource(R.string.home_mix_shuffle),
                                 icon = Icons.Rounded.Shuffle,
-                                gradientColors = listOf(Color(0xFF2A203F), Color(0xFF141416)),
+                                gradientColors = listOf(Color(0xFF9E472A), Color(0xFF2A1618)),
                                 onClick = { onShuffleAll(allTracks) }
                             )
                         }
@@ -175,7 +153,7 @@ fun AuroHomeScreen(
                             QuickMixCard(
                                 title = stringResource(R.string.home_mix_most_played),
                                 icon = Icons.Rounded.Whatshot,
-                                gradientColors = listOf(Color(0xFF1B3533), Color(0xFF141416)),
+                                gradientColors = listOf(Color(0xFF5B46C6), Color(0xFF1D1936)),
                                 onClick = {
                                     if (mostPlayed.isNotEmpty()) onPlayAll(mostPlayed)
                                     else onPlayAll(allTracks)
@@ -186,7 +164,7 @@ fun AuroHomeScreen(
                             QuickMixCard(
                                 title = stringResource(R.string.home_mix_favorites),
                                 icon = Icons.Rounded.Favorite,
-                                gradientColors = listOf(Color(0xFF3F1A24), Color(0xFF141416)),
+                                gradientColors = listOf(Color(0xFF7A2438), Color(0xFF1F1216)),
                                 onClick = {
                                     val favs = allTracks.filter { it.rating > 0 }
                                     if (favs.isNotEmpty()) onPlayAll(favs)
@@ -198,7 +176,7 @@ fun AuroHomeScreen(
                             QuickMixCard(
                                 title = stringResource(R.string.home_mix_recent),
                                 icon = Icons.Rounded.History,
-                                gradientColors = listOf(Color(0xFF382C17), Color(0xFF141416)),
+                                gradientColors = listOf(Color(0xFF23536B), Color(0xFF111C24)),
                                 onClick = {
                                     if (recentlyPlayed.isNotEmpty()) onPlayAll(recentlyPlayed)
                                     else onPlayAll(allTracks)
@@ -308,7 +286,7 @@ fun AuroHomeScreen(
 
                 // Banner: Coleções (104dp, raio 24dp)
                 item(key = "collections_banner") {
-                    val warmGlow = LocalAuroAccent.current.a.value
+                    val warmGlow = LocalAuroAccent.current.mesh1.value.takeIf { it != Color.Unspecified } ?: Color(0xFF9A1D1D)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

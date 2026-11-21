@@ -13,6 +13,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -285,20 +286,21 @@ object AuroMotion {
 data class AuroAccent(
     val a: Color,
     val b: Color,
-    val mesh1: Color = Color(0xFF141824),
-    val mesh2: Color = Color(0xFF181424),
-    val mesh3: Color = Color(0xFF142024),
-    val mesh4: Color = Color(0xFF101420)
+    val mesh1: Color = Color(0xFF3D1214),
+    val mesh2: Color = Color(0xFF160D18),
+    val mesh3: Color = Color(0xFF2A1015),
+    val mesh4: Color = Color(0xFF120A14)
 ) {
     companion object {
+        val WarmRed = Color(0xFF9A1D1D)
         val AppleBlue = Color(0xFF0A84FF)
         val Neutral = AuroAccent(
             a = AppleBlue,
             b = Color(0xFF0071E3),
-            mesh1 = Color(0xFF141824),
-            mesh2 = Color(0xFF181424),
-            mesh3 = Color(0xFF142024),
-            mesh4 = Color(0xFF101420)
+            mesh1 = Color(0xFF3D1214),
+            mesh2 = Color(0xFF160D18),
+            mesh3 = Color(0xFF2A1015),
+            mesh4 = Color(0xFF120A14)
         )
     }
 }
@@ -333,8 +335,8 @@ object GlowTone {
         val b = (argb and 0xFF) / 255f
         val hsl = rgbToHsl(r, g, b)
         val h = hsl[0]
-        val s = hsl[1].coerceIn(0.15f, 0.65f)
-        val l = hsl[2].coerceIn(0.12f, 0.26f) // Luminância suave limitada para ambient bleed atmosférico
+        val s = hsl[1].coerceIn(0.35f, 0.78f)
+        val l = hsl[2].coerceIn(0.10f, 0.28f) // Tons escuros/atmosféricos para ambient bleed de 2 cores
         return Color(hslToArgb(h, s, l))
     }
 
@@ -399,14 +401,14 @@ object CoverGlow {
             val (aInt, bInt) = if (seed != null) {
                 GlowTone.fit(seed.rgb)
             } else {
-                0xFF0A84FF.toInt() to 0xFF0071E3.toInt()
+                0xFF9A1D1D.toInt() to 0xFF3D1214.toInt()
             }
 
-            // 4 cores para o mesh animado do Now Playing
-            val m1 = GlowTone.fitMeshColor(p.vibrantSwatch?.rgb ?: seed?.rgb ?: 0xFF141824.toInt())
-            val m2 = GlowTone.fitMeshColor(p.darkVibrantSwatch?.rgb ?: p.dominantSwatch?.rgb ?: 0xFF181424.toInt())
-            val m3 = GlowTone.fitMeshColor(p.lightVibrantSwatch?.rgb ?: p.mutedSwatch?.rgb ?: 0xFF142024.toInt())
-            val m4 = GlowTone.fitMeshColor(seed?.rgb ?: 0xFF101420.toInt())
+            // 4 cores para o mesh animado do Now Playing (fallback neutro quente escuro #3D1214 e #160D18)
+            val m1 = GlowTone.fitMeshColor(p.vibrantSwatch?.rgb ?: seed?.rgb ?: 0xFF3D1214.toInt())
+            val m2 = GlowTone.fitMeshColor(p.darkVibrantSwatch?.rgb ?: p.dominantSwatch?.rgb ?: 0xFF160D18.toInt())
+            val m3 = GlowTone.fitMeshColor(p.lightVibrantSwatch?.rgb ?: p.mutedSwatch?.rgb ?: 0xFF2A1015.toInt())
+            val m4 = GlowTone.fitMeshColor(seed?.rgb ?: 0xFF120A14.toInt())
 
             val finalAccent = if (accentColorMode == 1) {
                 // Modo fixo Azul Apple
@@ -748,6 +750,91 @@ fun AuroGlass(
         soft = soft,
         onClick = onClick,
         haptic = haptic,
+        content = content
+    )
+}
+
+/**
+ * Fundo Borrado Animado de 2 Cores do Álbum (Now Playing + Letras):
+ * - Extrai 2 cores reais da capa atual (mesh1 e mesh2 do CoverGlow)
+ * - 2 manchas radiais amplas e super difusas em órbita orgânica (16s)
+ * - Base #050505, 120Hz constante, zero BlurEffect recursivo
+ */
+@Composable
+fun AnimatedDualColorBackground(
+    color1: Color,
+    color2: Color,
+    isPlaying: Boolean = true,
+    modifier: Modifier = Modifier,
+    content: @Composable BoxScope.() -> Unit = {}
+) {
+    val reduceMotion = rememberReduceMotion()
+
+    val animColor1 by animateColorAsState(
+        targetValue = color1,
+        animationSpec = tween(AuroMotion.ColorMs, easing = AuroMotion.Emphasized),
+        label = "dualBgColor1"
+    )
+    val animColor2 by animateColorAsState(
+        targetValue = color2,
+        animationSpec = tween(AuroMotion.ColorMs, easing = AuroMotion.Emphasized),
+        label = "dualBgColor2"
+    )
+
+    val transition = rememberInfiniteTransition(label = "dualColorOrbit")
+    val orbitPhase by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(16000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "orbitPhase"
+    )
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF050505))
+            .drawBehind {
+                val t = if (isPlaying && !reduceMotion) (orbitPhase * 2f * PI).toFloat() else 0f
+                val w = size.width
+                val h = size.height
+
+                // Mancha 1: órbita suave no quadrante superior/central
+                val c1X = w * (0.45f + 0.22f * cos(t))
+                val c1Y = h * (0.32f + 0.14f * sin(t))
+                val r1 = max(w, h) * 0.78f
+
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            animColor1.copy(alpha = 0.58f),
+                            animColor1.copy(alpha = 0.22f),
+                            Color.Transparent
+                        ),
+                        center = Offset(c1X, c1Y),
+                        radius = r1
+                    )
+                )
+
+                // Mancha 2: órbita suave no quadrante médio/inferior em fase oposta
+                val c2X = w * (0.55f + 0.22f * cos(-t + 2.4f))
+                val c2Y = h * (0.58f + 0.16f * sin(-t + 2.4f))
+                val r2 = max(w, h) * 0.82f
+
+                drawRect(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            animColor2.copy(alpha = 0.52f),
+                            animColor2.copy(alpha = 0.18f),
+                            Color.Transparent
+                        ),
+                        center = Offset(c2X, c2Y),
+                        radius = r2
+                    )
+                )
+            },
         content = content
     )
 }

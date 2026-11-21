@@ -207,7 +207,7 @@
     <string name="sleep_timer_active_desc">ACTIVE: %1$dm %2$ds remaining</string>
     <string name="sleep_timer_stop_at_end">Play until end of track</string>
     <string name="menu_sheet_title">MENU</string>
-    <string name="audio_engine_title">NATIVE AUDIO ENGINE</string>
+    <string name="audio_engine_title">Native audio engine</string>
     <string name="audio_engine_pipeline">Pipeline</string>
     <string name="audio_engine_pipeline_val">Google Oboe (C++ High-Performance)</string>
     <string name="audio_engine_driver">Native Driver</string>

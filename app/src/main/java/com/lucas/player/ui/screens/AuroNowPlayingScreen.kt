@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.*
@@ -27,6 +28,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -35,6 +37,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -42,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
 import com.lucas.player.data.LyricsManager
@@ -57,12 +61,12 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 /**
- * NOW PLAYING (Editorial Dark OLED - Minimalista & Atmosférico)
- * - Fiel às Telas 2 (Capa) e 4 (Letras Expandidas) do Design System
+ * NOW PLAYING (Editorial Dark OLED - Fidelidade Total à Referência)
+ * - Fundo Borrado Animado de 2 Cores reais da capa (AnimatedDualColorBackground)
+ * - Capa 100% largura da tela (0.dp padding horizontal) com chevron v flutuando no topo esquerdo
+ * - Estrutura de camada única com estado contínuo expandProgress (0f = Player, 1f = Letras expandidas)
+ * - Aba de Letras expansível por toque e arrasto contínuo (largura total da tela)
  * - Controles 100% Branco Puro / Acromático
- * - Ambient Bleed sutil da capa no fundo
- * - Transição fluida entre Capa e Letras Expandidas
- * - Menu ••• e Fila acessíveis via BottomSheet limpo
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -103,6 +107,8 @@ fun AuroNowPlayingScreen(
     onOpenLyrics: () -> Unit = {},
     onOpenQueue: () -> Unit = {},
     onOpenTrackInfo: () -> Unit,
+    onAddToPlaylist: () -> Unit = {},
+    onOpenSleepTimer: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     if (track == null) {
@@ -121,11 +127,14 @@ fun AuroNowPlayingScreen(
 
     val context = LocalContext.current
     val view = LocalView.current
-    val accent = LocalAuroAccent.current.a.value
+    val accentState = LocalAuroAccent.current
+    val color1 = accentState.mesh1.value
+    val color2 = accentState.mesh2.value
     val reduceMotion = rememberReduceMotion()
     val coroutineScope = rememberCoroutineScope()
 
-    var isLyricsExpanded by remember { mutableStateOf(false) }
+    // Estado contínuo de expansão (0f = Player, 1f = Letras expandidas)
+    val expandProgress = remember { Animatable(0f) }
     var showOptionsMenu by remember { mutableStateOf(false) }
     var showQueueSheet by remember { mutableStateOf(false) }
 
@@ -144,8 +153,10 @@ fun AuroNowPlayingScreen(
                     backProgress.snapTo(event.progress)
                 }
             }
-            if (isLyricsExpanded) {
-                isLyricsExpanded = false
+            if (expandProgress.value > 0.05f) {
+                coroutineScope.launch {
+                    expandProgress.animateTo(0f, spring(dampingRatio = 0.86f, stiffness = 340f))
+                }
             } else {
                 onCollapse()
             }
@@ -166,9 +177,11 @@ fun AuroNowPlayingScreen(
         label = "nowPlayingCoverScale"
     )
 
-    // Viewport com Fundo Ambient Bleed Suave
-    AmbientBleedBackground(
-        color = accent,
+    // Viewport com Fundo Borrado Animado de 2 Cores do Álbum
+    AnimatedDualColorBackground(
+        color1 = color1,
+        color2 = color2,
+        isPlaying = isPlaying,
         modifier = modifier
             .fillMaxSize()
             .graphicsLayer {
@@ -180,157 +193,166 @@ fun AuroNowPlayingScreen(
                 clip = p > 0.001f
             }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp, vertical = 6.dp)
-        ) {
-            // Barra Superior Minimalista: Chevron recolher à esquerda + Ícone Fila à direita
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = {
-                        AuroHaptics.click(view)
-                        if (isLyricsExpanded) isLyricsExpanded = false
-                        else onCollapse()
-                    },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.KeyboardArrowDown,
-                        contentDescription = stringResource(R.string.cd_collapse),
-                        tint = Color.White.copy(alpha = 0.75f),
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val screenHeight = maxHeight
+            val navBarBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+            val statusBarTopInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
-                IconButton(
-                    onClick = {
-                        AuroHaptics.click(view)
-                        showQueueSheet = true
-                    },
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.QueueMusic,
-                        contentDescription = stringResource(R.string.now_playing_mode_queue),
-                        tint = Color.White.copy(alpha = 0.65f),
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            }
+            val progress = expandProgress.value
+            val playerAlpha = (1f - progress * 2.2f).coerceIn(0f, 1f)
+            val compactHeaderAlpha = ((progress - 0.35f) * 1.54f).coerceIn(0f, 1f)
 
-            AnimatedContent(
-                targetState = isLyricsExpanded,
-                transitionSpec = {
-                    if (reduceMotion) {
-                        EnterTransition.None togetherWith ExitTransition.None
-                    } else {
-                        (fadeIn(tween(300)) + slideInVertically(animationSpec = tween(300)) { it / 4 })
-                            .togetherWith(fadeOut(tween(220)) + slideOutVertically(animationSpec = tween(220)) { -it / 4 })
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                label = "nowPlayingScreenContent"
-            ) { expanded ->
-                if (!expanded) {
-                    // ─────────────────────── TELA 2: MODO CAPA (Cover Mode) ───────────────────────
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        // 1. Capa Vertical Grande (~56% da tela) com fade inferior de 20%
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .padding(horizontal = 4.dp, vertical = 4.dp)
-                                .graphicsLayer {
-                                    scaleX = coverScale
-                                    scaleY = coverScale
-                                }
-                                .clip(RoundedCornerShape(28.dp))
-                                .background(AuroColor.SurfaceGrouped)
-                                .pointerInput(Unit) {
-                                    var totalDragX = 0f
-                                    var totalDragY = 0f
-                                    detectDragGestures(
-                                        onDragStart = {
-                                            totalDragX = 0f
-                                            totalDragY = 0f
-                                        },
-                                        onDragEnd = {
-                                            if (totalDragY < -50f && abs(totalDragY) > abs(totalDragX)) {
+            // Posição vertical da aba de Letras (interpolação contínua)
+            val collapsedHeight = 56.dp + navBarBottomInset
+            val collapsedTop = screenHeight - collapsedHeight
+            val expandedTop = statusBarTopInset + 104.dp
+            val currentTop = lerp(collapsedTop, expandedTop, progress)
+
+            // ─────────────────────── CAMADA 1: PLAYER (Capa + Metadados + Transporte) ───────────────────────
+            if (playerAlpha > 0f) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            alpha = playerAlpha
+                            scaleX = 1f - 0.05f * progress
+                            scaleY = 1f - 0.05f * progress
+                        },
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // 1. Capa Largura Total (100% largura da tela, 0.dp padding horizontal, ~54% altura)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(screenHeight * 0.54f)
+                            .graphicsLayer {
+                                scaleX = coverScale
+                                scaleY = coverScale
+                            }
+                            .pointerInput(Unit) {
+                                var totalDragX = 0f
+                                var totalDragY = 0f
+                                detectDragGestures(
+                                    onDragStart = { totalDragX = 0f; totalDragY = 0f },
+                                    onDragEnd = {
+                                        if (totalDragY < -40f && abs(totalDragY) > abs(totalDragX)) {
+                                            AuroHaptics.click(view)
+                                            coroutineScope.launch {
+                                                expandProgress.animateTo(1f, spring(0.86f, 340f))
+                                            }
+                                        } else if (totalDragY > 50f && abs(totalDragY) > abs(totalDragX)) {
+                                            AuroHaptics.click(view)
+                                            onCollapse()
+                                        } else if (abs(totalDragX) > 40f) {
+                                            if (totalDragX < 0) {
                                                 AuroHaptics.click(view)
-                                                isLyricsExpanded = true
-                                            } else if (totalDragY > 50f && abs(totalDragY) > abs(totalDragX)) {
+                                                onNext()
+                                            } else {
                                                 AuroHaptics.click(view)
-                                                onCollapse()
-                                            } else if (abs(totalDragX) > 40f) {
-                                                if (totalDragX < 0) {
-                                                    AuroHaptics.click(view)
-                                                    onNext()
-                                                } else {
-                                                    AuroHaptics.click(view)
-                                                    onPrevious()
-                                                }
+                                                onPrevious()
                                             }
                                         }
-                                    ) { change, dragAmount ->
-                                        change.consume()
-                                        totalDragX += dragAmount.x
-                                        totalDragY += dragAmount.y
                                     }
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (coverBitmap != null) {
-                                Image(
-                                    bitmap = coverBitmap.asImageBitmap(),
-                                    contentDescription = track.title,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            } else {
-                                AuroCoverPlaceholder(
-                                    modifier = Modifier.fillMaxSize(),
-                                    glass = false,
-                                    shape = RoundedCornerShape(28.dp)
-                                )
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    totalDragX += dragAmount.x
+                                    totalDragY += dragAmount.y
+                                }
                             }
-
-                            // Gradiente escuro sutil nos 20% inferiores fundindo suavemente no fundo
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .fillMaxHeight(0.22f)
-                                    .align(Alignment.BottomCenter)
-                                    .background(
-                                        Brush.verticalGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                Color(0xFF050505).copy(alpha = 0.40f),
-                                                Color(0xFF050505).copy(alpha = 0.85f)
-                                            )
-                                        )
-                                    )
+                    ) {
+                        if (coverBitmap != null) {
+                            Image(
+                                bitmap = coverBitmap.asImageBitmap(),
+                                contentDescription = track.title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            AuroCoverPlaceholder(
+                                modifier = Modifier.fillMaxSize(),
+                                glass = false,
+                                shape = RoundedCornerShape(0.dp)
                             )
                         }
 
-                        // 2. Linha Título/Artista + Ações (Coração ♡ e •••)
+                        // Gradiente suave nos 22% inferiores fundindo no fundo borrado de 2 cores
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .fillMaxHeight(0.24f)
+                                .align(Alignment.BottomCenter)
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color.Transparent,
+                                            Color(0xFF050505).copy(alpha = 0.45f),
+                                            Color(0xFF050505).copy(alpha = 0.95f)
+                                        )
+                                    )
+                                )
+                        )
+
+                        // Chevron v flutuando no canto superior esquerdo (SEM CÍRCULO)
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .statusBarsPadding()
+                                .padding(start = 16.dp, top = 8.dp)
+                                .size(44.dp)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    AuroHaptics.click(view)
+                                    onCollapse()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.KeyboardArrowDown,
+                                contentDescription = stringResource(R.string.cd_collapse),
+                                tint = Color.White.copy(alpha = 0.85f),
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+
+                        // Ícone discreto de Fila no canto superior direito
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .statusBarsPadding()
+                                .padding(end = 16.dp, top = 8.dp)
+                                .size(44.dp)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    AuroHaptics.click(view)
+                                    showQueueSheet = true
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.QueueMusic,
+                                contentDescription = stringResource(R.string.now_playing_mode_queue),
+                                tint = Color.White.copy(alpha = 0.70f),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+
+                    // Controles abaixo da capa (com padding horizontal = 20.dp)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                            .padding(bottom = collapsedHeight + 8.dp)
+                    ) {
+                        // 2. Linha Título/Artista + Coração ♡ e ••• (Sem círculos)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 6.dp, vertical = 8.dp),
+                                .padding(vertical = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -345,7 +367,7 @@ fun AuroNowPlayingScreen(
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
-                                Spacer(modifier = Modifier.height(3.dp))
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
                                     style = AuroType.Subtitle.copy(
@@ -359,50 +381,59 @@ fun AuroNowPlayingScreen(
 
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
                                 val isFavorite = track.rating > 0
-                                Icon(
-                                    imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                                    contentDescription = stringResource(if (isFavorite) R.string.cd_unfavorite else R.string.cd_favorite),
-                                    tint = if (isFavorite) Color.White else Color.White.copy(alpha = 0.75f),
+                                Box(
                                     modifier = Modifier
-                                        .size(22.dp)
+                                        .size(44.dp)
                                         .clickable(
                                             interactionSource = remember { MutableInteractionSource() },
                                             indication = null
                                         ) {
                                             AuroHaptics.click(view)
                                             onRatingChanged(if (isFavorite) 0 else 5)
-                                        }
-                                )
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                                        contentDescription = stringResource(if (isFavorite) R.string.cd_unfavorite else R.string.cd_favorite),
+                                        tint = if (isFavorite) Color.White else Color.White.copy(alpha = 0.75f),
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
 
-                                Icon(
-                                    imageVector = Icons.Rounded.MoreHoriz,
-                                    contentDescription = stringResource(R.string.cd_more_options),
-                                    tint = Color.White.copy(alpha = 0.60f),
+                                Box(
                                     modifier = Modifier
-                                        .size(22.dp)
+                                        .size(44.dp)
                                         .clickable(
                                             interactionSource = remember { MutableInteractionSource() },
                                             indication = null
                                         ) {
                                             AuroHaptics.click(view)
                                             showOptionsMenu = true
-                                        }
-                                )
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.MoreHoriz,
+                                        contentDescription = stringResource(R.string.cd_more_options),
+                                        tint = Color.White.copy(alpha = 0.60f),
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
                             }
                         }
 
-                        // 3. Controles Principais de Transporte (ACIMA do Scrubber, conforme Tela 2)
+                        // 3. Transporte: Shuffle · Prev · Play(56dp) · Next · Repeat (Acima do Scrubber)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                                .padding(vertical = 10.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Shuffle
                             val isShuffleActive = shuffleMode != ShuffleMode.OFF
                             IconButton(
                                 onClick = {
@@ -419,7 +450,6 @@ fun AuroNowPlayingScreen(
                                 )
                             }
 
-                            // SkipPrevious com toque curto e hold rewind
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
@@ -457,14 +487,12 @@ fun AuroNowPlayingScreen(
                                 )
                             }
 
-                            // Play / Pause (TranslucentPlayButton 56dp)
                             TranslucentPlayButton(
                                 isPlaying = isPlaying,
                                 size = 56.dp,
                                 onClick = onPlayPause
                             )
 
-                            // SkipNext com toque curto e hold fast-forward
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
@@ -502,7 +530,6 @@ fun AuroNowPlayingScreen(
                                 )
                             }
 
-                            // Repeat
                             val isRepeatActive = repeatMode != RepeatMode.OFF
                             IconButton(
                                 onClick = {
@@ -520,7 +547,7 @@ fun AuroNowPlayingScreen(
                             }
                         }
 
-                        // 4. Scrubber Editorial (Linha fina 2.5dp + thumb 10dp)
+                        // 4. EditorialScrubber (Linha 2.5dp + thumb 10dp)
                         EditorialScrubber(
                             progressMs = progressMs,
                             durationMs = durationMs,
@@ -529,173 +556,193 @@ fun AuroNowPlayingScreen(
                                 onSeek(frac)
                             },
                             showTimestampsOnlyWhenDragging = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 6.dp)
+                            modifier = Modifier.fillMaxWidth()
                         )
+                    }
+                }
+            }
 
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // 5. Barra de Rodapé: Letras ^
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(Color(0xFF1C1C1E).copy(alpha = 0.85f))
-                                .background(accent.copy(alpha = 0.10f))
-                                .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
-                                .clickable {
-                                    AuroHaptics.click(view)
-                                    isLyricsExpanded = true
+            // ─────────────────────── CAMADA 2: CABEÇALHO COMPACTO (Apenas quando Letras Expandidas) ───────────────────────
+            if (compactHeaderAlpha > 0f) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 20.dp, vertical = 6.dp)
+                        .graphicsLayer {
+                            alpha = compactHeaderAlpha
+                            translationY = (-16.dp * (1f - progress)).toPx()
+                        }
+                        .pointerInput(screenHeight) {
+                            // Arrastar esse cabeçalho do topo para baixo reduz expandProgress em tempo real
+                            val totalDistance = (collapsedTop - expandedTop).toPx()
+                            detectDragGestures(
+                                onDragEnd = {
+                                    val target = if (expandProgress.value < 0.75f) 0f else 1f
+                                    coroutineScope.launch {
+                                        expandProgress.animateTo(target, spring(0.86f, 340f))
+                                    }
                                 }
-                                .padding(horizontal = 16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.lyrics_label),
-                                    style = AuroType.MicroLabel.copy(
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    color = Color.White
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Icon(
-                                    imageVector = Icons.Rounded.KeyboardArrowUp,
-                                    contentDescription = null,
-                                    tint = Color.White.copy(alpha = 0.70f),
-                                    modifier = Modifier.size(16.dp)
-                                )
+                            ) { change, dragAmount ->
+                                change.consume()
+                                if (totalDistance > 0f) {
+                                    val delta = -dragAmount.y / totalDistance
+                                    coroutineScope.launch {
+                                        expandProgress.snapTo((expandProgress.value + delta).coerceIn(0f, 1f))
+                                    }
+                                }
                             }
                         }
-                    }
-                } else {
-                    // ─────────────────────── TELA 4: LETRAS EXPANDIDAS (Lyrics Mode) ───────────────────────
-                    Column(
-                        modifier = Modifier.fillMaxSize()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // 1. Linha Compacta Superior: Título/Artista à esquerda, Play 40dp à direita
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 6.dp, vertical = 4.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = track.title,
-                                    style = AuroType.CardTitle.copy(
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    color = Color.White,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                                    style = AuroType.Subtitle.copy(
-                                        fontSize = 13.sp,
-                                        color = Color.White.copy(alpha = 0.55f)
-                                    ),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-
-                            TranslucentPlayButton(
-                                isPlaying = isPlaying,
-                                size = 40.dp,
-                                onClick = onPlayPause
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = track.title,
+                                style = AuroType.CardTitle.copy(
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                                style = AuroType.Subtitle.copy(
+                                    fontSize = 13.sp,
+                                    color = Color.White.copy(alpha = 0.55f)
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
-                        // 2. Scrubber compacto abaixo da linha
-                        EditorialScrubber(
-                            progressMs = progressMs,
-                            durationMs = durationMs,
-                            onSeek = { ms ->
-                                val frac = if (durationMs > 0) ms.toFloat() / durationMs.toFloat() else 0f
-                                onSeek(frac)
-                            },
-                            showTimestampsOnlyWhenDragging = true,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 6.dp, vertical = 6.dp)
+                        TranslucentPlayButton(
+                            isPlaying = isPlaying,
+                            size = 38.dp,
+                            onClick = onPlayPause
                         )
+                    }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                    EditorialScrubber(
+                        progressMs = progressMs,
+                        durationMs = durationMs,
+                        onSeek = { ms ->
+                            val frac = if (durationMs > 0) ms.toFloat() / durationMs.toFloat() else 0f
+                            onSeek(frac)
+                        },
+                        showTimestampsOnlyWhenDragging = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
 
-                        // 3. Sheet Elevada de Letras (Fundo #1C1C1E + 12% tint da capa)
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f)
-                                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                                .background(Color(0xFF1C1C1E))
-                                .background(accent.copy(alpha = 0.12f))
-                                .border(
-                                    0.5.dp,
-                                    Color.White.copy(alpha = 0.08f),
-                                    RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+            // ─────────────────────── CAMADA 3: ABA EXPANSÍVEL DE LETRAS (Largura Total da Tela) ───────────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(screenHeight - currentTop)
+                    .offset(y = currentTop)
+                    .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                    .background(Color(0xFF1C1C1E).copy(alpha = 0.82f + 0.12f * progress))
+                    .drawBehind {
+                        // Textura sutil das 2 cores da capa (14%)
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    color1.copy(alpha = 0.14f),
+                                    color2.copy(alpha = 0.08f),
+                                    Color.Transparent
                                 )
-                        ) {
-                            Column(
-                                modifier = Modifier.fillMaxSize(),
-                                horizontalAlignment = Alignment.CenterHorizontally
+                            )
+                        )
+                    }
+                    .border(
+                        0.5.dp,
+                        Color.White.copy(alpha = 0.08f),
+                        RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+                    )
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Handle / Header de Letras (Sem pílula, indication = null, toque ou arraste contínuo)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
                             ) {
-                                // Pílula/Handle "Letras v" no topo
-                                Box(
-                                    modifier = Modifier
-                                        .padding(top = 12.dp, bottom = 8.dp)
-                                        .clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.12f))
-                                        .clickable {
-                                            AuroHaptics.click(view)
-                                            isLyricsExpanded = false
+                                AuroHaptics.click(view)
+                                val target = if (progress < 0.5f) 1f else 0f
+                                coroutineScope.launch {
+                                    expandProgress.animateTo(target, spring(0.86f, 340f))
+                                }
+                            }
+                            .pointerInput(screenHeight) {
+                                val totalDistance = (collapsedTop - expandedTop).toPx()
+                                detectDragGestures(
+                                    onDragEnd = {
+                                        val target = if (expandProgress.value > 0.25f) 1f else 0f
+                                        coroutineScope.launch {
+                                            expandProgress.animateTo(target, spring(0.86f, 340f))
                                         }
-                                        .padding(horizontal = 14.dp, vertical = 4.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = stringResource(R.string.lyrics_label),
-                                            style = AuroType.MicroLabel.copy(
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.Medium
-                                            ),
-                                            color = Color.White
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Icon(
-                                            imageVector = Icons.Rounded.KeyboardArrowDown,
-                                            contentDescription = null,
-                                            tint = Color.White.copy(alpha = 0.70f),
-                                            modifier = Modifier.size(15.dp)
-                                        )
+                                    }
+                                ) { change, dragAmount ->
+                                    change.consume()
+                                    if (totalDistance > 0f) {
+                                        val delta = -dragAmount.y / totalDistance
+                                        coroutineScope.launch {
+                                            expandProgress.snapTo((expandProgress.value + delta).coerceIn(0f, 1f))
+                                        }
                                     }
                                 }
-
-                                // Letras centralizadas
-                                LyricsContentView(
-                                    lyrics = lyricsData,
-                                    progressMs = progressMs,
-                                    durationMs = durationMs,
-                                    onSeek = onSeek,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(horizontal = 24.dp)
-                                )
-                            }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = stringResource(R.string.lyrics_label),
+                                style = AuroType.MicroLabel.copy(
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                color = Color.White
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Icon(
+                                imageVector = if (progress >= 0.5f) Icons.Rounded.KeyboardArrowDown else Icons.Rounded.KeyboardArrowUp,
+                                contentDescription = null,
+                                tint = Color.White.copy(alpha = 0.70f),
+                                modifier = Modifier.size(16.dp)
+                            )
                         }
                     }
+
+                    // Conteúdo das Letras centralizadas (ativo quando expandido)
+                    LyricsContentView(
+                        lyrics = lyricsData,
+                        progressMs = progressMs,
+                        durationMs = durationMs,
+                        onSeek = onSeek,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .padding(horizontal = 24.dp)
+                    )
                 }
             }
         }
@@ -748,11 +795,11 @@ fun AuroNowPlayingScreen(
 
                 // Adicionar à Playlist
                 QuickMenuItem(
-                    icon = Icons.Rounded.PlaylistAdd,
+                    icon = Icons.AutoMirrored.Outlined.PlaylistAdd,
                     title = stringResource(R.string.selection_add_playlist),
                     onClick = {
                         showOptionsMenu = false
-                        onOpenTrackInfo()
+                        onAddToPlaylist()
                     }
                 )
 
@@ -762,7 +809,7 @@ fun AuroNowPlayingScreen(
                     title = stringResource(R.string.menu_sleep_timer),
                     onClick = {
                         showOptionsMenu = false
-                        onOpenTrackInfo()
+                        onOpenSleepTimer()
                     }
                 )
 
@@ -914,7 +961,7 @@ private fun LyricsContentView(
                     text = line.text,
                     style = if (isLineActive) {
                         AuroType.LyricsActive.copy(
-                            fontSize = 20.sp,
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color.White,
                             textAlign = TextAlign.Center

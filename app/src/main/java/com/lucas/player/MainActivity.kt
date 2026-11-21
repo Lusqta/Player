@@ -1020,6 +1020,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onOpenTrackInfo = {
                                         trackInfoDialogState.value = currentTrack
                                     },
+                                    onAddToPlaylist = {
+                                        addToPlaylistDialogTrack.value = currentTrack
+                                    },
+                                    onOpenSleepTimer = {
+                                        showSleepTimerState.value = true
+                                    },
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -1442,12 +1448,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     Brush.verticalGradient(
                                         listOf(
                                             Color.Transparent,
-                                            Color(0xCC050505),
+                                            Color(0xE6050505),
                                             Color(0xFF050505)
                                         )
                                     )
                                 )
-                                .padding(bottom = 12.dp)
+                                .padding(top = 20.dp, bottom = 12.dp)
                                 .navigationBarsPadding()
                         ) {
                             Column(
