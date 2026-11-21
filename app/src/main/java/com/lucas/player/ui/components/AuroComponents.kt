@@ -597,6 +597,22 @@ fun AppleVolumeSlider(
     }
     val view = LocalView.current
 
+    // Sincronizar com botões físicos de volume em tempo real
+    DisposableEffect(context) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context?, intent: android.content.Intent?) {
+                currentVol = audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+            }
+        }
+        val filter = android.content.IntentFilter("android.media.VOLUME_CHANGED_ACTION")
+        context.registerReceiver(receiver, filter)
+        onDispose {
+            try {
+                context.unregisterReceiver(receiver)
+            } catch (_: Exception) {}
+        }
+    }
+
     val fraction = if (maxVol > 0) (currentVol.toFloat() / maxVol.toFloat()).coerceIn(0f, 1f) else 0f
 
     Row(

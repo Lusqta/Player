@@ -50,13 +50,17 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
@@ -64,6 +68,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalGraphicsContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -650,14 +655,30 @@ fun AuroTheme(
 
 // ─────────────────────────── Liquid Glass Neutro ───────────────────────────
 
+val LocalBackdropLayer = compositionLocalOf<GraphicsLayer?> { null }
+
+@Composable
+fun rememberBackdropGraphicsLayer(): GraphicsLayer {
+    val context = LocalGraphicsContext.current
+    return remember(context) { context.createGraphicsLayer() }.also { layer ->
+        DisposableEffect(layer, context) {
+            onDispose {
+                context.releaseGraphicsLayer(layer)
+            }
+        }
+    }
+}
+
 enum class AuroGlassKind { Button, Card }
 
 /**
  * Superfície de Liquid Glass neutra e contida, fiel à experiência do Apple Music Android 7.0.2.
+ * - Backdrop real via LocalBackdropLayer capturando a tela principal (API 33+)
+ * - Camada traseira desfocada por BlurEffect e tingida por AGSL
+ * - Conteúdo frontal 100% NÍTIDO e sem qualquer BlurEffect
  * - Grafite neutro (#121214) com opacidade controlada por `soft` (0.38 a 0.72)
- * - Refração esférica nas bordas externas de ~10dp sem deformação ou glow neon no centro
+ * - Refração esférica nas bordas externas de ~10dp guiada por SDF arredondado (sdRound)
  * - Borda seca fina de 1dp com especular discreto
- * - Blur via RenderEffect (2dp a 10dp)
  * - Fallback automático para API < 33 ou quando `reduceTransparency == true`
  */
 @Composable
@@ -672,6 +693,8 @@ fun LiquidGlassSurface(
     val view = LocalView.current
     val density = LocalDensity.current.density
     val reduceTransparency = LocalReduceTransparency.current
+    val backdropLayer = LocalBackdropLayer.current
+    var topLeft by remember { mutableStateOf(Offset.Zero) }
 
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
@@ -691,47 +714,75 @@ fun LiquidGlassSurface(
     val blurRadius = (2f + 8f * soft.coerceIn(0f, 1f)).dp
     val tintAlpha = 0.38f + 0.34f * soft.coerceIn(0f, 1f)
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !reduceTransparency) {
-        val shader = remember { RuntimeShader(IOS_LIQUID_GLASS_AGSL) }
-        val brush = remember(shader) { ShaderBrush(shader) }
-        val light = LocalAuroLight.current
-        val accent = LocalAuroAccent.current
+    Box(
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = pressScale
+                scaleY = pressScale
+            }
+            .clip(shape)
+            .onGloballyPositioned { coordinates ->
+                topLeft = coordinates.boundsInWindow().topLeft
+            }
+            .then(clickModifier)
+    ) {
+        // Fundo (irmão 1, matchParentSize()): desenha backdropLayer com blur e shader AGSL
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !reduceTransparency) {
+            val shader = remember { RuntimeShader(IOS_LIQUID_GLASS_AGSL) }
+            val brush = remember(shader) { ShaderBrush(shader) }
+            val light = LocalAuroLight.current
+            val accent = LocalAuroAccent.current
 
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .graphicsLayer {
+                        renderEffect = BlurEffect(blurRadius.toPx(), blurRadius.toPx())
+                    }
+                    .drawWithContent {
+                        if (backdropLayer != null) {
+                            translate(left = -topLeft.x, top = -topLeft.y) {
+                                drawLayer(backdropLayer)
+                            }
+                        }
+                        drawContent()
+                    }
+                    .drawBehind {
+                        val l = light()
+                        val a = accent.a.value
+                        val rPx = if (shape == CircleShape) min(size.width, size.height) / 2f
+                        else if (shape is RoundedCornerShape) shape.topStart.toPx(size, this)
+                        else 16.dp.toPx()
+
+                        shader.setFloatUniform("uSize", size.width, size.height)
+                        shader.setFloatUniform("uRadius", rPx)
+                        shader.setFloatUniform("uSoft", soft)
+                        shader.setFloatUniform("uLightDir", l.dx, l.dy)
+                        shader.setFloatUniform("uAccent", a.red, a.green, a.blue)
+                        shader.setFloatUniform("uPx", density)
+                        shader.setFloatUniform("uTintAlpha", tintAlpha)
+                        drawRect(brush)
+                    }
+            )
+        } else {
+            // Fallback elegante para API < 33 ou quando reduceTransparency == true
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(AuroColor.SurfaceGrouped.copy(alpha = 0.94f), shape)
+            )
+        }
+
+        // Borda fina seca de 1.dp com especular sutil
         Box(
-            modifier = modifier
-                .graphicsLayer {
-                    scaleX = pressScale
-                    scaleY = pressScale
-                    renderEffect = BlurEffect(blurRadius.toPx(), blurRadius.toPx())
-                }
-                .clip(shape)
-                .drawBehind {
-                    val l = light()
-                    val a = accent.a.value
-                    shader.setFloatUniform("uSize", size.width, size.height)
-                    shader.setFloatUniform("uSoft", soft)
-                    shader.setFloatUniform("uLightDir", l.dx, l.dy)
-                    shader.setFloatUniform("uAccent", a.red, a.green, a.blue)
-                    shader.setFloatUniform("uPx", density)
-                    shader.setFloatUniform("uTintAlpha", tintAlpha)
-                    drawRect(brush)
-                }
+            modifier = Modifier
+                .matchParentSize()
                 .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
-                .then(clickModifier),
-            content = content
         )
-    } else {
-        // Fallback elegante para API < 33 ou acessibilidade de Reduzir Transparência
+
+        // Conteúdo (irmão 2): renderizado nítido por cima, SEM qualquer BlurEffect!
         Box(
-            modifier = modifier
-                .graphicsLayer {
-                    scaleX = pressScale
-                    scaleY = pressScale
-                }
-                .clip(shape)
-                .background(AuroColor.SurfaceGrouped.copy(alpha = 0.94f), shape)
-                .border(1.dp, Color.White.copy(alpha = 0.12f), shape)
-                .then(clickModifier),
+            modifier = Modifier,
             content = content
         )
     }
@@ -837,25 +888,42 @@ fun LiquidMeshBackground(
  */
 private const val IOS_LIQUID_GLASS_AGSL = """
 uniform float2 uSize;
+uniform float  uRadius;
 uniform float  uSoft;
 uniform float2 uLightDir;
 uniform float3 uAccent;
 uniform float  uPx;
 uniform float  uTintAlpha;
 
-half4 main(float2 fragCoord) {
-    float2 uv = fragCoord / uSize;
-    float2 p = fragCoord - 0.5 * uSize;
-    float r = length(p);
-    float maxR = 0.5 * min(uSize.x, uSize.y);
+float sdRound(float2 p, float2 halfSize, float radius) {
+    float2 q = abs(p) - halfSize + radius;
+    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;
+}
 
-    // Borda externa de ~10dp para refração esférica
+float2 getNormal(float2 p, float2 halfSize, float radius) {
+    float eps = 1.0;
+    float dx = sdRound(p + float2(eps, 0.0), halfSize, radius) - sdRound(p - float2(eps, 0.0), halfSize, radius);
+    float dy = sdRound(p + float2(0.0, eps), halfSize, radius) - sdRound(p - float2(0.0, eps), halfSize, radius);
+    float2 n = float2(dx, dy);
+    float l = length(n);
+    return (l > 0.0001) ? (n / l) : float2(0.0, 1.0);
+}
+
+half4 main(float2 fragCoord) {
+    float2 halfSize = 0.5 * uSize;
+    float2 p = fragCoord - halfSize;
+    float radius = clamp(uRadius, 0.0, min(halfSize.x, halfSize.y));
+    
+    float d = sdRound(p, halfSize, radius);
+    
+    // Borda externa de ~10dp para refração e anel especular
     float rimWidth = 10.0 * uPx;
-    float distToRim = maxR - r;
+    // Dentro da forma, d <= 0.0, a distância até a borda externa é -d
+    float distToRim = -d;
     float rimFactor = 1.0 - clamp(distToRim / rimWidth, 0.0, 1.0);
 
-    // Reflexo especular sutil na direção da luz do ouvinte
-    float2 n = (r > 0.0) ? (p / r) : float2(0.0, 1.0);
+    // Reflexo especular sutil na direção da luz do ouvinte ao longo da normal da borda
+    float2 n = getNormal(p, halfSize, radius);
     float spec = max(dot(n, -uLightDir), 0.0);
     spec = pow(spec, 4.0) * rimFactor * 0.35;
 

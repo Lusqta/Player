@@ -79,9 +79,9 @@ fun AuroDialogContainer(
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
     val dialogWidth = (screenWidth - 56.dp).coerceAtMost(360.dp)
 
-    AuroGlass(
-        kind = AuroGlassKind.Card,
-        cornerRadius = 28.dp,
+    LiquidGlassSurface(
+        shape = RoundedCornerShape(28.dp),
+        soft = 0.6f,
         modifier = modifier
             .width(dialogWidth)
             .padding(vertical = 16.dp)
@@ -167,9 +167,9 @@ fun AuroSheetContainer(
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val maxHeight = screenHeight * 0.80f
 
-    AuroGlass(
-        kind = AuroGlassKind.Card,
-        cornerRadius = 28.dp,
+    LiquidGlassSurface(
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        soft = 0.6f,
         modifier = modifier
             .fillMaxWidth()
             .heightIn(max = maxHeight)
@@ -712,19 +712,19 @@ private fun AuroSheetItem(
                 onClick()
             }
             .padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
+        Text(
+            text = title,
+            style = AuroType.Body.copy(fontWeight = FontWeight.Medium),
+            modifier = Modifier.weight(1f)
+        )
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = AuroColor.TextSecondary,
             modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = title,
-            style = AuroType.Body.copy(fontWeight = FontWeight.Medium),
-            modifier = Modifier.weight(1f)
         )
     }
 }
@@ -1087,15 +1087,9 @@ fun AuroDialogOption(
                 onClick()
             }
             .padding(horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = if (isDestructive) AuroColor.Danger else AuroColor.TextSecondary,
-            modifier = Modifier.size(20.dp)
-        )
-        Spacer(modifier = Modifier.width(14.dp))
         Text(
             text = title,
             style = AuroType.Body.copy(
@@ -1110,9 +1104,16 @@ fun AuroDialogOption(
                     color = AuroColor.TextSecondary,
                     fontFamily = FontFamily.Monospace,
                     fontFeatureSettings = "tnum"
-                )
+                ),
+                modifier = Modifier.padding(end = 8.dp)
             )
         }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = if (isDestructive) AuroColor.Danger else AuroColor.TextSecondary,
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 

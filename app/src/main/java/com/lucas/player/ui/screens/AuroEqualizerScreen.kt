@@ -254,16 +254,18 @@ fun AuroEqualizerScreen(
 
             // Áudio Espacial (HRTF + Sala FDN 4x4 + LR4)
             item {
-                AuroGlass(
-                    kind = AuroGlassKind.Card,
-                    modifier = Modifier.fillMaxWidth()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(AuroColor.SurfaceGrouped)
+                        .padding(16.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                             Text(
                                 text = stringResource(R.string.spatial_header),
                                 style = AuroType.Caption.copy(
@@ -549,20 +551,21 @@ fun AuroEqualizerScreen(
                         }
                     }
                 }
-            }
 
             // Tom & Pré-amp
             item {
-                AuroGlass(
-                    kind = AuroGlassKind.Card,
-                    modifier = Modifier.fillMaxWidth()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(AuroColor.SurfaceGrouped)
+                        .padding(16.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = stringResource(R.string.eq_tone_preamp_header),
@@ -599,22 +602,23 @@ fun AuroEqualizerScreen(
                         AuroToneRow(label = stringResource(R.string.eq_balance_label), value = balance, range = -1f..1f, isBalance = true, enabled = true, onValueChange = onBalanceChange)
                     }
                 }
-            }
 
             // 10 Bandas
             item {
-                AuroGlass(
-                    kind = AuroGlassKind.Card,
-                    modifier = Modifier.fillMaxWidth()
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(AuroColor.SurfaceGrouped)
+                        .padding(16.dp)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = stringResource(R.string.eq_bands_header),
-                            style = AuroType.Caption.copy(
-                                color = AuroColor.TextTertiary,
-                                fontFamily = FontFamily.Monospace
-                            )
+                    Text(
+                        text = stringResource(R.string.eq_bands_header),
+                        style = AuroType.Caption.copy(
+                            color = AuroColor.TextTertiary,
+                            fontFamily = FontFamily.Monospace
                         )
+                    )
                         Spacer(modifier = Modifier.height(8.dp))
 
                         // Curva de resposta gráfica de 2dp interpolada das 10 bandas
@@ -714,7 +718,6 @@ fun AuroEqualizerScreen(
                     }
                 }
             }
-        }
 
         // Fade sutil de 16dp no topo
         AuroTopFade(modifier = Modifier.align(Alignment.TopCenter))

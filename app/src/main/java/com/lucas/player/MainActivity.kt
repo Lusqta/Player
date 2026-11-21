@@ -32,7 +32,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -467,10 +469,14 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                     val navBarBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
                     val floatingBarsHeight = 62.dp + 10.dp + (if (currentTrack != null) 56.dp + 8.dp else 0.dp)
                     val activeBottomInset = if (currentScreen is NavScreen.NowPlaying) 0.dp else (floatingBarsHeight + navBarBottomInset)
+                    val backdropLayer = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        rememberBackdropGraphicsLayer()
+                    } else null
 
                     CompositionLocalProvider(
                         LocalAuroBottomInset provides activeBottomInset,
-                        LocalAuroIsPlaying provides isPlaying
+                        LocalAuroIsPlaying provides isPlaying,
+                        LocalBackdropLayer provides backdropLayer
                     ) {
                         Box(
                             modifier = Modifier
@@ -602,7 +608,18 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                     // Conteúdo Principal de Acordo com a Tela Ativa (Fase 5.4: insets medidos via LocalAuroBottomInset)
                     Box(
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .then(
+                                if (backdropLayer != null) {
+                                    Modifier.drawWithContent {
+                                        backdropLayer.record {
+                                            this@drawWithContent.drawContent()
+                                        }
+                                        drawLayer(backdropLayer)
+                                    }
+                                } else Modifier
+                            )
                     ) {
                         AnimatedContent(
                             targetState = currentScreen,
@@ -950,6 +967,26 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     queueSize = totalQueue,
                                     categoryTitle = currentCategoryState.value.title,
                                     upcomingTracks = upcoming,
+                                    priorityTracks = priorityQueueState.value,
+                                    regularTracks = regularQueueState.value,
+                                    currentTrackId = currentTrack?.id ?: -1L,
+                                    spatialMode = spatialModeState.intValue,
+                                    onQueueTrackClick = { clickedTrack, idx, isPriority ->
+                                        if (isPriority) {
+                                            playbackService?.skipToPriorityIndex(idx)
+                                        } else {
+                                            playbackService?.skipToQueueIndex(idx)
+                                        }
+                                    },
+                                    onRemoveQueueTrack = { trackToRemove ->
+                                        playbackService?.queueManager?.removeTrackById(trackToRemove.id)
+                                        priorityQueueState.value = playbackService?.queueManager?.getPriorityQueue() ?: emptyList()
+                                        regularQueueState.value = playbackService?.queueManager?.getTracks() ?: emptyList()
+                                    },
+                                    onClearQueue = {
+                                        playbackService?.queueManager?.clearPriorityQueue()
+                                        priorityQueueState.value = emptyList()
+                                    },
                                     onPlayPause = { playbackService?.togglePlayPause() },
                                     onNext = { playbackService?.playNext() },
                                     onPrevious = { playbackService?.playPrevious() },

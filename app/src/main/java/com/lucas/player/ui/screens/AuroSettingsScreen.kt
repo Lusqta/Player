@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -35,6 +36,7 @@ import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
 import com.lucas.player.ui.theme.AuroRadius
 import com.lucas.player.ui.theme.AuroSpace
+import com.lucas.player.ui.theme.LiquidGlassSurface
 import com.lucas.player.ui.theme.LocalAuroAccent
 import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlin.math.roundToInt
@@ -102,198 +104,21 @@ fun AuroSettingsScreen(
             // ─────────────────────────────────────────────────────────────
             item {
                 SettingsSectionHeader(stringResource(R.string.settings_section_library))
-            }
-
-            item {
-                SettingsClickableRow(
-                    title = stringResource(R.string.settings_music_folders),
-                    subtitle = stringResource(R.string.settings_music_folders_desc),
-                    onClick = { onRescanLibrary() },
-                    trailingContent = {
-                        Icon(
-                            imageVector = Icons.Rounded.FolderOpen,
-                            contentDescription = null,
-                            tint = AuroColor.TextTertiary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                )
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-            }
-
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_ignore_shorter_than),
-                            style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
-                        )
-                        Text(
-                            text = if (ignoreShorterThanSec == 0) {
-                                stringResource(R.string.settings_crossfade_off)
-                            } else {
-                                stringResource(R.string.settings_ignore_shorter_than_sec, ignoreShorterThanSec)
-                            },
-                            style = AuroType.Label.copy(
-                                color = accent,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    AuroSlider(
-                        value = ignoreShorterThanSec.toFloat(),
-                        onValueChange = {
-                            val rounded = it.roundToInt()
-                            ignoreShorterThanSec = rounded
-                            preferencesManager.setIgnoreShorterThanSeconds(rounded)
-                            onSettingsChanged()
-                        },
-                        valueRange = 0f..60f,
-                        steps = 11
-                    )
-                }
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-            }
-
-            item {
-                SettingsClickableRow(
-                    title = stringResource(R.string.settings_rescan_library),
-                    subtitle = stringResource(R.string.settings_rescan_library_desc),
-                    onClick = {
-                        onRescanLibrary()
-                    },
-                    trailingContent = {
-                        Icon(
-                            imageVector = Icons.Rounded.Refresh,
-                            contentDescription = null,
-                            tint = accent,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                )
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-            }
-
-            // ─────────────────────────────────────────────────────────────
-            // SEÇÃO 2: REPRODUÇÃO
-            // ─────────────────────────────────────────────────────────────
-            item {
-                SettingsSectionHeader(stringResource(R.string.settings_section_playback))
-            }
-
-            item {
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_pause_headset),
-                    subtitle = stringResource(R.string.settings_pause_headset_desc),
-                    checked = pauseOnDisconnect,
-                    onCheckedChange = {
-                        pauseOnDisconnect = it
-                        preferencesManager.setPauseOnHeadsetDisconnectEnabled(it)
-                        onSettingsChanged()
-                    }
-                )
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-            }
-
-            item {
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_gapless),
-                    subtitle = stringResource(R.string.settings_gapless_desc),
-                    checked = gapless,
-                    onCheckedChange = {
-                        gapless = it
-                        preferencesManager.setGaplessEnabled(it)
-                        onSettingsChanged()
-                    }
-                )
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-            }
-
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.settings_crossfade),
-                                style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = if (crossfadeSeconds == 0) {
-                                    stringResource(R.string.settings_crossfade_off)
-                                } else {
-                                    stringResource(R.string.settings_crossfade_desc, crossfadeSeconds)
-                                },
-                                style = AuroType.Label.copy(color = AuroColor.TextSecondary)
+                SettingsCard {
+                    SettingsClickableRow(
+                        title = stringResource(R.string.settings_music_folders),
+                        subtitle = stringResource(R.string.settings_music_folders_desc),
+                        onClick = { onRescanLibrary() },
+                        trailingContent = {
+                            Icon(
+                                imageVector = Icons.Rounded.FolderOpen,
+                                contentDescription = null,
+                                tint = AuroColor.TextTertiary,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
-                        Text(
-                            text = "${crossfadeSeconds}s",
-                            style = AuroType.Label.copy(
-                                color = accent,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    AuroSlider(
-                        value = crossfadeSeconds.toFloat(),
-                        onValueChange = {
-                            val rounded = it.roundToInt()
-                            crossfadeSeconds = rounded
-                            preferencesManager.saveCrossfadeDurationMs(rounded * 1000)
-                            onSettingsChanged()
-                        },
-                        valueRange = 0f..12f,
-                        steps = 11
                     )
-                }
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-            }
-
-            item {
-                val rgLabel = when (replayGainMode) {
-                    1 -> stringResource(R.string.settings_replaygain_track)
-                    2 -> stringResource(R.string.settings_replaygain_album)
-                    else -> stringResource(R.string.settings_replaygain_off)
-                }
-                SettingsClickableRow(
-                    title = stringResource(R.string.settings_replaygain),
-                    subtitle = rgLabel,
-                    onClick = { showReplayGainPicker = true },
-                    trailingContent = {
-                        Icon(
-                            imageVector = Icons.Rounded.ChevronRight,
-                            contentDescription = null,
-                            tint = AuroColor.TextTertiary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                )
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-            }
-
-            if (replayGainMode != 0) {
-                item {
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -305,11 +130,15 @@ fun AuroSettingsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = stringResource(R.string.settings_rg_preamp_with),
+                                text = stringResource(R.string.settings_ignore_shorter_than),
                                 style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
                             )
                             Text(
-                                text = String.format("%.1f dB", rgPreampWith),
+                                text = if (ignoreShorterThanSec == 0) {
+                                    stringResource(R.string.settings_crossfade_off)
+                                } else {
+                                    stringResource(R.string.settings_ignore_shorter_than_sec, ignoreShorterThanSec)
+                                },
                                 style = AuroType.Label.copy(
                                     color = accent,
                                     fontFamily = FontFamily.Monospace,
@@ -319,71 +148,214 @@ fun AuroSettingsScreen(
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         AuroSlider(
-                            value = rgPreampWith,
+                            value = ignoreShorterThanSec.toFloat(),
                             onValueChange = {
-                                rgPreampWith = it
-                                preferencesManager.saveReplayGainPreampWithRg(it)
+                                val rounded = it.roundToInt()
+                                ignoreShorterThanSec = rounded
+                                preferencesManager.setIgnoreShorterThanSeconds(rounded)
+                                onSettingsChanged()
+                            },
+                            valueRange = 0f..60f,
+                            steps = 11
+                        )
+                    }
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                    SettingsClickableRow(
+                        title = stringResource(R.string.settings_rescan_library),
+                        subtitle = stringResource(R.string.settings_rescan_library_desc),
+                        onClick = { onRescanLibrary() },
+                        trailingContent = {
+                            Icon(
+                                imageVector = Icons.Rounded.Refresh,
+                                contentDescription = null,
+                                tint = accent,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    )
+                }
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // SEÇÃO 2: REPRODUÇÃO
+            // ─────────────────────────────────────────────────────────────
+            item {
+                SettingsSectionHeader(stringResource(R.string.settings_section_playback))
+                SettingsCard {
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_pause_headset),
+                        subtitle = stringResource(R.string.settings_pause_headset_desc),
+                        checked = pauseOnDisconnect,
+                        onCheckedChange = {
+                            pauseOnDisconnect = it
+                            preferencesManager.setPauseOnHeadsetDisconnectEnabled(it)
+                            onSettingsChanged()
+                        }
+                    )
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_gapless),
+                        subtitle = stringResource(R.string.settings_gapless_desc),
+                        checked = gapless,
+                        onCheckedChange = {
+                            gapless = it
+                            preferencesManager.setGaplessEnabled(it)
+                            onSettingsChanged()
+                        }
+                    )
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.settings_crossfade),
+                                    style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = if (crossfadeSeconds == 0) {
+                                        stringResource(R.string.settings_crossfade_off)
+                                    } else {
+                                        stringResource(R.string.settings_crossfade_desc, crossfadeSeconds)
+                                    },
+                                    style = AuroType.Label.copy(color = AuroColor.TextSecondary)
+                                )
+                            }
+                            Text(
+                                text = "${crossfadeSeconds}s",
+                                style = AuroType.Label.copy(
+                                    color = accent,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        AuroSlider(
+                            value = crossfadeSeconds.toFloat(),
+                            onValueChange = {
+                                val rounded = it.roundToInt()
+                                crossfadeSeconds = rounded
+                                preferencesManager.saveCrossfadeDurationMs(rounded * 1000)
+                                onSettingsChanged()
+                            },
+                            valueRange = 0f..12f,
+                            steps = 11
+                        )
+                    }
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                    val rgLabel = when (replayGainMode) {
+                        1 -> stringResource(R.string.settings_replaygain_track)
+                        2 -> stringResource(R.string.settings_replaygain_album)
+                        else -> stringResource(R.string.settings_replaygain_off)
+                    }
+                    SettingsClickableRow(
+                        title = stringResource(R.string.settings_replaygain),
+                        subtitle = rgLabel,
+                        onClick = { showReplayGainPicker = true },
+                        trailingContent = {
+                            Icon(
+                                imageVector = Icons.Rounded.ChevronRight,
+                                contentDescription = null,
+                                tint = AuroColor.TextTertiary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    )
+                    if (replayGainMode != 0) {
+                        HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.settings_rg_preamp_with),
+                                    style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
+                                )
+                                Text(
+                                    text = String.format("%.1f dB", rgPreampWith),
+                                    style = AuroType.Label.copy(
+                                        color = accent,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            AuroSlider(
+                                value = rgPreampWith,
+                                onValueChange = {
+                                    rgPreampWith = it
+                                    preferencesManager.saveReplayGainPreampWithRg(it)
+                                    onSettingsChanged()
+                                },
+                                valueRange = -6f..6f,
+                                steps = 23
+                            )
+                        }
+                    }
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.settings_rg_preamp_without),
+                                style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
+                            )
+                            Text(
+                                text = String.format("%.1f dB", rgPreampWithout),
+                                style = AuroType.Label.copy(
+                                    color = accent,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        AuroSlider(
+                            value = rgPreampWithout,
+                            onValueChange = {
+                                rgPreampWithout = it
+                                preferencesManager.saveReplayGainPreampWithoutRg(it)
                                 onSettingsChanged()
                             },
                             valueRange = -6f..6f,
                             steps = 23
                         )
                     }
-                    HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-                }
-            }
-
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_rg_preamp_without),
-                            style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
-                        )
-                        Text(
-                            text = String.format("%.1f dB", rgPreampWithout),
-                            style = AuroType.Label.copy(
-                                color = accent,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    AuroSlider(
-                        value = rgPreampWithout,
-                        onValueChange = {
-                            rgPreampWithout = it
-                            preferencesManager.saveReplayGainPreampWithoutRg(it)
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_resume_playback),
+                        subtitle = stringResource(R.string.settings_resume_playback_desc),
+                        checked = resumePlayback,
+                        onCheckedChange = {
+                            resumePlayback = it
+                            preferencesManager.setResumePlaybackEnabled(it)
                             onSettingsChanged()
-                        },
-                        valueRange = -6f..6f,
-                        steps = 23
+                        }
                     )
                 }
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-            }
-
-            item {
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_resume_playback),
-                    subtitle = stringResource(R.string.settings_resume_playback_desc),
-                    checked = resumePlayback,
-                    onCheckedChange = {
-                        resumePlayback = it
-                        preferencesManager.setResumePlaybackEnabled(it)
-                        onSettingsChanged()
-                    }
-                )
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
             }
 
             // ─────────────────────────────────────────────────────────────
@@ -391,177 +363,178 @@ fun AuroSettingsScreen(
             // ─────────────────────────────────────────────────────────────
             item {
                 SettingsSectionHeader(stringResource(R.string.settings_section_appearance))
-            }
-
-            item {
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_reduce_transparency),
-                    subtitle = stringResource(R.string.settings_reduce_transparency_desc),
-                    checked = reduceTransparency,
-                    onCheckedChange = {
-                        reduceTransparency = it
-                        preferencesManager.setReduceTransparencyEnabled(it)
-                        onSettingsChanged()
-                    }
-                )
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-            }
-
-            item {
-                val accentModeLabel = when (accentColorMode) {
-                    1 -> stringResource(R.string.settings_accent_apple_blue)
-                    else -> stringResource(R.string.settings_accent_adaptive)
-                }
-                SettingsClickableRow(
-                    title = stringResource(R.string.settings_accent_color_mode),
-                    subtitle = accentModeLabel,
-                    onClick = {
-                        val next = if (accentColorMode == 0) 1 else 0
-                        accentColorMode = next
-                        preferencesManager.setAccentColorMode(next)
-                        onSettingsChanged()
-                    },
-                    trailingContent = {
-                        Box(
-                            modifier = Modifier
-                                .size(18.dp)
-                                .clip(CircleShape)
-                                .background(if (accentColorMode == 1) AuroColor.AppleBlueFallback else accent)
-                        )
-                    }
-                )
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-            }
-
-            item {
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_tilt_light),
-                    subtitle = stringResource(R.string.settings_tilt_light_desc),
-                    checked = tiltEnabled,
-                    onCheckedChange = {
-                        tiltEnabled = it
-                        preferencesManager.setLightReactionTiltEnabled(it)
-                        onSettingsChanged()
-                    }
-                )
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-            }
-
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.settings_reflection_softness),
-                                style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = stringResource(R.string.settings_reflection_softness_desc),
-                                style = AuroType.Label.copy(color = AuroColor.TextSecondary)
-                            )
+                SettingsCard {
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_reduce_transparency),
+                        subtitle = stringResource(R.string.settings_reduce_transparency_desc),
+                        checked = reduceTransparency,
+                        onCheckedChange = {
+                            reduceTransparency = it
+                            preferencesManager.setReduceTransparencyEnabled(it)
+                            onSettingsChanged()
                         }
-                        Text(
-                            text = String.format("%.2f", reflectionSoftness),
-                            style = AuroType.Label.copy(
-                                color = accent,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold
-                            )
-                        )
+                    )
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                    val accentModeLabel = when (accentColorMode) {
+                        1 -> stringResource(R.string.settings_accent_apple_blue)
+                        else -> stringResource(R.string.settings_accent_adaptive)
                     }
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    AuroSlider(
-                        value = reflectionSoftness,
-                        onValueChange = {
-                            reflectionSoftness = it
-                            preferencesManager.setReflectionSoftness(it)
+                    SettingsClickableRow(
+                        title = stringResource(R.string.settings_accent_color_mode),
+                        subtitle = accentModeLabel,
+                        onClick = {
+                            val next = if (accentColorMode == 0) 1 else 0
+                            accentColorMode = next
+                            preferencesManager.setAccentColorMode(next)
                             onSettingsChanged()
                         },
-                        valueRange = 0f..1f,
-                        steps = 20
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Exemplo interativo de vidro ao vivo com o valor do slider
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(AuroRadius.card))
-                            .background(Color.White.copy(alpha = 0.04f))
-                            .border(1.dp, AuroColor.Hairline, RoundedCornerShape(AuroRadius.card))
-                            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = stringResource(R.string.settings_reflection_preview),
-                            style = AuroType.Label.copy(color = AuroColor.TextSecondary)
-                        )
-
-                        AuroGlass(
-                            kind = AuroGlassKind.Button,
-                            soft = reflectionSoftness,
-                            onClick = { },
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.PlayArrow,
-                                contentDescription = null,
-                                tint = accent,
-                                modifier = Modifier.size(24.dp)
+                        trailingContent = {
+                            Box(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clip(CircleShape)
+                                    .background(if (accentColorMode == 1) AuroColor.AppleBlueFallback else accent)
                             )
                         }
-                    }
-                }
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-            }
+                    )
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_tilt_light),
+                        subtitle = stringResource(R.string.settings_tilt_light_desc),
+                        checked = tiltEnabled,
+                        onCheckedChange = {
+                            tiltEnabled = it
+                            preferencesManager.setLightReactionTiltEnabled(it)
+                            onSettingsChanged()
+                        }
+                    )
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.settings_reflection_softness),
+                                    style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = stringResource(R.string.settings_reflection_softness_desc),
+                                    style = AuroType.Label.copy(color = AuroColor.TextSecondary)
+                                )
+                            }
+                            Text(
+                                text = String.format("%.2f", reflectionSoftness),
+                                style = AuroType.Label.copy(
+                                    color = accent,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
 
-            item {
-                val motionLabel = when (reduceMotionMode) {
-                    1 -> stringResource(R.string.settings_reduce_motion_always)
-                    2 -> stringResource(R.string.settings_reduce_motion_never)
-                    else -> stringResource(R.string.settings_reduce_motion_system)
-                }
-                SettingsClickableRow(
-                    title = stringResource(R.string.settings_reduce_motion),
-                    subtitle = motionLabel,
-                    onClick = { showReduceMotionPicker = true },
-                    trailingContent = {
-                        Icon(
-                            imageVector = Icons.Rounded.ChevronRight,
-                            contentDescription = null,
-                            tint = AuroColor.TextTertiary,
-                            modifier = Modifier.size(20.dp)
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        AuroSlider(
+                            value = reflectionSoftness,
+                            onValueChange = {
+                                reflectionSoftness = it
+                                preferencesManager.setReflectionSoftness(it)
+                                onSettingsChanged()
+                            },
+                            valueRange = 0f..1f,
+                            steps = 20
                         )
-                    }
-                )
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-            }
 
-            item {
-                SettingsSwitchRow(
-                    title = stringResource(R.string.settings_show_file_format),
-                    subtitle = stringResource(R.string.settings_show_file_format_desc),
-                    checked = showFileFormat,
-                    onCheckedChange = {
-                        showFileFormat = it
-                        preferencesManager.setShowFileFormatEnabled(it)
-                        onSettingsChanged()
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Preview de transparência com gradiente vibrante por trás
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(76.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    Brush.linearGradient(
+                                        colors = listOf(
+                                            Color(0xFFFF2D55),
+                                            Color(0xFF5856D6),
+                                            Color(0xFF007AFF),
+                                            Color(0xFF34C759)
+                                        )
+                                    )
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            LiquidGlassSurface(
+                                shape = CircleShape,
+                                soft = reflectionSoftness,
+                                modifier = Modifier
+                                    .height(44.dp)
+                                    .padding(horizontal = 20.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .padding(horizontal = 16.dp)
+                                        .fillMaxHeight(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PlayArrow,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Liquid Glass • ${(reflectionSoftness * 100).toInt()}%",
+                                        style = AuroType.Caption.copy(
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                }
+                            }
+                        }
                     }
-                )
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                    val motionLabel = when (reduceMotionMode) {
+                        1 -> stringResource(R.string.settings_reduce_motion_always)
+                        2 -> stringResource(R.string.settings_reduce_motion_never)
+                        else -> stringResource(R.string.settings_reduce_motion_system)
+                    }
+                    SettingsClickableRow(
+                        title = stringResource(R.string.settings_reduce_motion),
+                        subtitle = motionLabel,
+                        onClick = { showReduceMotionPicker = true },
+                        trailingContent = {
+                            Icon(
+                                imageVector = Icons.Rounded.ChevronRight,
+                                contentDescription = null,
+                                tint = AuroColor.TextTertiary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    )
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_show_file_format),
+                        subtitle = stringResource(R.string.settings_show_file_format_desc),
+                        checked = showFileFormat,
+                        onCheckedChange = {
+                            showFileFormat = it
+                            preferencesManager.setShowFileFormatEnabled(it)
+                            onSettingsChanged()
+                        }
+                    )
+                }
             }
 
             // ─────────────────────────────────────────────────────────────
@@ -569,45 +542,37 @@ fun AuroSettingsScreen(
             // ─────────────────────────────────────────────────────────────
             item {
                 SettingsSectionHeader(stringResource(R.string.settings_section_about))
-            }
-
-            item {
-                SettingsClickableRow(
-                    title = stringResource(R.string.settings_version),
-                    subtitle = "v${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})"
-                )
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-            }
-
-            item {
-                SettingsClickableRow(
-                    title = stringResource(R.string.settings_licenses),
-                    subtitle = "Apache 2.0, MIT, Jetpack Compose, Oboe",
-                    onClick = { showLicensesDialog = true }
-                )
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
-            }
-
-            item {
-                SettingsClickableRow(
-                    title = stringResource(R.string.settings_repository),
-                    subtitle = "GitHub • Aurō Audio Engine v2.0",
-                    onClick = {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Lusqta/Player"))
-                        try {
-                            context.startActivity(intent)
-                        } catch (_: Exception) {}
-                    },
-                    trailingContent = {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                            contentDescription = null,
-                            tint = AuroColor.TextTertiary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                )
-                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                SettingsCard {
+                    SettingsClickableRow(
+                        title = stringResource(R.string.settings_version),
+                        subtitle = "v${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})"
+                    )
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                    SettingsClickableRow(
+                        title = stringResource(R.string.settings_licenses),
+                        subtitle = "Apache 2.0, MIT, Jetpack Compose, Oboe",
+                        onClick = { showLicensesDialog = true }
+                    )
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                    SettingsClickableRow(
+                        title = stringResource(R.string.settings_repository),
+                        subtitle = "GitHub • Aurō Audio Engine v2.0",
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Lusqta/Player"))
+                            try {
+                                context.startActivity(intent)
+                            } catch (_: Exception) {}
+                        },
+                        trailingContent = {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                                contentDescription = null,
+                                tint = AuroColor.TextTertiary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    )
+                }
             }
         }
 
@@ -730,6 +695,20 @@ fun AuroSettingsScreen(
             }
         }
     }
+}
+
+@Composable
+private fun SettingsCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(AuroColor.SurfaceGrouped),
+        content = content
+    )
 }
 
 @Composable

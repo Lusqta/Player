@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -63,6 +64,7 @@ import com.lucas.player.ui.theme.AuroGlassKind
 import com.lucas.player.ui.theme.AuroHeight
 import com.lucas.player.ui.theme.AuroSpace
 import com.lucas.player.ui.theme.AuroType
+import com.lucas.player.ui.theme.LiquidGlassSurface
 import com.lucas.player.ui.theme.LocalAuroAccent
 import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlinx.coroutines.delay
@@ -187,14 +189,22 @@ fun AuroSearchScreen(
             .imePadding()
             .padding(top = 12.dp)
     ) {
-        // Campo de busca em vidro (52dp, raio 26dp)
-        AuroGlass(
-            kind = AuroGlassKind.Card,
-            cornerRadius = 26.dp,
-            specMultiplier = specMultiplier,
+        // Large Title estilo Apple Music
+        Text(
+            text = stringResource(R.string.tab_search),
+            style = AuroType.LargeTitle,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(AuroHeight.SearchField)
+                .padding(horizontal = AuroSpace.ScreenMargin, vertical = 6.dp)
+        )
+
+        // Campo de busca em pílula LiquidGlassSurface (48dp, CircleShape)
+        LiquidGlassSurface(
+            shape = CircleShape,
+            soft = 0.5f,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
                 .padding(horizontal = AuroSpace.ScreenMargin)
         ) {
             Row(
