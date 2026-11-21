@@ -33,6 +33,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.layout.onSizeChanged
@@ -699,6 +700,17 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     },
                                     onOpenNowPlaying = { navController.openNowPlaying() },
                                     onOpenSettings = { showMenuSheetState.value = true },
+                                    onOpenLibrary = { navController.toggleLibrary() },
+                                    onArtistClick = { artistName ->
+                                        drillDownGroup(LibraryCategory.ARTISTS, artistName)
+                                        navController.navigateTo(
+                                            NavScreen.Drilldown(
+                                                category = LibraryCategory.ARTISTS,
+                                                title = artistName,
+                                                subtitle = getString(R.string.group_subtitle_artist)
+                                            )
+                                        )
+                                    },
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -1420,36 +1432,51 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             .padding(bottom = snackbarBottomPadding)
                     )
 
-                    // Duas Barras Flutuantes Independentes (Editorial Dark OLED)
+                    // Duas Barras Flutuantes Independentes com gradiente de fade inferior (Editorial Dark OLED)
                     if (currentScreen !is NavScreen.NowPlaying) {
-                        Column(
+                        Box(
                             modifier = Modifier
+                                .fillMaxWidth()
                                 .align(Alignment.BottomCenter)
+                                .background(
+                                    Brush.verticalGradient(
+                                        listOf(
+                                            Color.Transparent,
+                                            Color(0xCC050505),
+                                            Color(0xFF050505)
+                                        )
+                                    )
+                                )
                                 .padding(bottom = 12.dp)
-                                .navigationBarsPadding(),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                                .navigationBarsPadding()
                         ) {
-                            if (currentTrack != null) {
-                                EditorialMiniPlayer(
-                                    track = currentTrack,
-                                    isPlaying = isPlaying,
-                                    progressMs = progressMsState.longValue,
-                                    durationMs = durationMs,
-                                    coverBitmap = miniPlayerCover,
-                                    onOpenNowPlaying = { navController.openNowPlaying() },
-                                    onPlayPause = { playbackService?.togglePlayPause() },
-                                    onNext = { playbackService?.playNext() },
-                                    onPrevious = { playbackService?.playPrevious() }
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                if (currentTrack != null) {
+                                    EditorialMiniPlayer(
+                                        track = currentTrack,
+                                        isPlaying = isPlaying,
+                                        progressMs = progressMsState.longValue,
+                                        durationMs = durationMs,
+                                        coverBitmap = miniPlayerCover,
+                                        onOpenNowPlaying = { navController.openNowPlaying() },
+                                        onPlayPause = { playbackService?.togglePlayPause() },
+                                        onNext = { playbackService?.playNext() },
+                                        onPrevious = { playbackService?.playPrevious() }
+                                    )
+                                }
+
+                                EditorialFloatingNavbar(
+                                    currentScreen = currentScreen,
+                                    onHomeClick = { navController.toggleHome() },
+                                    onSearchClick = { navController.toggleSearch() },
+                                    onLibraryClick = { navController.toggleLibrary() },
+                                    onTuneClick = { showMenuSheetState.value = true }
                                 )
                             }
-
-                            EditorialFloatingNavbar(
-                                currentScreen = currentScreen,
-                                onHomeClick = { navController.toggleHome() },
-                                onSearchClick = { navController.toggleSearch() },
-                                onLibraryClick = { navController.toggleLibrary() },
-                                onTuneClick = { navController.navigateTo(NavScreen.Equalizer) }
-                            )
                         }
                     }
 
@@ -1583,6 +1610,10 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                     if (showMenuSheetState.value) {
                         AuroPowerampMenuSheet(
+                            onOpenQueue = {
+                                selectCategory(LibraryCategory.QUEUE)
+                                navController.navigateTo(NavScreen.CategoryList(LibraryCategory.QUEUE))
+                            },
                             onOpenSettings = { navController.navigateTo(NavScreen.Settings) },
                             onOpenEqualizer = { navController.navigateTo(NavScreen.Equalizer) },
                             onOpenSleepTimer = { showSleepTimerState.value = true },

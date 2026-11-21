@@ -24,6 +24,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
@@ -65,6 +67,7 @@ fun AuroHomeScreen(
     onOpenNowPlaying: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenLibrary: () -> Unit = {},
+    onArtistClick: (String) -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
     modifier: Modifier = Modifier
 ) {
@@ -240,8 +243,8 @@ fun AuroHomeScreen(
                         Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
                             EditorialSectionHeader(
                                 title = stringResource(R.string.category_artists),
-                                actionLabel = null,
-                                onAction = null
+                                actionLabel = stringResource(R.string.view_all),
+                                onAction = onOpenLibrary
                             )
 
                             LazyRow(
@@ -259,7 +262,8 @@ fun AuroHomeScreen(
                                         modifier = Modifier
                                             .width(76.dp)
                                             .clickable {
-                                                if (artistTrack != null) onTrackClick(artistTrack)
+                                                AuroHaptics.click(view)
+                                                onArtistClick(artistName)
                                             },
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
@@ -302,68 +306,41 @@ fun AuroHomeScreen(
                     }
                 }
 
-                // Banner: Coleções & Pastas (110dp, raio 24dp)
+                // Banner: Coleções (104dp, raio 24dp)
                 item(key = "collections_banner") {
+                    val warmGlow = LocalAuroAccent.current.a.value
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = AuroSpace.ScreenMargin, vertical = 20.dp)
-                            .height(110.dp)
-                            .clip(RoundedCornerShape(AuroRadius.card))
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(Color(0xFF242428), Color(0xFF141416))
+                            .height(104.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(AuroColor.SurfaceCard)
+                            .drawBehind {
+                                drawRect(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            warmGlow.copy(alpha = 0.40f),
+                                            warmGlow.copy(alpha = 0.14f),
+                                            Color.Transparent
+                                        ),
+                                        center = Offset(size.width / 2f, size.height * 0.85f),
+                                        radius = size.width * 0.45f
+                                    )
                                 )
-                            )
-                            .border(0.5.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(AuroRadius.card))
+                            }
+                            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
                             .clickable {
                                 AuroHaptics.click(view)
                                 onOpenLibrary()
-                            }
-                            .padding(20.dp)
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(RoundedCornerShape(16.dp))
-                                    .background(AuroColor.ControlGlass),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.LibraryMusic,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.home_banner_collections),
-                                    style = AuroType.SectionTitle,
-                                    color = AuroColor.TextPrimary
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = stringResource(R.string.tab_library),
-                                    style = AuroType.Subtitle,
-                                    color = AuroColor.TextSecondary
-                                )
-                            }
-
-                            Icon(
-                                imageVector = Icons.Rounded.ChevronRight,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.40f),
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
+                        Text(
+                            text = stringResource(R.string.home_banner_collections),
+                            style = AuroType.CardTitle.copy(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
+                            color = AuroColor.TextPrimary
+                        )
                     }
                 }
             }
@@ -372,7 +349,7 @@ fun AuroHomeScreen(
 }
 
 /**
- * Card de Mix Rápido com gradiente atmosférico (112dp × 68dp, raio 18dp)
+ * Card de Mix Rápido com gradiente atmosférico (108dp × 68dp, raio 18dp)
  */
 @Composable
 private fun QuickMixCard(
@@ -384,50 +361,43 @@ private fun QuickMixCard(
     val view = LocalView.current
     Box(
         modifier = Modifier
-            .size(width = 112.dp, height = 68.dp)
-            .clip(RoundedCornerShape(AuroRadius.mix))
+            .size(width = 108.dp, height = 68.dp)
+            .clip(RoundedCornerShape(18.dp))
             .background(Brush.linearGradient(gradientColors))
-            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(AuroRadius.mix))
+            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
             .clickable {
                 AuroHaptics.click(view)
                 onClick()
             }
-            .padding(8.dp)
+            .padding(10.dp)
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.70f),
-                    modifier = Modifier.size(16.dp)
-                )
-                TranslucentPlayButton(
-                    isPlaying = false,
-                    size = 22.dp,
-                    onClick = onClick
-                )
-            }
-            Text(
-                text = title,
-                style = AuroType.MicroLabel.copy(fontWeight = FontWeight.Medium),
-                color = Color.White,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.70f),
+            modifier = Modifier
+                .size(14.dp)
+                .align(Alignment.TopStart)
+        )
+        Text(
+            text = title,
+            style = AuroType.MicroLabel.copy(fontSize = 13.sp, fontWeight = FontWeight.Medium),
+            color = Color.White,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.align(Alignment.CenterStart)
+        )
+        TranslucentPlayButton(
+            isPlaying = false,
+            size = 20.dp,
+            onClick = onClick,
+            modifier = Modifier.align(Alignment.BottomEnd)
+        )
     }
 }
 
 /**
- * Cartão de Faixa em Destaque (270dp × 112dp, raio 24dp)
+ * Cartão de Faixa em Destaque (270dp × 104dp, raio 24dp)
  */
 @Composable
 private fun FeaturedTrackCard(
@@ -439,10 +409,10 @@ private fun FeaturedTrackCard(
 
     Box(
         modifier = Modifier
-            .size(width = 270.dp, height = 112.dp)
-            .clip(RoundedCornerShape(AuroRadius.card))
+            .size(width = 270.dp, height = 104.dp)
+            .clip(RoundedCornerShape(24.dp))
             .background(AuroColor.SurfaceCard)
-            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(AuroRadius.card))
+            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
             .clickable {
                 AuroHaptics.click(view)
                 onPlay()
@@ -453,41 +423,51 @@ private fun FeaturedTrackCard(
             modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Capa 84dp com raio 18dp + TranslucentPlayButton
+            // Capa 80dp com raio 18dp + TranslucentPlayButton(34.dp) sobrepondo a borda direita (metade dentro, metade fora)
             Box(
                 modifier = Modifier
-                    .size(88.dp)
-                    .clip(RoundedCornerShape(AuroRadius.artist))
-                    .background(AuroColor.SurfaceGrouped),
-                contentAlignment = Alignment.Center
+                    .width(80.dp + 17.dp)
+                    .height(80.dp)
             ) {
-                if (coverBitmap != null) {
-                    Image(
-                        bitmap = coverBitmap.asImageBitmap(),
-                        contentDescription = track.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    AuroCoverPlaceholder(
-                        modifier = Modifier.fillMaxSize(),
-                        glass = false,
-                        shape = RoundedCornerShape(AuroRadius.artist)
-                    )
+                Box(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .align(Alignment.CenterStart)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(AuroColor.SurfaceGrouped),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (coverBitmap != null) {
+                        Image(
+                            bitmap = coverBitmap.asImageBitmap(),
+                            contentDescription = track.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        AuroCoverPlaceholder(
+                            modifier = Modifier.fillMaxSize(),
+                            glass = false,
+                            shape = RoundedCornerShape(18.dp)
+                        )
+                    }
                 }
 
-                // Play Button sobre a capa
+                // Play Button sobrepondo a borda direita (centro em x = 80dp)
                 TranslucentPlayButton(
                     isPlaying = false,
-                    size = 32.dp,
-                    onClick = onPlay
+                    size = 34.dp,
+                    onClick = onPlay,
+                    modifier = Modifier.align(Alignment.CenterEnd)
                 )
             }
 
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(10.dp))
 
             Column(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 4.dp),
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(

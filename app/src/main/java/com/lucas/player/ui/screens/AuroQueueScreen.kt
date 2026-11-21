@@ -55,7 +55,6 @@ import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.AuroMotion
 import com.lucas.player.ui.theme.AuroSpace
 import com.lucas.player.ui.theme.AuroType
-import com.lucas.player.ui.theme.LocalAuroAccent
 import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -205,7 +204,7 @@ fun AuroQueueScreen(
                     Text(
                         text = pluralStringResource(R.plurals.priority_tracks_count, localPriorityTracks.size, localPriorityTracks.size),
                         style = AuroType.Label.copy(
-                            color = LocalAuroAccent.current.a.value,
+                            color = Color.White,
                             fontWeight = FontWeight.Bold
                         )
                     )
@@ -224,7 +223,7 @@ fun AuroQueueScreen(
                         Text(
                             text = stringResource(R.string.queue_section_priority),
                             style = AuroType.SectionHeader.copy(
-                                color = LocalAuroAccent.current.a.value,
+                                color = AuroColor.TextTertiary,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             ),
@@ -448,7 +447,6 @@ private fun AuroQueueTrackRow(
     onAccessibilityMove: (from: Int, to: Int) -> Unit,
     dragHandleModifier: Modifier = Modifier
 ) {
-    val accent = LocalAuroAccent.current.a.value
     val context = LocalContext.current
     val moveUpText = stringResource(R.string.queue_move_up)
     val moveDownText = stringResource(R.string.queue_move_down)
@@ -499,7 +497,7 @@ private fun AuroQueueTrackRow(
                         Icon(
                             imageVector = Icons.Rounded.Equalizer,
                             contentDescription = stringResource(R.string.cd_playing_indicator),
-                            tint = accent,
+                            tint = Color.White,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -515,14 +513,14 @@ private fun AuroQueueTrackRow(
                     Icon(
                         imageVector = Icons.Rounded.Equalizer,
                         contentDescription = stringResource(R.string.cd_playing_indicator),
-                        tint = accent,
+                        tint = Color.White,
                         modifier = Modifier.size(18.dp)
                     )
                 } else {
                     Text(
                         text = if (isPriority) "★${index + 1}" else "${index + 1}",
                         style = AuroType.Caption.copy(
-                            color = if (isPriority) accent else AuroColor.TextTertiary,
+                            color = if (isPriority) Color.White else AuroColor.TextTertiary,
                             fontFamily = FontFamily.Monospace,
                             fontFeatureSettings = "tnum"
                         )
@@ -545,7 +543,7 @@ private fun AuroQueueTrackRow(
                 Text(
                     text = track.title,
                     style = AuroType.Body.copy(
-                        color = if (hasError) AuroColor.Danger else if (isPlaying) accent else AuroColor.TextPrimary,
+                        color = if (hasError) AuroColor.Danger else if (isPlaying) Color.White else AuroColor.TextPrimary,
                         fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.Medium
                     ),
                     maxLines = 1,
@@ -595,7 +593,7 @@ private fun AuroQueueTrackRow(
             Icon(
                 imageVector = Icons.Rounded.DragHandle,
                 contentDescription = stringResource(R.string.queue_reorder_handle),
-                tint = if (isDragging) accent else AuroColor.TextTertiary,
+                tint = if (isDragging) Color.White else AuroColor.TextTertiary,
                 modifier = Modifier.size(24.dp)
             )
         }

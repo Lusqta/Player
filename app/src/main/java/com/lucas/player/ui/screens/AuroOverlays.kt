@@ -79,12 +79,13 @@ fun AuroDialogContainer(
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
     val dialogWidth = (screenWidth - 56.dp).coerceAtMost(360.dp)
 
-    LiquidGlassSurface(
-        shape = RoundedCornerShape(28.dp),
-        soft = 0.6f,
+    Box(
         modifier = modifier
             .width(dialogWidth)
             .padding(vertical = 16.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(AuroColor.SurfaceGrouped)
+            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(28.dp))
     ) {
         Column(
             modifier = Modifier
@@ -132,7 +133,6 @@ fun AuroDialogTextButton(
     isDestructive: Boolean = false
 ) {
     val view = LocalView.current
-    val accent = LocalAuroAccent.current.a.value
     Box(
         modifier = modifier
             .defaultMinSize(minHeight = AuroHeight.TouchTarget)
@@ -149,7 +149,7 @@ fun AuroDialogTextButton(
         Text(
             text = text,
             style = AuroType.Label.copy(
-                color = if (isDestructive) AuroColor.Danger else accent,
+                color = if (isDestructive) AuroColor.Danger else Color.White,
                 fontWeight = FontWeight.Bold
             )
         )
@@ -167,12 +167,12 @@ fun AuroSheetContainer(
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val maxHeight = screenHeight * 0.80f
 
-    LiquidGlassSurface(
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        soft = 0.6f,
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(max = maxHeight)
+            .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+            .background(AuroColor.SurfaceGrouped)
     ) {
         Column(
             modifier = Modifier
@@ -307,8 +307,6 @@ fun AuroSortDialog(
     onSelectSort: (SortMode) -> Unit,
     onDismiss: () -> Unit
 ) {
-    val accent = LocalAuroAccent.current.a.value
-
     AuroOverlay(
         visible = true,
         onDismiss = onDismiss,
@@ -342,7 +340,7 @@ fun AuroSortDialog(
                             selected = isSelected,
                             onClick = null,
                             colors = RadioButtonDefaults.colors(
-                                selectedColor = accent,
+                                selectedColor = Color.White,
                                 unselectedColor = AuroColor.TextTertiary
                             )
                         )
@@ -350,7 +348,7 @@ fun AuroSortDialog(
                         Text(
                             text = stringResource(mode.getDisplayNameRes()),
                             style = AuroType.Body.copy(
-                                color = if (isSelected) accent else AuroColor.TextPrimary,
+                                color = if (isSelected) Color.White else AuroColor.TextPrimary,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                             )
                         )
@@ -417,7 +415,6 @@ fun AuroAddToPlaylistDialog(
 ) {
     var isCreatingNew by remember { mutableStateOf(false) }
     var newPlaylistName by remember { mutableStateOf("") }
-    val accent = LocalAuroAccent.current.a.value
     val view = LocalView.current
 
     AuroOverlay(
@@ -456,7 +453,7 @@ fun AuroAddToPlaylistDialog(
                             onValueChange = { newPlaylistName = it },
                             singleLine = true,
                             textStyle = AuroType.Body.copy(color = AuroColor.TextPrimary),
-                            cursorBrush = SolidColor(accent),
+                            cursorBrush = SolidColor(Color.White),
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -551,7 +548,6 @@ fun AuroSleepTimerDialog(
 ) {
     val options = listOf(15, 30, 45, 60, 90, 120)
     var stopAtTrackEnd by remember { mutableStateOf(false) }
-    val accent = LocalAuroAccent.current.a.value
 
     AuroOverlay(
         visible = true,
@@ -582,7 +578,8 @@ fun AuroSleepTimerDialog(
                     checked = stopAtTrackEnd,
                     onCheckedChange = { stopAtTrackEnd = it },
                     colors = CheckboxDefaults.colors(
-                        checkedColor = accent,
+                        checkedColor = Color.White,
+                        checkmarkColor = Color.Black,
                         uncheckedColor = AuroColor.TextSecondary
                     )
                 )
@@ -627,8 +624,9 @@ fun AuroSleepTimerDialog(
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun AuroPowerampMenuSheet(
-    onOpenSettings: () -> Unit = {},
+    onOpenQueue: () -> Unit = {},
     onOpenEqualizer: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     onOpenSleepTimer: () -> Unit,
     onOpenAudioInfo: () -> Unit,
     onRescanLibrary: () -> Unit,
@@ -641,9 +639,25 @@ fun AuroPowerampMenuSheet(
         type = AuroOverlayType.BottomSheet
     ) {
         AuroSheetContainer(
-            title = stringResource(R.string.menu_sheet_title),
+            title = "Menu",
             onDismiss = onDismiss
         ) {
+            AuroSheetItem(
+                icon = Icons.Outlined.QueueMusic,
+                title = stringResource(R.string.menu_queue),
+                onClick = {
+                    onDismiss()
+                    onOpenQueue()
+                }
+            )
+            AuroSheetItem(
+                icon = Icons.Outlined.GraphicEq,
+                title = stringResource(R.string.menu_equalizer_spatial),
+                onClick = {
+                    onDismiss()
+                    onOpenEqualizer()
+                }
+            )
             AuroSheetItem(
                 icon = Icons.Outlined.Settings,
                 title = stringResource(R.string.settings_title),
@@ -653,16 +667,8 @@ fun AuroPowerampMenuSheet(
                 }
             )
             AuroSheetItem(
-                icon = Icons.Outlined.GraphicEq,
-                title = stringResource(R.string.equalizer_breadcrumb),
-                onClick = {
-                    onDismiss()
-                    onOpenEqualizer()
-                }
-            )
-            AuroSheetItem(
                 icon = Icons.Outlined.Schedule,
-                title = stringResource(R.string.sleep_timer_title),
+                title = stringResource(R.string.menu_sleep_timer),
                 onClick = {
                     onDismiss()
                     onOpenSleepTimer()
@@ -686,7 +692,7 @@ fun AuroPowerampMenuSheet(
             )
             AuroSheetItem(
                 icon = Icons.Outlined.Info,
-                title = stringResource(R.string.settings_section_about),
+                title = stringResource(R.string.menu_about),
                 onClick = {
                     onDismiss()
                     onOpenAbout()
@@ -781,7 +787,6 @@ fun AuroLyricsSheet(
     onDismiss: () -> Unit
 ) {
     val listState = rememberLazyListState()
-    val accent = LocalAuroAccent.current.a.value
 
     var isUserScrolling by remember { mutableStateOf(false) }
 
@@ -856,7 +861,7 @@ fun AuroLyricsSheet(
                         Text(
                             text = line.text,
                             style = (if (isCurrent) AuroType.Subtitle else AuroType.Body).copy(
-                                color = if (isCurrent) accent else AuroColor.TextTertiary,
+                                color = if (isCurrent) Color.White else AuroColor.TextTertiary,
                                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal
                             ),
                             modifier = Modifier
@@ -884,7 +889,6 @@ fun AuroSavePresetDialog(
     onDismiss: () -> Unit
 ) {
     var presetName by remember { mutableStateOf("") }
-    val accent = LocalAuroAccent.current.a.value
 
     AuroOverlay(
         visible = true,
@@ -928,7 +932,7 @@ fun AuroSavePresetDialog(
                     onValueChange = { presetName = it },
                     singleLine = true,
                     textStyle = AuroType.Body.copy(color = AuroColor.TextPrimary),
-                    cursorBrush = SolidColor(accent),
+                    cursorBrush = SolidColor(Color.White),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -945,7 +949,6 @@ fun AuroCreatePlaylistDialog(
     onDismiss: () -> Unit
 ) {
     var playlistName by remember { mutableStateOf("") }
-    val accent = LocalAuroAccent.current.a.value
 
     AuroOverlay(
         visible = true,
@@ -989,7 +992,7 @@ fun AuroCreatePlaylistDialog(
                     onValueChange = { playlistName = it },
                     singleLine = true,
                     textStyle = AuroType.Body.copy(color = AuroColor.TextPrimary),
-                    cursorBrush = SolidColor(accent),
+                    cursorBrush = SolidColor(Color.White),
                     modifier = Modifier.fillMaxWidth()
                 )
             }

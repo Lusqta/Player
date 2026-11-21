@@ -1,6 +1,5 @@
 package com.lucas.player.ui.screens
 
-import android.content.Context
 import android.graphics.Bitmap
 import androidx.activity.BackEventCompat
 import androidx.activity.compose.PredictiveBackHandler
@@ -13,7 +12,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -22,7 +20,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.QueueMusic
-import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -30,10 +27,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -58,21 +56,15 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
-enum class NowPlayingMode {
-    ARTWORK,
-    LYRICS,
-    QUEUE
-}
-
 /**
- * NOW PLAYING (Apple Music Android 7.0.2 - Viewport Fixo sobre LiquidMeshBackground)
- * - 3 modos alternáveis com transição fluida: ARTWORK, LYRICS (tempo real sincronizado) e QUEUE
- * - Capa 18dp radius com sombra difusa elegante
- * - Scrubber Apple Music (4dp -> 8dp ao toque, tempos em tnum mono)
- * - Controles de transporte limpos sem círculo branco no Play/Pause
- * - Slider de Volume Apple conectado a STREAM_MUSIC
- * - Rodapé fixo com 3 ações: Letras, Equalizador, Fila
+ * NOW PLAYING (Editorial Dark OLED - Minimalista & Atmosférico)
+ * - Fiel às Telas 2 (Capa) e 4 (Letras Expandidas) do Design System
+ * - Controles 100% Branco Puro / Acromático
+ * - Ambient Bleed sutil da capa no fundo
+ * - Transição fluida entre Capa e Letras Expandidas
+ * - Menu ••• e Fila acessíveis via BottomSheet limpo
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuroNowPlayingScreen(
     track: Track?,
@@ -133,7 +125,9 @@ fun AuroNowPlayingScreen(
     val reduceMotion = rememberReduceMotion()
     val coroutineScope = rememberCoroutineScope()
 
-    var activeMode by remember { mutableStateOf(NowPlayingMode.ARTWORK) }
+    var isLyricsExpanded by remember { mutableStateOf(false) }
+    var showOptionsMenu by remember { mutableStateOf(false) }
+    var showQueueSheet by remember { mutableStateOf(false) }
 
     // Carregamento de Letras Locais (.LRC / ID3)
     var lyricsData by remember(track.id) { mutableStateOf<LyricsManager.Lyrics?>(null) }
@@ -150,7 +144,11 @@ fun AuroNowPlayingScreen(
                     backProgress.snapTo(event.progress)
                 }
             }
-            onCollapse()
+            if (isLyricsExpanded) {
+                isLyricsExpanded = false
+            } else {
+                onCollapse()
+            }
         } catch (_: CancellationException) {
             if (!reduceMotion) {
                 backProgress.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = 300f))
@@ -161,6 +159,12 @@ fun AuroNowPlayingScreen(
             }
         }
     }
+
+    val coverScale by animateFloatAsState(
+        targetValue = if (isPlaying) 1.0f else 0.94f,
+        animationSpec = spring(dampingRatio = 0.75f, stiffness = 280f),
+        label = "nowPlayingCoverScale"
+    )
 
     // Viewport com Fundo Ambient Bleed Suave
     AmbientBleedBackground(
@@ -183,7 +187,7 @@ fun AuroNowPlayingScreen(
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 6.dp)
         ) {
-            // Barra Superior: Top Drag Handle + Menu ••• flutuante
+            // Barra Superior Minimalista: Chevron recolher à esquerda + Ícone Fila à direita
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -191,556 +195,683 @@ fun AuroNowPlayingScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Indicador de posição na fila à esquerda
-                if (queueSize > 0) {
-                    Text(
-                        text = "${currentTrackIndex + 1} / $queueSize",
-                        style = AuroType.Caption.copy(
-                            color = AuroColor.TextSecondary,
-                            fontFamily = FontFamily.Monospace,
-                            fontFeatureSettings = "tnum"
-                        ),
-                        modifier = Modifier
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.08f))
-                            .clickable {
-                                activeMode = if (activeMode == NowPlayingMode.QUEUE) NowPlayingMode.ARTWORK else NowPlayingMode.QUEUE
-                            }
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
-                } else {
-                    Spacer(modifier = Modifier.width(48.dp))
-                }
-
-                // Drag Handle central de recolher
-                Box(
-                    modifier = Modifier
-                        .width(40.dp)
-                        .height(5.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.35f))
-                        .clickable { onCollapse() }
-                )
-
-                // Botão de Opções •••
-                AuroGlass(
-                    kind = AuroGlassKind.Button,
-                    cornerRadius = 20.dp,
-                    modifier = Modifier.size(36.dp),
-                    onClick = onOpenTrackInfo
-                ) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Outlined.MoreVert,
-                            contentDescription = stringResource(R.string.cd_more_options),
-                            tint = AuroColor.TextPrimary,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Cabeçalho compacto quando em modo Letras ou Fila
-            if (activeMode != NowPlayingMode.ARTWORK) {
-                val isFavorite = track.rating > 0
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .clip(RoundedCornerShape(AuroRadius.card))
-                        .background(Color.White.copy(alpha = 0.08f))
-                        .padding(horizontal = 10.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(AuroColor.SurfaceGrouped),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (coverBitmap != null) {
-                            Image(
-                                bitmap = coverBitmap.asImageBitmap(),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        } else {
-                            AuroCoverPlaceholder(
-                                modifier = Modifier.fillMaxSize(),
-                                glass = false,
-                                shape = RoundedCornerShape(6.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(12.dp))
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = track.title,
-                            style = AuroType.Body.copy(fontWeight = FontWeight.SemiBold, fontSize = 15.sp),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                            style = AuroType.Subtitle.copy(fontSize = 13.sp, color = AuroColor.TextSecondary),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    IconButton(
-                        onClick = {
-                            val nextRating = if (isFavorite) 0 else 5
-                            onRatingChanged(nextRating)
-                        },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isFavorite) Icons.Rounded.Star else Icons.Rounded.StarBorder,
-                            contentDescription = null,
-                            tint = if (isFavorite) AuroColor.FavoriteYellow else AuroColor.TextSecondary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-                Spacer(modifier = Modifier.height(6.dp))
-            }
-
-            // Corpo Central (Alternável entre ARTWORK, LYRICS e QUEUE)
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                AnimatedContent(
-                    targetState = activeMode,
-                    transitionSpec = {
-                        if (reduceMotion) {
-                            EnterTransition.None togetherWith ExitTransition.None
-                        } else {
-                            (fadeIn(tween(280)) + scaleIn(initialScale = 0.94f, animationSpec = tween(280)))
-                                .togetherWith(fadeOut(tween(200)) + scaleOut(targetScale = 0.94f, animationSpec = tween(200)))
-                        }
-                    },
-                    label = "nowPlayingModeTransition"
-                ) { mode ->
-                    when (mode) {
-                        NowPlayingMode.ARTWORK -> {
-                            ArtworkView(
-                                track = track,
-                                coverBitmap = coverBitmap,
-                                isPlaying = isPlaying,
-                                onCollapse = onCollapse,
-                                onNext = onNext,
-                                onPrevious = onPrevious,
-                                onRatingChanged = onRatingChanged
-                            )
-                        }
-                        NowPlayingMode.LYRICS -> {
-                            LyricsView(
-                                lyrics = lyricsData,
-                                progressMs = progressMs,
-                                durationMs = durationMs,
-                                onSeek = onSeek
-                            )
-                        }
-                        NowPlayingMode.QUEUE -> {
-                            InlineQueueView(
-                                priorityTracks = priorityTracks,
-                                regularTracks = regularTracks,
-                                currentTrackId = currentTrackId,
-                                shuffleMode = shuffleMode,
-                                repeatMode = repeatMode,
-                                onToggleShuffle = onToggleShuffle,
-                                onToggleRepeat = onToggleRepeat,
-                                onClearQueue = onClearQueue,
-                                onTrackClick = onQueueTrackClick,
-                                onRemoveTrack = onRemoveQueueTrack
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Scrubber Apple Music com selo de formato/sample rate/espacial no centro
-            AppleScrubberBar(
-                progressMs = progressMs,
-                durationMs = durationMs,
-                track = track,
-                spatialMode = spatialMode,
-                onOpenEqualizer = onOpenEqualizer,
-                onSeek = onSeek,
-                onSeekJumpBackward = onSeekJumpBackward,
-                onSeekJumpForward = onSeekJumpForward
-            )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Controles Principais de Transporte (Apple Clean Buttons)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Aleatório
                 IconButton(
                     onClick = {
                         AuroHaptics.click(view)
-                        onToggleShuffle()
+                        if (isLyricsExpanded) isLyricsExpanded = false
+                        else onCollapse()
                     },
-                    modifier = Modifier.size(42.dp)
+                    modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.Shuffle,
-                        contentDescription = stringResource(R.string.cd_shuffle),
-                        tint = if (shuffleMode != ShuffleMode.OFF) accent else AuroColor.TextSecondary,
-                        modifier = Modifier.size(22.dp)
+                        imageVector = Icons.Rounded.KeyboardArrowDown,
+                        contentDescription = stringResource(R.string.cd_collapse),
+                        tint = Color.White.copy(alpha = 0.75f),
+                        modifier = Modifier.size(26.dp)
                     )
                 }
 
-                // Faixa Anterior com toque curto (onPrevious) e hold (onBeginRewind / onEndRewind)
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onPress = {
-                                    var isHold = false
-                                    val job = coroutineScope.launch {
-                                        delay(350L)
-                                        isHold = true
-                                        AuroHaptics.sliderTick(view)
-                                        onBeginRewind()
-                                    }
-                                    try {
-                                        val released = tryAwaitRelease()
-                                        job.cancel()
-                                        if (!isHold && released) {
-                                            AuroHaptics.click(view)
-                                            onPrevious()
-                                        }
-                                    } finally {
-                                        job.cancel()
-                                        if (isHold) onEndRewind()
-                                    }
-                                }
-                            )
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.SkipPrevious,
-                        contentDescription = stringResource(R.string.cd_previous),
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-
-                // Play / Pause (TranslucentPlayButton no padrão Editorial Dark OLED)
-                TranslucentPlayButton(
-                    isPlaying = isPlaying,
-                    size = 56.dp,
-                    onClick = onPlayPause
-                )
-
-                // Próxima Faixa com toque curto (onNext) e hold (onBeginFastForward / onEndFastForward)
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onPress = {
-                                    var isHold = false
-                                    val job = coroutineScope.launch {
-                                        delay(350L)
-                                        isHold = true
-                                        AuroHaptics.sliderTick(view)
-                                        onBeginFastForward()
-                                    }
-                                    try {
-                                        val released = tryAwaitRelease()
-                                        job.cancel()
-                                        if (!isHold && released) {
-                                            AuroHaptics.click(view)
-                                            onNext()
-                                        }
-                                    } finally {
-                                        job.cancel()
-                                        if (isHold) onEndFastForward()
-                                    }
-                                }
-                            )
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.SkipNext,
-                        contentDescription = stringResource(R.string.cd_next),
-                        tint = Color.White,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-
-                // Repetir
                 IconButton(
                     onClick = {
                         AuroHaptics.click(view)
-                        onToggleRepeat()
+                        showQueueSheet = true
                     },
-                    modifier = Modifier.size(42.dp)
+                    modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
-                        imageVector = if (repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                        contentDescription = stringResource(R.string.cd_repeat),
-                        tint = if (repeatMode != RepeatMode.OFF) accent else AuroColor.TextSecondary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Controle de Volume Apple
-            AppleVolumeSlider(
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Rodapé Fixo com 3 Ações de Vidro: Letras, Equalizador, Fila
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
-                horizontalArrangement = Arrangement.SpaceAround,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // 1. Botão Letras
-                val isLyricsActive = activeMode == NowPlayingMode.LYRICS
-                IconButton(
-                    onClick = {
-                        AuroHaptics.click(view)
-                        activeMode = if (isLyricsActive) NowPlayingMode.ARTWORK else NowPlayingMode.LYRICS
-                    },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .then(
-                            if (isLyricsActive) Modifier.background(Color.White.copy(alpha = 0.18f))
-                            else Modifier
-                        )
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.ChatBubbleOutline,
-                        contentDescription = stringResource(R.string.now_playing_mode_lyrics),
-                        tint = if (isLyricsActive) Color.White else AuroColor.TextSecondary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-
-                // 2. Botão Equalizador
-                IconButton(
-                    onClick = {
-                        AuroHaptics.click(view)
-                        onOpenEqualizer()
-                    },
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.GraphicEq,
-                        contentDescription = stringResource(R.string.tab_equalizer),
-                        tint = AuroColor.TextSecondary,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-
-                // 3. Botão Fila
-                val isQueueActive = activeMode == NowPlayingMode.QUEUE
-                IconButton(
-                    onClick = {
-                        AuroHaptics.click(view)
-                        activeMode = if (isQueueActive) NowPlayingMode.ARTWORK else NowPlayingMode.QUEUE
-                    },
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .then(
-                            if (isQueueActive) Modifier.background(Color.White.copy(alpha = 0.18f))
-                            else Modifier
-                        )
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
+                        imageVector = Icons.AutoMirrored.Outlined.QueueMusic,
                         contentDescription = stringResource(R.string.now_playing_mode_queue),
-                        tint = if (isQueueActive) Color.White else AuroColor.TextSecondary,
+                        tint = Color.White.copy(alpha = 0.65f),
                         modifier = Modifier.size(22.dp)
                     )
                 }
             }
-        }
-    }
-}
 
-// ─────────────────────── Componente de Capa (Artwork) ───────────────────────
-
-@Composable
-private fun ArtworkView(
-    track: Track,
-    coverBitmap: Bitmap?,
-    isPlaying: Boolean,
-    onCollapse: () -> Unit,
-    onNext: () -> Unit,
-    onPrevious: () -> Unit,
-    onRatingChanged: (Int) -> Unit
-) {
-    val accent = LocalAuroAccent.current.a.value
-    val view = LocalView.current
-
-    val coverScale by animateFloatAsState(
-        targetValue = if (isPlaying) 1.0f else 0.92f,
-        animationSpec = spring(dampingRatio = 0.72f, stiffness = 260f),
-        label = "nowPlayingCoverScale"
-    )
-
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        // Capa com cantos arredondados de 18dp e sombra difusa
-        Box(
-            modifier = Modifier
-                .weight(1f, fill = false)
-                .aspectRatio(1f)
-                .graphicsLayer {
-                    scaleX = coverScale
-                    scaleY = coverScale
-                }
-                .shadow(
-                    elevation = 24.dp,
-                    shape = RoundedCornerShape(AuroRadius.cover),
-                    spotColor = accent.copy(alpha = 0.6f)
-                )
-                .clip(RoundedCornerShape(AuroRadius.cover))
-                .background(AuroColor.SurfaceGrouped)
-                .pointerInput(Unit) {
-                    var totalDragX = 0f
-                    var totalDragY = 0f
-                    detectDragGestures(
-                        onDragStart = {
-                            totalDragX = 0f
-                            totalDragY = 0f
-                        },
-                        onDragEnd = {
-                            if (abs(totalDragY) > abs(totalDragX) && totalDragY > 40f) {
-                                AuroHaptics.click(view)
-                                onCollapse()
-                            } else if (abs(totalDragX) > 40f) {
-                                if (totalDragX < 0) {
-                                    AuroHaptics.click(view)
-                                    onNext()
-                                } else {
-                                    AuroHaptics.click(view)
-                                    onPrevious()
-                                }
-                            }
-                        }
-                    ) { change, dragAmount ->
-                        change.consume()
-                        totalDragX += dragAmount.x
-                        totalDragY += dragAmount.y
+            AnimatedContent(
+                targetState = isLyricsExpanded,
+                transitionSpec = {
+                    if (reduceMotion) {
+                        EnterTransition.None togetherWith ExitTransition.None
+                    } else {
+                        (fadeIn(tween(300)) + slideInVertically(animationSpec = tween(300)) { it / 4 })
+                            .togetherWith(fadeOut(tween(220)) + slideOutVertically(animationSpec = tween(220)) { -it / 4 })
                     }
                 },
-            contentAlignment = Alignment.Center
-        ) {
-            if (coverBitmap != null) {
-                Image(
-                    bitmap = coverBitmap.asImageBitmap(),
-                    contentDescription = stringResource(R.string.cd_album_cover),
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                label = "nowPlayingScreenContent"
+            ) { expanded ->
+                if (!expanded) {
+                    // ─────────────────────── TELA 2: MODO CAPA (Cover Mode) ───────────────────────
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // 1. Capa Vertical Grande (~56% da tela) com fade inferior de 20%
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .padding(horizontal = 4.dp, vertical = 4.dp)
+                                .graphicsLayer {
+                                    scaleX = coverScale
+                                    scaleY = coverScale
+                                }
+                                .clip(RoundedCornerShape(28.dp))
+                                .background(AuroColor.SurfaceGrouped)
+                                .pointerInput(Unit) {
+                                    var totalDragX = 0f
+                                    var totalDragY = 0f
+                                    detectDragGestures(
+                                        onDragStart = {
+                                            totalDragX = 0f
+                                            totalDragY = 0f
+                                        },
+                                        onDragEnd = {
+                                            if (totalDragY < -50f && abs(totalDragY) > abs(totalDragX)) {
+                                                AuroHaptics.click(view)
+                                                isLyricsExpanded = true
+                                            } else if (totalDragY > 50f && abs(totalDragY) > abs(totalDragX)) {
+                                                AuroHaptics.click(view)
+                                                onCollapse()
+                                            } else if (abs(totalDragX) > 40f) {
+                                                if (totalDragX < 0) {
+                                                    AuroHaptics.click(view)
+                                                    onNext()
+                                                } else {
+                                                    AuroHaptics.click(view)
+                                                    onPrevious()
+                                                }
+                                            }
+                                        }
+                                    ) { change, dragAmount ->
+                                        change.consume()
+                                        totalDragX += dragAmount.x
+                                        totalDragY += dragAmount.y
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (coverBitmap != null) {
+                                Image(
+                                    bitmap = coverBitmap.asImageBitmap(),
+                                    contentDescription = track.title,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            } else {
+                                AuroCoverPlaceholder(
+                                    modifier = Modifier.fillMaxSize(),
+                                    glass = false,
+                                    shape = RoundedCornerShape(28.dp)
+                                )
+                            }
+
+                            // Gradiente escuro sutil nos 20% inferiores fundindo suavemente no fundo
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .fillMaxHeight(0.22f)
+                                    .align(Alignment.BottomCenter)
+                                    .background(
+                                        Brush.verticalGradient(
+                                            colors = listOf(
+                                                Color.Transparent,
+                                                Color(0xFF050505).copy(alpha = 0.40f),
+                                                Color(0xFF050505).copy(alpha = 0.85f)
+                                            )
+                                        )
+                                    )
+                            )
+                        }
+
+                        // 2. Linha Título/Artista + Ações (Coração ♡ e •••)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = track.title,
+                                    style = AuroType.NowPlayingTitle.copy(
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(
+                                    text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                                    style = AuroType.Subtitle.copy(
+                                        fontSize = 14.sp,
+                                        color = Color.White.copy(alpha = 0.55f)
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                val isFavorite = track.rating > 0
+                                Icon(
+                                    imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                                    contentDescription = stringResource(if (isFavorite) R.string.cd_unfavorite else R.string.cd_favorite),
+                                    tint = if (isFavorite) Color.White else Color.White.copy(alpha = 0.75f),
+                                    modifier = Modifier
+                                        .size(22.dp)
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
+                                            AuroHaptics.click(view)
+                                            onRatingChanged(if (isFavorite) 0 else 5)
+                                        }
+                                )
+
+                                Icon(
+                                    imageVector = Icons.Rounded.MoreHoriz,
+                                    contentDescription = stringResource(R.string.cd_more_options),
+                                    tint = Color.White.copy(alpha = 0.60f),
+                                    modifier = Modifier
+                                        .size(22.dp)
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
+                                            AuroHaptics.click(view)
+                                            showOptionsMenu = true
+                                        }
+                                )
+                            }
+                        }
+
+                        // 3. Controles Principais de Transporte (ACIMA do Scrubber, conforme Tela 2)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Shuffle
+                            val isShuffleActive = shuffleMode != ShuffleMode.OFF
+                            IconButton(
+                                onClick = {
+                                    AuroHaptics.click(view)
+                                    onToggleShuffle()
+                                },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Shuffle,
+                                    contentDescription = stringResource(R.string.cd_shuffle),
+                                    tint = if (isShuffleActive) Color.White else Color.White.copy(alpha = 0.45f),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            // SkipPrevious com toque curto e hold rewind
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                var isHold = false
+                                                val job = coroutineScope.launch {
+                                                    delay(350L)
+                                                    isHold = true
+                                                    AuroHaptics.sliderTick(view)
+                                                    onBeginRewind()
+                                                }
+                                                try {
+                                                    val released = tryAwaitRelease()
+                                                    job.cancel()
+                                                    if (!isHold && released) {
+                                                        AuroHaptics.click(view)
+                                                        onPrevious()
+                                                    }
+                                                } finally {
+                                                    job.cancel()
+                                                    if (isHold) onEndRewind()
+                                                }
+                                            }
+                                        )
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.SkipPrevious,
+                                    contentDescription = stringResource(R.string.cd_previous),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(26.dp)
+                                )
+                            }
+
+                            // Play / Pause (TranslucentPlayButton 56dp)
+                            TranslucentPlayButton(
+                                isPlaying = isPlaying,
+                                size = 56.dp,
+                                onClick = onPlayPause
+                            )
+
+                            // SkipNext com toque curto e hold fast-forward
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onPress = {
+                                                var isHold = false
+                                                val job = coroutineScope.launch {
+                                                    delay(350L)
+                                                    isHold = true
+                                                    AuroHaptics.sliderTick(view)
+                                                    onBeginFastForward()
+                                                }
+                                                try {
+                                                    val released = tryAwaitRelease()
+                                                    job.cancel()
+                                                    if (!isHold && released) {
+                                                        AuroHaptics.click(view)
+                                                        onNext()
+                                                    }
+                                                } finally {
+                                                    job.cancel()
+                                                    if (isHold) onEndFastForward()
+                                                }
+                                            }
+                                        )
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.SkipNext,
+                                    contentDescription = stringResource(R.string.cd_next),
+                                    tint = Color.White,
+                                    modifier = Modifier.size(26.dp)
+                                )
+                            }
+
+                            // Repeat
+                            val isRepeatActive = repeatMode != RepeatMode.OFF
+                            IconButton(
+                                onClick = {
+                                    AuroHaptics.click(view)
+                                    onToggleRepeat()
+                                },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                                    contentDescription = stringResource(R.string.cd_repeat),
+                                    tint = if (isRepeatActive) Color.White else Color.White.copy(alpha = 0.45f),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+
+                        // 4. Scrubber Editorial (Linha fina 2.5dp + thumb 10dp)
+                        EditorialScrubber(
+                            progressMs = progressMs,
+                            durationMs = durationMs,
+                            onSeek = { ms ->
+                                val frac = if (durationMs > 0) ms.toFloat() / durationMs.toFloat() else 0f
+                                onSeek(frac)
+                            },
+                            showTimestampsOnlyWhenDragging = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // 5. Barra de Rodapé: Letras ^
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(Color(0xFF1C1C1E).copy(alpha = 0.85f))
+                                .background(accent.copy(alpha = 0.10f))
+                                .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
+                                .clickable {
+                                    AuroHaptics.click(view)
+                                    isLyricsExpanded = true
+                                }
+                                .padding(horizontal = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.lyrics_label),
+                                    style = AuroType.MicroLabel.copy(
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Icon(
+                                    imageVector = Icons.Rounded.KeyboardArrowUp,
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = 0.70f),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // ─────────────────────── TELA 4: LETRAS EXPANDIDAS (Lyrics Mode) ───────────────────────
+                    Column(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        // 1. Linha Compacta Superior: Título/Artista à esquerda, Play 40dp à direita
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = track.title,
+                                    style = AuroType.CardTitle.copy(
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = Color.White,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                                    style = AuroType.Subtitle.copy(
+                                        fontSize = 13.sp,
+                                        color = Color.White.copy(alpha = 0.55f)
+                                    ),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            TranslucentPlayButton(
+                                isPlaying = isPlaying,
+                                size = 40.dp,
+                                onClick = onPlayPause
+                            )
+                        }
+
+                        // 2. Scrubber compacto abaixo da linha
+                        EditorialScrubber(
+                            progressMs = progressMs,
+                            durationMs = durationMs,
+                            onSeek = { ms ->
+                                val frac = if (durationMs > 0) ms.toFloat() / durationMs.toFloat() else 0f
+                                onSeek(frac)
+                            },
+                            showTimestampsOnlyWhenDragging = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp, vertical = 6.dp)
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // 3. Sheet Elevada de Letras (Fundo #1C1C1E + 12% tint da capa)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                                .background(Color(0xFF1C1C1E))
+                                .background(accent.copy(alpha = 0.12f))
+                                .border(
+                                    0.5.dp,
+                                    Color.White.copy(alpha = 0.08f),
+                                    RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+                                )
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                // Pílula/Handle "Letras v" no topo
+                                Box(
+                                    modifier = Modifier
+                                        .padding(top = 12.dp, bottom = 8.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.12f))
+                                        .clickable {
+                                            AuroHaptics.click(view)
+                                            isLyricsExpanded = false
+                                        }
+                                        .padding(horizontal = 14.dp, vertical = 4.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = stringResource(R.string.lyrics_label),
+                                            style = AuroType.MicroLabel.copy(
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium
+                                            ),
+                                            color = Color.White
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Icon(
+                                            imageVector = Icons.Rounded.KeyboardArrowDown,
+                                            contentDescription = null,
+                                            tint = Color.White.copy(alpha = 0.70f),
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                    }
+                                }
+
+                                // Letras centralizadas
+                                LyricsContentView(
+                                    lyrics = lyricsData,
+                                    progressMs = progressMs,
+                                    durationMs = durationMs,
+                                    onSeek = onSeek,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 24.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ─────────────────────── Bottom Sheet: Menu ••• (Opções Rápidas) ───────────────────────
+    if (showOptionsMenu) {
+        ModalBottomSheet(
+            onDismissRequest = { showOptionsMenu = false },
+            containerColor = AuroColor.SurfaceGrouped,
+            scrimColor = Color.Black.copy(alpha = 0.65f),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            dragHandle = {
+                Box(
+                    modifier = Modifier
+                        .padding(vertical = 10.dp)
+                        .width(36.dp)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.25f))
                 )
-            } else {
-                AuroCoverPlaceholder(
-                    modifier = Modifier.fillMaxSize(),
-                    glass = false,
-                    shape = RoundedCornerShape(AuroRadius.cover)
+            }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Fila de Reprodução
+                QuickMenuItem(
+                    icon = Icons.AutoMirrored.Outlined.QueueMusic,
+                    title = stringResource(R.string.menu_queue),
+                    onClick = {
+                        showOptionsMenu = false
+                        showQueueSheet = true
+                    }
+                )
+
+                // Equalizador & Áudio Espacial
+                QuickMenuItem(
+                    icon = Icons.Rounded.GraphicEq,
+                    title = stringResource(R.string.menu_equalizer_spatial),
+                    onClick = {
+                        showOptionsMenu = false
+                        onOpenEqualizer()
+                    }
+                )
+
+                // Adicionar à Playlist
+                QuickMenuItem(
+                    icon = Icons.Rounded.PlaylistAdd,
+                    title = stringResource(R.string.selection_add_playlist),
+                    onClick = {
+                        showOptionsMenu = false
+                        onOpenTrackInfo()
+                    }
+                )
+
+                // Temporizador
+                QuickMenuItem(
+                    icon = Icons.Rounded.Timer,
+                    title = stringResource(R.string.menu_sleep_timer),
+                    onClick = {
+                        showOptionsMenu = false
+                        onOpenTrackInfo()
+                    }
+                )
+
+                // Informações da Faixa
+                QuickMenuItem(
+                    icon = Icons.Rounded.Info,
+                    title = stringResource(R.string.context_track_info),
+                    onClick = {
+                        showOptionsMenu = false
+                        onOpenTrackInfo()
+                    }
                 )
             }
         }
+    }
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Título e Artista com botão de Coração de Favorito
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = track.title,
-                    style = AuroType.NowPlayingTitle,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                    style = AuroType.Subtitle.copy(color = AuroColor.TextSecondary),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+    // ─────────────────────── Bottom Sheet: Fila de Reprodução ───────────────────────
+    if (showQueueSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showQueueSheet = false },
+            containerColor = AuroColor.SurfaceGrouped,
+            scrimColor = Color.Black.copy(alpha = 0.65f),
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            dragHandle = {
+                Box(
+                    modifier = Modifier
+                        .padding(vertical = 10.dp)
+                        .width(36.dp)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.25f))
                 )
             }
-
-            // Botão de Favorito (Coração)
-            val isFavorite = track.rating > 0
+        ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(AuroColor.ControlGlass)
-                    .border(0.5.dp, Color.White.copy(alpha = 0.12f), CircleShape)
-                    .clickable {
-                        val nextRating = if (isFavorite) 0 else 5
-                        onRatingChanged(nextRating)
-                    },
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.75f)
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 24.dp)
             ) {
-                Icon(
-                    imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                    contentDescription = stringResource(if (isFavorite) R.string.cd_unfavorite else R.string.cd_favorite),
-                    tint = if (isFavorite) Color.White else AuroColor.TextSecondary,
-                    modifier = Modifier.size(20.dp)
+                InlineQueueView(
+                    priorityTracks = priorityTracks,
+                    regularTracks = regularTracks,
+                    currentTrackId = currentTrackId,
+                    shuffleMode = shuffleMode,
+                    repeatMode = repeatMode,
+                    onToggleShuffle = onToggleShuffle,
+                    onToggleRepeat = onToggleRepeat,
+                    onClearQueue = onClearQueue,
+                    onTrackClick = onQueueTrackClick,
+                    onRemoveTrack = onRemoveQueueTrack
                 )
             }
         }
     }
 }
 
-// ─────────────────────── Componente de Letras (LyricsView) ───────────────────────
+@Composable
+private fun QuickMenuItem(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit
+) {
+    val view = LocalView.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable {
+                AuroHaptics.click(view)
+                onClick()
+            }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.85f),
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = title,
+            style = AuroType.Body.copy(
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White
+            )
+        )
+    }
+}
+
+// ─────────────────────── Componente de Letras Centralizadas (LyricsContentView) ───────────────────────
 
 @Composable
-private fun LyricsView(
+private fun LyricsContentView(
     lyrics: LyricsManager.Lyrics?,
     progressMs: Long,
     durationMs: Long,
-    onSeek: (Float) -> Unit
+    onSeek: (Float) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val listState = rememberLazyListState()
 
     if (lyrics == null || lyrics.lines.isEmpty()) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = modifier,
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -758,7 +889,6 @@ private fun LyricsView(
             }
         }
     } else {
-        // Encontra a linha ativa de acordo com o progresso atual
         val activeLineIndex = remember(progressMs, lyrics) {
             val idx = lyrics.lines.indexOfLast { it.timeMs <= progressMs }
             if (idx >= 0) idx else 0
@@ -772,16 +902,32 @@ private fun LyricsView(
 
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(vertical = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            modifier = modifier,
+            contentPadding = PaddingValues(vertical = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             itemsIndexed(lyrics.lines) { index, line ->
                 val isLineActive = index == activeLineIndex && lyrics.isSynced
 
                 Text(
                     text = line.text,
-                    style = if (isLineActive) AuroType.LyricsActive else AuroType.LyricsInactive,
+                    style = if (isLineActive) {
+                        AuroType.LyricsActive.copy(
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White,
+                            textAlign = TextAlign.Center
+                        )
+                    } else {
+                        AuroType.LyricsInactive.copy(
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = Color.White.copy(alpha = 0.28f),
+                            textAlign = TextAlign.Center
+                        )
+                    },
+                    textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable {
@@ -797,7 +943,7 @@ private fun LyricsView(
     }
 }
 
-// ─────────────────────── Componente de Fila Inline (InlineQueueView) ───────────────────────
+// ─────────────────────── Componente de Fila Inline (InlineQueueView - Acromático) ───────────────────────
 
 @Composable
 private fun InlineQueueView(
@@ -812,12 +958,11 @@ private fun InlineQueueView(
     onTrackClick: (Track, Int, Boolean) -> Unit,
     onRemoveTrack: (Track) -> Unit
 ) {
-    val accent = LocalAuroAccent.current.a.value
     val view = LocalView.current
     val totalTracks = priorityTracks.size + regularTracks.size
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // 3 Pílulas translúcidas no topo (Aleatório, Repetir, Limpar)
+        // 3 Pílulas no topo: Aleatório, Repetir, Limpar (100% Branco Acromático)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -832,10 +977,10 @@ private fun InlineQueueView(
                     .weight(1f)
                     .height(36.dp)
                     .clip(CircleShape)
-                    .background(if (isShuffleActive) accent.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.08f))
+                    .background(if (isShuffleActive) Color.White.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.08f))
                     .border(
                         1.dp,
-                        if (isShuffleActive) accent.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.12f),
+                        if (isShuffleActive) Color.White.copy(alpha = 0.60f) else Color.White.copy(alpha = 0.12f),
                         CircleShape
                     )
                     .clickable {
@@ -848,7 +993,7 @@ private fun InlineQueueView(
                 Icon(
                     imageVector = Icons.Rounded.Shuffle,
                     contentDescription = null,
-                    tint = if (isShuffleActive) accent else AuroColor.TextSecondary,
+                    tint = if (isShuffleActive) Color.White else AuroColor.TextSecondary,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -868,10 +1013,10 @@ private fun InlineQueueView(
                     .weight(1f)
                     .height(36.dp)
                     .clip(CircleShape)
-                    .background(if (isRepeatActive) accent.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.08f))
+                    .background(if (isRepeatActive) Color.White.copy(alpha = 0.18f) else Color.White.copy(alpha = 0.08f))
                     .border(
                         1.dp,
-                        if (isRepeatActive) accent.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.12f),
+                        if (isRepeatActive) Color.White.copy(alpha = 0.60f) else Color.White.copy(alpha = 0.12f),
                         CircleShape
                     )
                     .clickable {
@@ -884,7 +1029,7 @@ private fun InlineQueueView(
                 Icon(
                     imageVector = if (repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
                     contentDescription = null,
-                    tint = if (isRepeatActive) accent else AuroColor.TextSecondary,
+                    tint = if (isRepeatActive) Color.White else AuroColor.TextSecondary,
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
@@ -954,7 +1099,7 @@ private fun InlineQueueView(
                         Text(
                             text = stringResource(R.string.queue_section_priority),
                             style = AuroType.Caption.copy(
-                                color = accent,
+                                color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             ),
@@ -1007,13 +1152,12 @@ private fun InlineTrackRow(
     onRemove: () -> Unit
 ) {
     val coverBitmap = rememberTrackCover(track, 100)
-    val accent = LocalAuroAccent.current.a.value
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(AuroRadius.card))
-            .background(if (isPlaying) accent.copy(alpha = 0.15f) else AuroColor.SurfaceGrouped.copy(alpha = 0.70f))
+            .background(if (isPlaying) Color.White.copy(alpha = 0.12f) else AuroColor.SurfaceGrouped.copy(alpha = 0.70f))
             .clickable { onClick() }
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -1047,7 +1191,7 @@ private fun InlineTrackRow(
                 text = track.title,
                 style = AuroType.Body.copy(
                     fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.SemiBold,
-                    color = if (isPlaying) accent else AuroColor.TextPrimary
+                    color = if (isPlaying) Color.White else AuroColor.TextPrimary
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -1080,177 +1224,6 @@ private fun InlineTrackRow(
                 contentDescription = stringResource(R.string.cd_delete_preset),
                 tint = AuroColor.TextTertiary,
                 modifier = Modifier.size(16.dp)
-            )
-        }
-    }
-}
-
-// ─────────────────────── Scrubber Apple Music (Barra de Progresso) ───────────────────────
-
-@Composable
-fun AppleScrubberBar(
-    progressMs: Long,
-    durationMs: Long,
-    track: Track? = null,
-    spatialMode: Int = 0,
-    onOpenEqualizer: () -> Unit = {},
-    onSeek: (Float) -> Unit,
-    onSeekJumpBackward: () -> Unit = {},
-    onSeekJumpForward: () -> Unit = {},
-    modifier: Modifier = Modifier
-) {
-    val accent = LocalAuroAccent.current.a.value
-    val view = LocalView.current
-    var isDragging by remember { mutableStateOf(false) }
-    var dragFraction by remember { mutableFloatStateOf(0f) }
-    var showRemainingTime by remember { mutableStateOf(true) }
-
-    val activeFraction = (if (isDragging) dragFraction else (if (durationMs > 0) progressMs.toFloat() / durationMs.toFloat() else 0f)).coerceIn(0f, 1f)
-    val displayedMs = (activeFraction * durationMs).toLong()
-    val remainingMs = (durationMs - displayedMs).coerceAtLeast(0)
-
-    val trackHeight by animateDpAsState(
-        targetValue = if (isDragging) 8.dp else 4.dp,
-        animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f),
-        label = "scrubberHeight"
-    )
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(36.dp)
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            isDragging = true
-                            dragFraction = (offset.x / size.width).coerceIn(0f, 1f)
-                            AuroHaptics.click(view)
-                        },
-                        onDragEnd = {
-                            onSeek(dragFraction)
-                            isDragging = false
-                            AuroHaptics.confirm(view)
-                        },
-                        onDragCancel = {
-                            isDragging = false
-                        }
-                    ) { change, _ ->
-                        change.consume()
-                        val newFrac = (change.position.x / size.width).coerceIn(0f, 1f)
-                        if ((newFrac * 25).toInt() != (dragFraction * 25).toInt()) {
-                            AuroHaptics.sliderTick(view)
-                        }
-                        dragFraction = newFrac
-                    }
-                }
-                .pointerInput(Unit) {
-                    detectTapGestures { offset ->
-                        val frac = (offset.x / size.width).coerceIn(0f, 1f)
-                        AuroHaptics.click(view)
-                        onSeek(frac)
-                    }
-                },
-            contentAlignment = Alignment.CenterStart
-        ) {
-            // Trilho inativo
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(trackHeight)
-                    .clip(RoundedCornerShape(trackHeight / 2))
-                    .background(Color.White.copy(alpha = 0.18f))
-            )
-
-            // Trilho ativo com cor adaptativa ou branco translúcido
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(activeFraction)
-                    .height(trackHeight)
-                    .clip(RoundedCornerShape(trackHeight / 2))
-                    .background(Color.White.copy(alpha = 0.85f))
-            )
-
-            // Thumb sutil visível ao arrastar
-            if (isDragging) {
-                val thumbOffset = ((maxWidth - 12.dp) * activeFraction).coerceAtLeast(0.dp)
-                Box(
-                    modifier = Modifier
-                        .offset(x = thumbOffset)
-                        .size(12.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                )
-            }
-        }
-
-        // Tempos em monospace nas extremidades com selo de áudio central
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 2.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = formatTimeMs(displayedMs),
-                style = AuroType.Caption.copy(
-                    fontSize = 12.sp,
-                    color = AuroColor.TextSecondary,
-                    fontFamily = FontFamily.Monospace,
-                    fontFeatureSettings = "tnum"
-                )
-            )
-
-            // Selo de áudio central (ex.: FLAC • 48 kHz • + Espacial)
-            if (track != null) {
-                val fmt = if (track.formatTag.isNotBlank()) track.formatTag.uppercase()
-                else track.path.substringAfterLast('.', "").uppercase()
-                val khz = if (track.sampleRateHz > 0) "${track.sampleRateHz / 1000} kHz" else ""
-                val badgeText = buildString {
-                    if (fmt.isNotBlank()) append(fmt)
-                    if (khz.isNotBlank()) {
-                        if (isNotEmpty()) append(" • ")
-                        append(khz)
-                    }
-                    if (spatialMode != 0) {
-                        if (isNotEmpty()) append(" • ")
-                        append("+ Espacial")
-                    }
-                }
-
-                if (badgeText.isNotBlank()) {
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color.White.copy(alpha = 0.10f))
-                            .clickable { onOpenEqualizer() }
-                            .padding(horizontal = 6.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = badgeText,
-                            style = AuroType.Caption.copy(
-                                fontSize = 10.sp,
-                                color = if (spatialMode != 0) accent else AuroColor.TextSecondary,
-                                fontWeight = FontWeight.SemiBold,
-                                fontFamily = FontFamily.Monospace,
-                                fontFeatureSettings = "tnum"
-                            )
-                        )
-                    }
-                }
-            }
-
-            Text(
-                text = if (showRemainingTime) "-${formatTimeMs(remainingMs)}" else formatTimeMs(durationMs),
-                style = AuroType.Caption.copy(
-                    fontSize = 12.sp,
-                    color = AuroColor.TextSecondary,
-                    fontFamily = FontFamily.Monospace,
-                    fontFeatureSettings = "tnum"
-                ),
-                modifier = Modifier.clickable { showRemainingTime = !showRemainingTime }
             )
         }
     }

@@ -376,4 +376,10 @@
     <string name="snackbar_timer_set_track_end">Will turn off in %1$d min (at track end)</string>
     <string name="snackbar_rating_set">Rated %1$d stars</string>
     <string name="snackbar_rating_removed">Rating removed</string>
+
+    <!-- Menu Principal Title Case -->
+    <string name="menu_queue">Playback Queue</string>
+    <string name="menu_equalizer_spatial">Equalizer &amp; Spatial Audio</string>
+    <string name="menu_sleep_timer">Sleep Timer</string>
+    <string name="menu_about">About</string>
 </resources>

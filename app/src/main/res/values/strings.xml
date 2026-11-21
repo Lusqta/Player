@@ -377,4 +377,10 @@
     <string name="snackbar_timer_set_track_end">Desligará em %1$d min (ao fim da faixa)</string>
     <string name="snackbar_rating_set">Classificada com %1$d estrelas</string>
     <string name="snackbar_rating_removed">Classificação removida</string>
+
+    <!-- Menu Principal Title Case -->
+    <string name="menu_queue">Fila de Reprodução</string>
+    <string name="menu_equalizer_spatial">Equalizador &amp; Áudio Espacial</string>
+    <string name="menu_sleep_timer">Temporizador</string>
+    <string name="menu_about">Sobre</string>
 </resources>

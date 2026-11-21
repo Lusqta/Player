@@ -140,7 +140,7 @@ fun AuroSettingsScreen(
                                     stringResource(R.string.settings_ignore_shorter_than_sec, ignoreShorterThanSec)
                                 },
                                 style = AuroType.Label.copy(
-                                    color = accent,
+                                    color = Color.White,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -168,7 +168,7 @@ fun AuroSettingsScreen(
                             Icon(
                                 imageVector = Icons.Rounded.Refresh,
                                 contentDescription = null,
-                                tint = accent,
+                                tint = Color.White,
                                 modifier = Modifier.size(22.dp)
                             )
                         }
@@ -232,7 +232,7 @@ fun AuroSettingsScreen(
                             Text(
                                 text = "${crossfadeSeconds}s",
                                 style = AuroType.Label.copy(
-                                    color = accent,
+                                    color = Color.White,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -289,7 +289,7 @@ fun AuroSettingsScreen(
                                 Text(
                                     text = String.format("%.1f dB", rgPreampWith),
                                     style = AuroType.Label.copy(
-                                        color = accent,
+                                        color = Color.White,
                                         fontFamily = FontFamily.Monospace,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -326,7 +326,7 @@ fun AuroSettingsScreen(
                             Text(
                                 text = String.format("%.1f dB", rgPreampWithout),
                                 style = AuroType.Label.copy(
-                                    color = accent,
+                                    color = Color.White,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -364,17 +364,6 @@ fun AuroSettingsScreen(
             item {
                 SettingsSectionHeader(stringResource(R.string.settings_section_appearance))
                 SettingsCard {
-                    SettingsSwitchRow(
-                        title = stringResource(R.string.settings_reduce_transparency),
-                        subtitle = stringResource(R.string.settings_reduce_transparency_desc),
-                        checked = reduceTransparency,
-                        onCheckedChange = {
-                            reduceTransparency = it
-                            preferencesManager.setReduceTransparencyEnabled(it)
-                            onSettingsChanged()
-                        }
-                    )
-                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
                     val accentModeLabel = when (accentColorMode) {
                         1 -> stringResource(R.string.settings_accent_apple_blue)
                         else -> stringResource(R.string.settings_accent_adaptive)
@@ -397,113 +386,6 @@ fun AuroSettingsScreen(
                             )
                         }
                     )
-                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
-                    SettingsSwitchRow(
-                        title = stringResource(R.string.settings_tilt_light),
-                        subtitle = stringResource(R.string.settings_tilt_light_desc),
-                        checked = tiltEnabled,
-                        onCheckedChange = {
-                            tiltEnabled = it
-                            preferencesManager.setLightReactionTiltEnabled(it)
-                            onSettingsChanged()
-                        }
-                    )
-                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.settings_reflection_softness),
-                                    style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = stringResource(R.string.settings_reflection_softness_desc),
-                                    style = AuroType.Label.copy(color = AuroColor.TextSecondary)
-                                )
-                            }
-                            Text(
-                                text = String.format("%.2f", reflectionSoftness),
-                                style = AuroType.Label.copy(
-                                    color = accent,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        AuroSlider(
-                            value = reflectionSoftness,
-                            onValueChange = {
-                                reflectionSoftness = it
-                                preferencesManager.setReflectionSoftness(it)
-                                onSettingsChanged()
-                            },
-                            valueRange = 0f..1f,
-                            steps = 20
-                        )
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Preview de transparência com gradiente vibrante por trás
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(76.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                    Brush.linearGradient(
-                                        colors = listOf(
-                                            Color(0xFFFF2D55),
-                                            Color(0xFF5856D6),
-                                            Color(0xFF007AFF),
-                                            Color(0xFF34C759)
-                                        )
-                                    )
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            LiquidGlassSurface(
-                                shape = CircleShape,
-                                soft = reflectionSoftness,
-                                modifier = Modifier
-                                    .height(44.dp)
-                                    .padding(horizontal = 20.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .padding(horizontal = 16.dp)
-                                        .fillMaxHeight(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.PlayArrow,
-                                        contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Liquid Glass • ${(reflectionSoftness * 100).toInt()}%",
-                                        style = AuroType.Caption.copy(
-                                            color = Color.White,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    }
                     HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
                     val motionLabel = when (reduceMotionMode) {
                         1 -> stringResource(R.string.settings_reduce_motion_always)
@@ -705,8 +587,9 @@ private fun SettingsCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(AuroColor.SurfaceGrouped),
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(AuroColor.SurfaceCard),
         content = content
     )
 }
@@ -716,11 +599,11 @@ private fun SettingsSectionHeader(title: String) {
     Text(
         text = title,
         style = AuroType.SectionHeader.copy(
-            color = LocalAuroAccent.current.a.value,
+            color = AuroColor.TextTertiary,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace
         ),
-        modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 8.dp)
+        modifier = Modifier.padding(start = 28.dp, top = 20.dp, bottom = 8.dp)
     )
 }
 

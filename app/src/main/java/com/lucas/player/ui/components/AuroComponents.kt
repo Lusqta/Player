@@ -5,7 +5,7 @@ import android.graphics.Bitmap
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.unit.Dp
 import kotlin.math.abs
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
@@ -113,7 +113,6 @@ fun AuroProgressBar(
     onSeekJumpForward: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val accent = LocalAuroAccent.current.a.value
     val view = LocalView.current
     var isDragging by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableFloatStateOf(0f) }
@@ -214,12 +213,12 @@ fun AuroProgressBar(
                     .background(AuroColor.Track, RoundedCornerShape(1.5.dp))
             )
 
-            // Preenchimento com Accent A
+            // Preenchimento com Branco Puro
             Box(
                 modifier = Modifier
                     .fillMaxWidth(activeFraction)
                     .height(3.dp)
-                    .background(accent, RoundedCornerShape(1.5.dp))
+                    .background(Color.White, RoundedCornerShape(1.5.dp))
             )
 
             // Bolinha branca de 10dp
@@ -292,25 +291,29 @@ fun EditorialFloatingNavbar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             EditorialNavIcon(
-                icon = Icons.Rounded.Home,
+                activeIcon = Icons.Rounded.Home,
+                inactiveIcon = Icons.Outlined.Home,
                 contentDescription = stringResource(R.string.tab_home),
                 isActive = currentScreen is NavScreen.Home,
                 onClick = onHomeClick
             )
             EditorialNavIcon(
-                icon = Icons.Rounded.Search,
+                activeIcon = Icons.Rounded.Search,
+                inactiveIcon = Icons.Outlined.Search,
                 contentDescription = stringResource(R.string.tab_search),
                 isActive = currentScreen is NavScreen.Search,
                 onClick = onSearchClick
             )
             EditorialNavIcon(
-                icon = Icons.Rounded.LibraryMusic,
+                activeIcon = Icons.Rounded.Favorite,
+                inactiveIcon = Icons.Outlined.FavoriteBorder,
                 contentDescription = stringResource(R.string.tab_library),
                 isActive = currentScreen is NavScreen.LibraryRoot || currentScreen is NavScreen.CategoryList || currentScreen is NavScreen.Drilldown,
                 onClick = onLibraryClick
             )
             EditorialNavIcon(
-                icon = Icons.Rounded.Tune,
+                activeIcon = Icons.Rounded.Tune,
+                inactiveIcon = Icons.Outlined.Tune,
                 contentDescription = stringResource(R.string.tab_tune),
                 isActive = currentScreen is NavScreen.Equalizer || currentScreen is NavScreen.Settings,
                 onClick = onTuneClick
@@ -321,7 +324,8 @@ fun EditorialFloatingNavbar(
 
 @Composable
 private fun EditorialNavIcon(
-    icon: ImageVector,
+    activeIcon: ImageVector,
+    inactiveIcon: ImageVector,
     contentDescription: String,
     isActive: Boolean,
     onClick: () -> Unit
@@ -336,7 +340,7 @@ private fun EditorialNavIcon(
     )
 
     val tint by animateColorAsState(
-        targetValue = if (isActive) Color.White else Color.White.copy(alpha = 0.40f),
+        targetValue = if (isActive) Color.White else Color.White.copy(alpha = 0.45f),
         animationSpec = tween(200),
         label = "nav_icon_tint"
     )
@@ -356,26 +360,12 @@ private fun EditorialNavIcon(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = contentDescription,
-                tint = tint,
-                modifier = Modifier.size(24.dp)
-            )
-            if (isActive) {
-                Spacer(modifier = Modifier.height(3.dp))
-                Box(
-                    modifier = Modifier
-                        .size(3.5.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                )
-            }
-        }
+        Icon(
+            imageVector = if (isActive) activeIcon else inactiveIcon,
+            contentDescription = contentDescription,
+            tint = tint,
+            modifier = Modifier.size(24.dp)
+        )
     }
 }
 
@@ -665,15 +655,23 @@ fun EditorialSectionHeader(
             color = AuroColor.TextPrimary
         )
         if (actionLabel != null && onAction != null) {
-            Text(
-                text = actionLabel,
-                style = AuroType.Subtitle,
-                color = AuroColor.TextSecondary,
+            Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+                    .height(24.dp)
+                    .clip(CircleShape)
+                    .background(AuroColor.PillMuted)
                     .clickable(onClick = onAction)
-                    .padding(horizontal = 6.dp, vertical = 4.dp)
-            )
+                    .padding(horizontal = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = actionLabel,
+                    style = AuroType.MicroLabel.copy(
+                        fontSize = 11.sp,
+                        color = Color.White.copy(alpha = 0.75f)
+                    )
+                )
+            }
         }
     }
 }
@@ -689,8 +687,10 @@ fun EditorialScrubber(
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
     activeColor: Color = AuroColor.ScrubberActive,
-    trackColor: Color = AuroColor.ScrubberTrack
+    trackColor: Color = AuroColor.ScrubberTrack,
+    showTimestampsOnlyWhenDragging: Boolean = true
 ) {
+    var isDragging by remember { mutableStateOf(false) }
     var draggingFraction by remember { mutableFloatStateOf(-1f) }
     val view = LocalView.current
     val currentFraction = if (durationMs > 0) (progressMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
@@ -704,6 +704,7 @@ fun EditorialScrubber(
                 .pointerInput(durationMs) {
                     detectDragGestures(
                         onDragStart = { offset ->
+                            isDragging = true
                             val f = (offset.x / size.width).coerceIn(0f, 1f)
                             draggingFraction = f
                             AuroHaptics.sliderTick(view)
@@ -711,12 +712,14 @@ fun EditorialScrubber(
                         onDragEnd = {
                             if (draggingFraction >= 0f) {
                                 onSeek((draggingFraction * durationMs).toLong())
-                                draggingFraction = -1f
-                                AuroHaptics.click(view)
                             }
+                            draggingFraction = -1f
+                            isDragging = false
+                            AuroHaptics.click(view)
                         },
                         onDragCancel = {
                             draggingFraction = -1f
+                            isDragging = false
                         }
                     ) { change, _ ->
                         change.consume()
@@ -764,32 +767,38 @@ fun EditorialScrubber(
             }
         }
 
-        // Time labels
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 2.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
+        // Time labels com AnimatedVisibility
+        AnimatedVisibility(
+            visible = !showTimestampsOnlyWhenDragging || isDragging,
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(150))
         ) {
-            val elapsed = if (draggingFraction >= 0f) (draggingFraction * durationMs).toLong() else progressMs
-            val remaining = (durationMs - elapsed).coerceAtLeast(0)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 2.dp, end = 2.dp, top = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                val elapsed = if (draggingFraction >= 0f) (draggingFraction * durationMs).toLong() else progressMs
+                val remaining = (durationMs - elapsed).coerceAtLeast(0)
 
-            Text(
-                text = formatTimeMs(elapsed),
-                style = AuroType.MicroLabel.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontFeatureSettings = "tnum"
-                ),
-                color = AuroColor.TextSecondary
-            )
-            Text(
-                text = "-${formatTimeMs(remaining)}",
-                style = AuroType.MicroLabel.copy(
-                    fontFamily = FontFamily.Monospace,
-                    fontFeatureSettings = "tnum"
-                ),
-                color = AuroColor.TextSecondary
-            )
+                Text(
+                    text = formatTimeMs(elapsed),
+                    style = AuroType.MicroLabel.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontFeatureSettings = "tnum"
+                    ),
+                    color = AuroColor.TextSecondary
+                )
+                Text(
+                    text = "-${formatTimeMs(remaining)}",
+                    style = AuroType.MicroLabel.copy(
+                        fontFamily = FontFamily.Monospace,
+                        fontFeatureSettings = "tnum"
+                    ),
+                    color = AuroColor.TextSecondary
+                )
+            }
         }
     }
 }
@@ -988,7 +997,6 @@ fun AuroMiniPlayer(
 ) {
     if (track == null) return
 
-    val accent = LocalAuroAccent.current.a.value
     val progressFraction = if (durationMs > 0) {
         (progressMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
     } else 0f
@@ -1013,7 +1021,7 @@ fun AuroMiniPlayer(
                     modifier = Modifier
                         .fillMaxWidth(progressFraction)
                         .fillMaxHeight()
-                        .background(accent)
+                        .background(Color.White)
                 )
             }
 
@@ -1309,7 +1317,6 @@ fun AuroTrackRow(
     showFormatTag: Boolean = true,
     isAudioPlaying: Boolean = LocalAuroIsPlaying.current
 ) {
-    val accent = LocalAuroAccent.current.a.value
     val view = LocalView.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -1826,8 +1833,6 @@ fun AuroRatingBar(
     onRatingSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val accent = LocalAuroAccent.current.a.value
-
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically
@@ -1846,7 +1851,7 @@ fun AuroRatingBar(
                 Icon(
                     imageVector = if (isFilled) Icons.Rounded.Star else Icons.Rounded.StarBorder,
                     contentDescription = pluralStringResource(R.plurals.star_rating_desc, i, i),
-                    tint = if (isFilled) accent else AuroColor.TextTertiary,
+                    tint = if (isFilled) Color.White else AuroColor.TextTertiary,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -1877,7 +1882,6 @@ fun AuroSwitch(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    val accent = LocalAuroAccent.current.a.value
     val view = LocalView.current
     val reduceMotion = com.lucas.player.ui.theme.rememberReduceMotion()
 
@@ -1940,7 +1944,6 @@ fun AuroSlider(
     onValueChangeFinished: (() -> Unit)? = null,
     enabled: Boolean = true
 ) {
-    val accent = LocalAuroAccent.current.a.value
     val view = LocalView.current
     var lastTickValue by remember { mutableFloatStateOf(value) }
 
@@ -2028,13 +2031,13 @@ fun AuroSlider(
                 .background(Color.White.copy(alpha = 0.15f))
         )
 
-        // Trilho ativo com preenchimento Accent A
+        // Trilho ativo em branco puro
         Box(
             modifier = Modifier
                 .fillMaxWidth(fraction)
                 .height(4.dp)
                 .clip(RoundedCornerShape(2.dp))
-                .background(accent)
+                .background(Color.White)
         )
 
         // Bolinha / Indicador (Thumb)
@@ -2046,7 +2049,7 @@ fun AuroSlider(
                 .size(thumbRadius * 2)
                 .clip(CircleShape)
                 .background(Color.White)
-                .border(1.dp, accent.copy(alpha = 0.8f), CircleShape)
+                .border(0.5.dp, Color.Black.copy(alpha = 0.25f), CircleShape)
         )
     }
 }

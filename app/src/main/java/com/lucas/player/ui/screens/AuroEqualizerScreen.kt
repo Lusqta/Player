@@ -47,7 +47,6 @@ import com.lucas.player.ui.theme.AuroGlassKind
 import com.lucas.player.ui.theme.AuroHeight
 import com.lucas.player.ui.theme.AuroSpace
 import com.lucas.player.ui.theme.AuroType
-import com.lucas.player.ui.theme.LocalAuroAccent
 import com.lucas.player.ui.theme.LocalAuroBottomInset
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -105,7 +104,6 @@ fun AuroEqualizerScreen(
     listState: LazyListState = rememberLazyListState(),
     modifier: Modifier = Modifier
 ) {
-    val accent = LocalAuroAccent.current.a.value
     val bandFreqs = remember {
         listOf("31Hz", "62Hz", "125Hz", "250Hz", "500Hz", "1kHz", "2kHz", "4kHz", "8kHz", "16kHz")
     }
@@ -191,14 +189,14 @@ fun AuroEqualizerScreen(
                             Icon(
                                 imageVector = Icons.Outlined.BookmarkAdd,
                                 contentDescription = null,
-                                tint = accent,
+                                tint = Color.White,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = stringResource(R.string.eq_save),
                                 style = AuroType.Label.copy(
-                                    color = accent,
+                                    color = Color.White,
                                     fontWeight = FontWeight.Bold
                                 )
                             )
@@ -213,10 +211,10 @@ fun AuroEqualizerScreen(
                             modifier = Modifier
                                 .height(32.dp)
                                 .clip(RoundedCornerShape(16.dp))
-                                .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                .background(if (isSelected) Color.White.copy(alpha = 0.16f) else Color.Transparent)
                                 .border(
                                     width = 1.dp,
-                                    color = if (isSelected) accent.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.18f),
+                                    color = if (isSelected) Color.White.copy(alpha = 0.60f) else Color.White.copy(alpha = 0.18f),
                                     shape = RoundedCornerShape(16.dp)
                                 )
                                 .clickable { onSelectPreset(p) }
@@ -301,10 +299,10 @@ fun AuroEqualizerScreen(
                                         .weight(1f)
                                         .fillMaxHeight()
                                         .clip(RoundedCornerShape(16.dp))
-                                        .background(if (isSelected) accent.copy(alpha = 0.25f) else Color.Transparent)
+                                        .background(if (isSelected) Color.White.copy(alpha = 0.16f) else Color.Transparent)
                                         .border(
                                             width = if (isSelected) 1.dp else 0.dp,
-                                            color = if (isSelected) accent.copy(alpha = 0.70f) else Color.Transparent,
+                                            color = if (isSelected) Color.White.copy(alpha = 0.60f) else Color.Transparent,
                                             shape = RoundedCornerShape(16.dp)
                                         )
                                         .clickable {
@@ -355,10 +353,10 @@ fun AuroEqualizerScreen(
                                             .weight(1f)
                                             .height(34.dp)
                                             .clip(RoundedCornerShape(17.dp))
-                                            .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                            .background(if (isSelected) Color.White.copy(alpha = 0.16f) else Color.Transparent)
                                             .border(
                                                 width = 1.dp,
-                                                color = if (isSelected) accent.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.18f),
+                                                color = if (isSelected) Color.White.copy(alpha = 0.60f) else Color.White.copy(alpha = 0.18f),
                                                 shape = RoundedCornerShape(17.dp)
                                             )
                                             .clickable {
@@ -419,10 +417,10 @@ fun AuroEqualizerScreen(
                                         modifier = Modifier
                                             .height(34.dp)
                                             .clip(RoundedCornerShape(17.dp))
-                                            .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                            .background(if (isSelected) Color.White.copy(alpha = 0.16f) else Color.Transparent)
                                             .border(
                                                 width = 1.dp,
-                                                color = if (isSelected) accent.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.18f),
+                                                color = if (isSelected) Color.White.copy(alpha = 0.60f) else Color.White.copy(alpha = 0.18f),
                                                 shape = RoundedCornerShape(17.dp)
                                             )
                                             .clickable {
@@ -590,7 +588,7 @@ fun AuroEqualizerScreen(
                                 Checkbox(
                                     checked = isMono,
                                     onCheckedChange = onToggleMono,
-                                    colors = CheckboxDefaults.colors(checkedColor = accent)
+                                    colors = CheckboxDefaults.colors(checkedColor = Color.White, checkmarkColor = Color.Black)
                                 )
                             }
                         }
@@ -661,7 +659,7 @@ fun AuroEqualizerScreen(
 
                                 drawPath(
                                     path = path,
-                                    color = accent,
+                                    color = Color.White,
                                     style = Stroke(
                                         width = 2.dp.toPx(),
                                         cap = StrokeCap.Round,

@@ -65,7 +65,6 @@ import com.lucas.player.ui.theme.AuroHeight
 import com.lucas.player.ui.theme.AuroSpace
 import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.LiquidGlassSurface
-import com.lucas.player.ui.theme.LocalAuroAccent
 import com.lucas.player.ui.theme.LocalAuroBottomInset
 import com.lucas.player.ui.theme.LocalAuroSoft
 import kotlinx.coroutines.delay
@@ -104,7 +103,6 @@ fun AuroSearchScreen(
     var debouncedQuery by remember { mutableStateOf(searchQuery) }
     var selectedFilter by remember { mutableStateOf(SearchFilter.ALL) }
     val recentSearches = remember { mutableStateListOf<String>() }
-    val accent = LocalAuroAccent.current.a.value
 
     LaunchedEffect(Unit) {
         recentSearches.clear()
@@ -227,8 +225,8 @@ fun AuroSearchScreen(
 
                 CompositionLocalProvider(
                     LocalTextSelectionColors provides TextSelectionColors(
-                        handleColor = accent,
-                        backgroundColor = accent.copy(alpha = 0.35f)
+                        handleColor = Color.White,
+                        backgroundColor = Color.White.copy(alpha = 0.25f)
                     )
                 ) {
                     BasicTextField(
@@ -238,7 +236,7 @@ fun AuroSearchScreen(
                             .weight(1f)
                             .focusRequester(focusRequester),
                         textStyle = AuroType.Body.copy(color = AuroColor.TextPrimary),
-                        cursorBrush = SolidColor(accent),
+                        cursorBrush = SolidColor(Color.White),
                         singleLine = true,
                         interactionSource = searchInteractionSource,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
@@ -546,7 +544,6 @@ private fun SearchFilterChip(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    val accent = LocalAuroAccent.current.a.value
     val view = LocalView.current
     val shape = RoundedCornerShape(16.dp)
 
@@ -566,10 +563,10 @@ private fun SearchFilterChip(
             modifier = Modifier
                 .height(AuroHeight.Chip)
                 .clip(shape)
-                .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                .background(if (isSelected) Color.White.copy(alpha = 0.16f) else Color.Transparent)
                 .border(
                     width = 1.dp,
-                    color = if (isSelected) accent.copy(alpha = 0.70f) else Color.White.copy(alpha = 0.18f),
+                    color = if (isSelected) Color.White.copy(alpha = 0.60f) else Color.White.copy(alpha = 0.18f),
                     shape = shape
                 )
                 .padding(horizontal = 14.dp),
@@ -592,7 +589,6 @@ private fun SearchSectionHeader(
     canViewAll: Boolean = false,
     onViewAll: () -> Unit = {}
 ) {
-    val accent = LocalAuroAccent.current.a.value
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -609,13 +605,23 @@ private fun SearchSectionHeader(
             )
         )
         if (canViewAll) {
-            Text(
-                text = stringResource(R.string.search_view_all),
-                style = AuroType.Label.copy(color = accent, fontWeight = FontWeight.Bold),
+            Box(
                 modifier = Modifier
+                    .height(24.dp)
+                    .clip(CircleShape)
+                    .background(AuroColor.PillMuted)
                     .clickable(onClick = onViewAll)
-                    .padding(4.dp)
-            )
+                    .padding(horizontal = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = stringResource(R.string.search_view_all),
+                    style = AuroType.MicroLabel.copy(
+                        fontSize = 11.sp,
+                        color = Color.White.copy(alpha = 0.75f)
+                    )
+                )
+            }
         }
     }
 }

@@ -28,6 +28,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
@@ -47,7 +48,6 @@ import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
 import com.lucas.player.ui.theme.AuroSpace
-import com.lucas.player.ui.theme.LocalAuroAccent
 import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlinx.coroutines.launch
 
@@ -110,7 +110,6 @@ fun AuroCategoryListScreen(
 
         // Banner de Ações Rápidas em categorias baseadas em faixas
         if (isTrackListCategory && displayedTracks.isNotEmpty()) {
-            val accent = LocalAuroAccent.current.a.value
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -135,14 +134,14 @@ fun AuroCategoryListScreen(
                         Icon(
                             imageVector = Icons.Rounded.PlayArrow,
                             contentDescription = null,
-                            tint = accent,
+                            tint = Color.White,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = stringResource(R.string.play_all),
                             style = AuroType.Body.copy(
-                                color = accent,
+                                color = Color.White,
                                 fontWeight = FontWeight.SemiBold
                             )
                         )
@@ -166,14 +165,14 @@ fun AuroCategoryListScreen(
                         Icon(
                             imageVector = Icons.Rounded.Shuffle,
                             contentDescription = null,
-                            tint = accent,
+                            tint = Color.White,
                             modifier = Modifier.size(18.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = stringResource(R.string.shuffle_all),
                             style = AuroType.Body.copy(
-                                color = accent,
+                                color = Color.White,
                                 fontWeight = FontWeight.SemiBold
                             )
                         )
@@ -194,14 +193,14 @@ fun AuroCategoryListScreen(
                 Icon(
                     imageVector = Icons.Rounded.Add,
                     contentDescription = null,
-                    tint = LocalAuroAccent.current.a.value,
+                    tint = Color.White,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Text(
                     text = stringResource(R.string.new_playlist_button),
                     style = AuroType.Label.copy(
-                        color = LocalAuroAccent.current.a.value,
+                        color = Color.White,
                         fontWeight = FontWeight.Bold
                     )
                 )

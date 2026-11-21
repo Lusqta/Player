@@ -274,7 +274,7 @@ fun AuroSnackbarHost(
                         Text(
                             text = current.action,
                             style = AuroType.Label.copy(
-                                color = LocalAuroAccent.current.a.value,
+                                color = Color.White,
                                 fontWeight = FontWeight.Bold
                             ),
                             modifier = Modifier
@@ -346,7 +346,7 @@ fun AuroEmptyState(
                     Text(
                         text = actionLabel,
                         style = AuroType.Label.copy(
-                            color = LocalAuroAccent.current.a.value,
+                            color = Color.White,
                             fontWeight = FontWeight.Medium
                         )
                     )
@@ -360,7 +360,6 @@ fun AuroEmptyState(
 fun AuroLoadingBar(
     modifier: Modifier = Modifier
 ) {
-    val accent = LocalAuroAccent.current.a.value
     val transition = rememberInfiniteTransition(label = "AuroLoadingTransition")
     val progress by transition.animateFloat(
         initialValue = -0.3f,
@@ -381,9 +380,9 @@ fun AuroLoadingBar(
                 val startX = (progress * size.width) - (barWidth / 2f)
                 val endX = startX + barWidth
 
-                // Track sutil de fundo em Accent A 15%
+                // Track sutil de fundo em branco 15%
                 drawLine(
-                    color = accent.copy(alpha = 0.15f),
+                    color = Color.White.copy(alpha = 0.15f),
                     start = Offset(0f, size.height / 2f),
                     end = Offset(size.width, size.height / 2f),
                     strokeWidth = size.height
@@ -394,9 +393,9 @@ fun AuroLoadingBar(
                     brush = Brush.horizontalGradient(
                         colors = listOf(
                             Color.Transparent,
-                            accent.copy(alpha = 0.7f),
+                            Color.White.copy(alpha = 0.5f),
                             Color.White,
-                            accent.copy(alpha = 0.7f),
+                            Color.White.copy(alpha = 0.5f),
                             Color.Transparent
                         ),
                         startX = startX.coerceAtLeast(0f),
@@ -417,53 +416,22 @@ fun AuroCoverPlaceholder(
     glass: Boolean = false,
     shape: Shape = RoundedCornerShape(AuroRadius.cover)
 ) {
-    val accent = LocalAuroAccent.current.a.value
-    val noteColor = accent.copy(alpha = 0.6f)
-
-    if (glass) {
-        AuroGlass(
-            kind = AuroGlassKind.Card,
-            modifier = modifier
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(AuroColor.Black),
-                contentAlignment = Alignment.Center
-            ) {
-                BoxWithConstraints(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    val side = min(maxWidth, maxHeight)
-                    Icon(
-                        imageVector = Icons.Rounded.MusicNote,
-                        contentDescription = null,
-                        tint = noteColor,
-                        modifier = Modifier.size(side * 0.4f)
-                    )
-                }
-            }
-        }
-    } else {
-        Box(
-            modifier = modifier
-                .background(AuroColor.Black, shape)
-                .border(1.dp, Color.White.copy(alpha = 0.10f), shape), // 10% branco contorno
+    Box(
+        modifier = modifier
+            .background(AuroColor.SurfaceCard, shape),
+        contentAlignment = Alignment.Center
+    ) {
+        BoxWithConstraints(
+            modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            BoxWithConstraints(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                val side = min(maxWidth, maxHeight)
-                Icon(
-                    imageVector = Icons.Rounded.MusicNote,
-                    contentDescription = null,
-                    tint = noteColor,
-                    modifier = Modifier.size(side * 0.4f)
-                )
-            }
+            val side = min(maxWidth, maxHeight)
+            Icon(
+                imageVector = Icons.Rounded.MusicNote,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.28f),
+                modifier = Modifier.size(side * 0.4f)
+            )
         }
     }
 }
