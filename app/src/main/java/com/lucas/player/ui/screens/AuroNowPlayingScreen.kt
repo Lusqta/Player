@@ -209,17 +209,19 @@ fun AuroNowPlayingScreen(
                         },
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Capa ocupando 100% da largura da tela sem deformar/cortar as laterais
+                    // Capa ocupando 100% da largura da tela sem deformar/cortar as laterais (abaixo da status bar)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(top = 6.dp)
                             .aspectRatio(1f)
-                            .heightIn(max = screenHeight * 0.56f)
+                            .heightIn(max = screenHeight * 0.52f)
                             .graphicsLayer {
                                 scaleX = coverScale
                                 scaleY = coverScale
                             }
-                            .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+                            .clip(RoundedCornerShape(28.dp))
                             .pointerInput(Unit) {
                                 var dx = 0f
                                 var dy = 0f
@@ -256,19 +258,19 @@ fun AuroNowPlayingScreen(
                         } else {
                             AuroCoverPlaceholder(
                                 modifier = Modifier.fillMaxSize(),
-                                shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
+                                shape = RoundedCornerShape(28.dp)
                             )
                         }
 
-                        // Fade sutil no topo para o chevron e status bar
+                        // Fade sutil no topo para legibilidade do chevron
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(88.dp)
+                                .height(64.dp)
                                 .align(Alignment.TopCenter)
                                 .background(
                                     Brush.verticalGradient(
-                                        listOf(Color.Black.copy(alpha = 0.42f), Color.Transparent)
+                                        listOf(Color.Black.copy(alpha = 0.35f), Color.Transparent)
                                     )
                                 )
                         )
@@ -286,12 +288,11 @@ fun AuroNowPlayingScreen(
                                 )
                         )
 
-                        // Chevron v limpo no canto superior esquerdo (fiel à referência)
+                        // Chevron v no canto superior esquerdo da capa (SEM statusBarsPadding duplicado)
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
-                                .statusBarsPadding()
-                                .padding(start = 12.dp, top = 6.dp)
+                                .padding(start = 10.dp, top = 10.dp)
                                 .size(44.dp)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
