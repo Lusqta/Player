@@ -33,15 +33,15 @@
 
     <!-- Busca -->
     <string name="search_placeholder">Buscar faixas, artistas, álbuns…</string>
-    <string name="search_recent_title">BUSCAS RECENTES</string>
+    <string name="search_recent_title">Buscas recentes</string>
     <string name="search_recent_clear">Limpar</string>
     <string name="search_filter_all">Todos</string>
     <string name="search_filter_tracks">Faixas</string>
     <string name="search_filter_albums">Álbuns</string>
     <string name="search_filter_artists">Artistas</string>
-    <string name="search_section_tracks">FAIXAS</string>
-    <string name="search_section_albums">ÁLBUNS</string>
-    <string name="search_section_artists">ARTISTAS</string>
+    <string name="search_section_tracks">Faixas</string>
+    <string name="search_section_albums">Álbuns</string>
+    <string name="search_section_artists">Artistas</string>
     <string name="search_view_all">Ver todos</string>
 
     <!-- Erro de Reprodução -->
@@ -58,10 +58,10 @@
 
     <!-- Configurações (Fase 4.2) -->
     <string name="settings_title">Configurações</string>
-    <string name="settings_section_library">BIBLIOTECA</string>
-    <string name="settings_section_playback">REPRODUÇÃO</string>
-    <string name="settings_section_appearance">APARÊNCIA</string>
-    <string name="settings_section_about">SOBRE</string>
+    <string name="settings_section_library">Biblioteca</string>
+    <string name="settings_section_playback">Reprodução</string>
+    <string name="settings_section_appearance">Aparência</string>
+    <string name="settings_section_about">Sobre</string>
     <string name="settings_ignore_shorter_than">Ignorar faixas menores que</string>
     <string name="settings_ignore_shorter_than_sec">%1$d s</string>
     <string name="settings_rescan_library">Atualizar biblioteca</string>
@@ -187,8 +187,8 @@
     <string name="context_add_queue">Adicionar ao fim da fila</string>
     <string name="context_add_playlist">Adicionar à lista de reprodução…</string>
     <string name="context_track_info">Informações da faixa</string>
-    <string name="sort_title">ORDENAR POR</string>
-    <string name="track_info_title">DETALHES DA FAIXA</string>
+    <string name="sort_title">Ordenar por</string>
+    <string name="track_info_title">Detalhes da faixa</string>
     <string name="track_info_track_title">Título</string>
     <string name="track_info_artist">Artista</string>
     <string name="track_info_album">Álbum</string>
@@ -197,16 +197,16 @@
     <string name="track_info_sample_rate">Taxa de Amostragem</string>
     <string name="track_info_bitrate">Bitrate</string>
     <string name="track_info_path">Caminho</string>
-    <string name="add_to_playlist_title">ADICIONAR À LISTA</string>
-    <string name="new_playlist_header">NOVA LISTA DE REPRODUÇÃO</string>
+    <string name="add_to_playlist_title">Adicionar à playlist</string>
+    <string name="new_playlist_header">Nova playlist</string>
     <string name="new_playlist_hint">Nome da lista…</string>
     <string name="create_and_add">Criar &amp; Adicionar</string>
     <string name="new_playlist_button">+ Nova Lista de Reprodução</string>
     <string name="no_playlists_yet">Nenhuma lista criada ainda</string>
-    <string name="sleep_timer_title">TEMPORIZADOR</string>
+    <string name="sleep_timer_title">Temporizador</string>
     <string name="sleep_timer_active_desc">ATIVO: %1$dm %2$ds restantes</string>
     <string name="sleep_timer_stop_at_end">Tocar até o fim da faixa</string>
-    <string name="menu_sheet_title">MENU</string>
+    <string name="menu_sheet_title">Menu</string>
     <string name="audio_engine_title">Motor de áudio nativo</string>
     <string name="audio_engine_pipeline">Pipeline</string>
     <string name="audio_engine_pipeline_val">Google Oboe (C++ High-Performance)</string>
@@ -221,22 +221,25 @@
     <string name="audio_engine_buffer_val">%1$d quadros (Burst)</string>
     <string name="audio_engine_fp">Ponto Flutuante</string>
     <string name="audio_engine_fp_val">32-bit Float PCM Engine</string>
-    <string name="lyrics_sheet_title">LETRAS</string>
+    <string name="lyrics_sheet_title">Letras</string>
     <string name="lyrics_no_local">Sem letras locais</string>
     <string name="lyrics_none_found">Nenhuma letra encontrada</string>
     <string name="lyrics_lrc_hint">Coloque um arquivo .lrc na mesma pasta com o mesmo nome da música.</string>
-    <string name="save_preset_title">SALVAR PRESET</string>
+    <string name="save_preset_title">Salvar preset</string>
     <string name="preset_name_hint">Nome do preset…</string>
-    <string name="create_playlist_title">NOVA LISTA DE REPRODUÇÃO</string>
+    <string name="create_playlist_title">Nova playlist</string>
     <string name="confirm_delete_title">Excluir playlist</string>
     <string name="about_app_title">AURŌ PLAYER</string>
     <string name="about_app_version_format">v%1$s (Build %2$d) • Aurō DS v3</string>
     <string name="about_app_specs">• Motor de áudio nativo Google Oboe C++\n• Processamento de luz global única com AGSL RuntimeShader\n• Vidro preto líquido com dispersão cromática por canal\n• Extração harmônica de cores de capa via AndroidX Palette\n• Letras sincronizadas (.LRC) e equalizador de 10 bandas</string>
 
     <!-- Fila de Reprodução (Fase 5.3) -->
-    <string name="queue_total_header">FILA TOTAL</string>
-    <string name="queue_section_priority">A SEGUIR (PRIORITÁRIA)</string>
-    <string name="queue_section_normal">REPRODUÇÃO NORMAL</string>
+    <string name="queue_total_header">Fila total</string>
+    <string name="queue_section_priority">A seguir</string>
+    <string name="queue_section_normal">Na fila</string>
+
+    <string name="empty_collections_title">Criar primeira playlist</string>
+    <string name="empty_collections_subtitle">Reúna suas faixas favoritas em um só lugar</string>
 
     <!-- Biblioteca & Navegação (Fase 5.3) -->
     <string name="tab_home">Início</string>
@@ -276,12 +279,12 @@
     <string name="top_songs">Principais músicas</string>
 
     <!-- Equalizador (Fase 5.3) -->
-    <string name="eq_presets_header">PRESETS</string>
+    <string name="eq_presets_header">Presets</string>
     <string name="eq_reset">Redefinir</string>
     <string name="eq_save">+ Salvar</string>
-    <string name="eq_tone_preamp_header">TOM &amp; PRÉ-AMP</string>
+    <string name="eq_tone_preamp_header">Tom e pré-amp</string>
     <string name="eq_mono">Mono</string>
-    <string name="eq_bands_header">10 BANDAS</string>
+    <string name="eq_bands_header">10 bandas</string>
     <string name="eq_preamp_label">Pré-Amp</string>
     <string name="eq_bass_label">Graves</string>
     <string name="eq_treble_label">Agudos</string>
@@ -289,7 +292,7 @@
     <string name="eq_balance_center">Centro</string>
 
     <!-- Áudio Espacial DSP -->
-    <string name="spatial_header">ÁUDIO ESPACIAL</string>
+    <string name="spatial_header">Áudio espacial</string>
     <string name="spatial_mode_off">Desativado</string>
     <string name="spatial_mode_standard">Dolby Padrão</string>
     <string name="spatial_mode_pro">Espacial Pro</string>

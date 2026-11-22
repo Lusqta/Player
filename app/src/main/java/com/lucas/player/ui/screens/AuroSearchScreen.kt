@@ -319,11 +319,10 @@ fun AuroSearchScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = stringResource(R.string.search_recent_title).uppercase(Locale.getDefault()),
-                        style = AuroType.Caption.copy(
+                        text = stringResource(R.string.search_recent_title),
+                        style = AuroType.Subtitle.copy(
                             color = AuroColor.TextTertiary,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
+                            fontWeight = FontWeight.SemiBold
                         )
                     )
                     Text(
@@ -587,11 +586,10 @@ private fun SearchSectionHeader(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = title.uppercase(Locale.getDefault()),
-            style = AuroType.Caption.copy(
+            text = title,
+            style = AuroType.Subtitle.copy(
                 color = AuroColor.TextTertiary,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
+                fontWeight = FontWeight.SemiBold
             )
         )
         if (canViewAll) {

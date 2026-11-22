@@ -88,11 +88,13 @@ fun AuroDrilldownScreen(
         groupAccent = CoverGlow.from(heroCover)
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(AuroColor.Canvas)
     ) {
+        val heroBgHeight = maxHeight * 0.58f
+
         // Fundo animado de 2 cores borradas da capa do próprio grupo atrás do Hero (igual à tela Joji)
         AnimatedDualColorBackground(
             color1 = groupAccent.mesh1,
@@ -100,7 +102,24 @@ fun AuroDrilldownScreen(
             isPlaying = false,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(520.dp)
+                .height(heroBgHeight)
+        )
+
+        // Gradiente vertical para fundir o hero suavemente com o preto absoluto OLED
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(heroBgHeight)
+                .background(
+                    Brush.verticalGradient(
+                        colorStops = arrayOf(
+                            0.0f to Color.Transparent,
+                            0.52f to Color.Transparent,
+                            0.85f to AuroColor.Canvas.copy(alpha = 0.85f),
+                            1.0f to AuroColor.Canvas
+                        )
+                    )
+                )
         )
 
         if (tracks.isEmpty()) {
@@ -127,17 +146,17 @@ fun AuroDrilldownScreen(
                             .padding(top = 52.dp, bottom = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Hero Squircle quadrado (aspectRatio 1f, padding lateral ScreenMargin)
+                        // Hero quadrado (aspectRatio 1f, padding lateral 20.dp)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = AuroSpace.ScreenMargin)
+                                .padding(horizontal = 20.dp)
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .aspectRatio(1f)
-                                    .clip(AuroSquircle)
+                                    .clip(RoundedCornerShape(28.dp))
                                     .background(AuroColor.SurfaceCard)
                             ) {
                                 if (heroCover != null) {
@@ -151,27 +170,32 @@ fun AuroDrilldownScreen(
                                     AuroCoverPlaceholder(
                                         modifier = Modifier.fillMaxSize(),
                                         glass = false,
-                                        shape = AuroSquircle
+                                        shape = RoundedCornerShape(28.dp)
                                     )
                                 }
-                            }
 
-                            // TranslucentPlayButton (72dp) rente à borda direita da capa e 12dp pra fora embaixo
-                            TranslucentPlayButton(
-                                isPlaying = false,
-                                size = 72.dp,
-                                onClick = onPlayAll,
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .offset(y = 12.dp)
-                            )
+                                TranslucentPlayButton(
+                                    isPlaying = false,
+                                    size = 56.dp,
+                                    containerColor = Color(0xBD121215),
+                                    onClick = onPlayAll,
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .padding(14.dp)
+                                )
+                            }
                         }
 
                         Spacer(modifier = Modifier.height(24.dp))
 
                         // Nome Hero (HeroName = 32sp Bold) centralizado
+                        val displayGroupTitle = if (category == LibraryCategory.ARTISTS || category == LibraryCategory.ALBUM_ARTISTS) {
+                            formatDisplayArtist(groupTitle, stringResource(R.string.unknown_artist))
+                        } else {
+                            groupTitle
+                        }
                         Text(
-                            text = groupTitle,
+                            text = displayGroupTitle,
                             style = AuroType.HeroName,
                             color = AuroColor.TextPrimary,
                             textAlign = TextAlign.Center,
@@ -183,8 +207,18 @@ fun AuroDrilldownScreen(
                         Spacer(modifier = Modifier.height(4.dp))
 
                         // Subtítulo e contagem centralizado, 13sp branco 55%
+                        val singularLabel = when (category) {
+                            LibraryCategory.ALBUMS -> stringResource(R.string.group_subtitle_album)
+                            LibraryCategory.ARTISTS -> stringResource(R.string.group_subtitle_artist)
+                            LibraryCategory.ALBUM_ARTISTS -> stringResource(R.string.group_subtitle_album_artist)
+                            LibraryCategory.GENRES -> stringResource(R.string.group_subtitle_genre)
+                            LibraryCategory.YEARS -> stringResource(R.string.group_subtitle_year)
+                            LibraryCategory.COMPOSERS -> stringResource(R.string.group_subtitle_composer)
+                            LibraryCategory.PLAYLISTS -> stringResource(R.string.group_subtitle_playlist)
+                            else -> stringResource(category.getTitleRes())
+                        }
                         Text(
-                            text = "${stringResource(category.getTitleRes())} • ${pluralStringResource(R.plurals.tracks_count, tracks.size, tracks.size)} • ${formatTimeMs(totalDurationMs)}",
+                            text = "$singularLabel  ·  ${pluralStringResource(R.plurals.tracks_count, tracks.size, tracks.size)}  ·  ${formatTimeMs(totalDurationMs)}",
                             style = AuroType.Subtitle.copy(
                                 fontSize = 13.sp,
                                 color = Color.White.copy(alpha = 0.55f),
@@ -287,7 +321,7 @@ fun AuroDrilldownScreen(
                     },
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
-                        .padding(top = 460.dp, bottom = bottomInset + 30.dp, end = 2.dp)
+                        .padding(top = maxHeight * 0.52f, bottom = bottomInset + 30.dp, end = 2.dp)
                 )
             }
         }

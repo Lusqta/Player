@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import com.lucas.player.ui.theme.AuroMotion
 import com.lucas.player.ui.theme.AuroRadius
 import com.lucas.player.ui.theme.rememberReduceMotion
 import kotlinx.coroutines.CancellationException
@@ -80,7 +81,7 @@ fun AuroOverlay(
             triggerDismiss()
         } catch (_: CancellationException) {
             if (!reduceMotion) {
-                backProgress.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = 300f))
+                backProgress.animateTo(0f, AuroMotion.spatialDefault())
             }
         } finally {
             if (!reduceMotion) {
@@ -93,11 +94,11 @@ fun AuroOverlay(
         modifier = modifier.fillMaxSize(),
         contentAlignment = if (type == AuroOverlayType.Dialog) Alignment.Center else Alignment.BottomCenter
     ) {
-        // Scrim preto a 72% (fade 200ms entra, 140ms sai)
+        // Scrim preto a 72%
         AnimatedVisibility(
             visible = isVisible,
-            enter = if (reduceMotion) EnterTransition.None else fadeIn(tween(200, easing = LinearEasing)),
-            exit = if (reduceMotion) ExitTransition.None else fadeOut(tween(140, easing = LinearEasing))
+            enter = if (reduceMotion) EnterTransition.None else fadeIn(AuroMotion.effectsFast()),
+            exit = if (reduceMotion) ExitTransition.None else fadeOut(AuroMotion.effectsFast())
         ) {
             Box(
                 modifier = Modifier
@@ -117,15 +118,15 @@ fun AuroOverlay(
                 visible = isVisible,
                 enter = if (reduceMotion) EnterTransition.None else {
                     scaleIn(
-                        animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f),
+                        animationSpec = AuroMotion.spatialDefault(),
                         initialScale = 0.94f
-                    ) + fadeIn(tween(200, easing = LinearEasing))
+                    ) + fadeIn(AuroMotion.effectsFast())
                 },
                 exit = if (reduceMotion) ExitTransition.None else {
                     scaleOut(
-                        animationSpec = tween(140, easing = LinearEasing),
+                        animationSpec = AuroMotion.effectsFast(),
                         targetScale = 0.94f
-                    ) + fadeOut(tween(140, easing = LinearEasing))
+                    ) + fadeOut(AuroMotion.effectsFast())
                 },
                 modifier = Modifier
                     .align(Alignment.Center)
@@ -152,13 +153,13 @@ fun AuroOverlay(
                 visible = isVisible,
                 enter = if (reduceMotion) EnterTransition.None else {
                     slideInVertically(
-                        animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f)
-                    ) { it } + fadeIn(tween(200, easing = LinearEasing))
+                        animationSpec = AuroMotion.spatialDefault()
+                    ) { it } + fadeIn(AuroMotion.effectsFast())
                 },
                 exit = if (reduceMotion) ExitTransition.None else {
                     slideOutVertically(
-                        animationSpec = spring(dampingRatio = 0.85f, stiffness = 300f)
-                    ) { it } + fadeOut(tween(140, easing = LinearEasing))
+                        animationSpec = AuroMotion.spatialDefault()
+                    ) { it } + fadeOut(AuroMotion.effectsFast())
                 },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -182,13 +183,13 @@ fun AuroOverlay(
                                     triggerDismiss()
                                 } else {
                                     coroutineScope.launch {
-                                        sheetDragOffset.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = 300f))
+                                        sheetDragOffset.animateTo(0f, AuroMotion.spatialDefault())
                                     }
                                 }
                             },
                             onDragCancel = {
                                 coroutineScope.launch {
-                                    sheetDragOffset.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = 300f))
+                                    sheetDragOffset.animateTo(0f, AuroMotion.spatialDefault())
                                 }
                             },
                             onVerticalDrag = { change, dragAmount ->

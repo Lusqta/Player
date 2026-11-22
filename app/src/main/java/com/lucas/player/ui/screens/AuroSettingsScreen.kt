@@ -621,10 +621,9 @@ private fun SettingsCard(
 private fun SettingsSectionHeader(title: String) {
     Text(
         text = title,
-        style = AuroType.SectionHeader.copy(
+        style = AuroType.Subtitle.copy(
             color = AuroColor.TextTertiary,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace
+            fontWeight = FontWeight.SemiBold
         ),
         modifier = Modifier.padding(start = 28.dp, top = 20.dp, bottom = 8.dp)
     )

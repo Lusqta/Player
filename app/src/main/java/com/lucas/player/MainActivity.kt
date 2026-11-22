@@ -797,10 +797,23 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 val pinnedKeys = preferencesManager.getPinnedGroups()
                                 val pinnedItems = displayedGroups.filter { pinnedKeys.contains(it.title) }
                                 val recentAdded = libraryRepo.getRecentlyAdded().take(10)
+                                val categoryCounts = remember(all) {
+                                    mapOf(
+                                        LibraryCategory.ALL_SONGS to all.size,
+                                        LibraryCategory.ALBUMS to all.map { it.album }.filter { it.isNotBlank() }.distinct().size,
+                                        LibraryCategory.ARTISTS to all.map { it.artist }.filter { it.isNotBlank() }.distinct().size,
+                                        LibraryCategory.ALBUM_ARTISTS to all.map { it.albumArtist.ifBlank { it.artist } }.filter { it.isNotBlank() }.distinct().size,
+                                        LibraryCategory.GENRES to all.map { it.genre }.filter { it.isNotBlank() }.distinct().size,
+                                        LibraryCategory.YEARS to all.map { it.year }.filter { it > 0 }.distinct().size,
+                                        LibraryCategory.COMPOSERS to all.map { it.composer }.filter { it.isNotBlank() }.distinct().size,
+                                        LibraryCategory.FOLDERS to all.map { it.folder }.filter { it.isNotBlank() }.distinct().size
+                                    )
+                                }
                                 AuroLibraryRootScreen(
                                     totalTracksCount = totalTracksCount,
                                     isLoading = isLoadingLibrary,
                                     loadingCount = loadingTracksCount,
+                                    categoryCounts = categoryCounts,
                                     listState = getScrollState("library_root"),
                                     pinnedGroups = pinnedKeys,
                                     pinnedItems = pinnedItems,

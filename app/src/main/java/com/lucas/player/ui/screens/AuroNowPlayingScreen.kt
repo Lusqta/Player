@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import androidx.activity.BackEventCompat
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
@@ -134,13 +135,13 @@ fun AuroNowPlayingScreen(
             }
             if (expandProgress.value > 0.05f) {
                 coroutineScope.launch {
-                    expandProgress.animateTo(0f, spring(dampingRatio = 0.84f, stiffness = 320f))
+                    expandProgress.animateTo(0f, AuroMotion.spatialDefault())
                 }
             } else {
                 onCollapse()
             }
         } catch (_: CancellationException) {
-            if (!reduceMotion) backProgress.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = 300f))
+            if (!reduceMotion) backProgress.animateTo(0f, AuroMotion.spatialDefault())
         } finally {
             if (!reduceMotion) backProgress.snapTo(0f)
         }
@@ -148,7 +149,7 @@ fun AuroNowPlayingScreen(
 
     val coverScale by animateFloatAsState(
         targetValue = if (isPlaying) 1.0f else 0.96f,
-        animationSpec = spring(dampingRatio = 0.78f, stiffness = 280f),
+        animationSpec = AuroMotion.spec(reduceMotion, AuroMotion.spatialDefault()),
         label = "coverScale"
     )
 
@@ -201,19 +202,47 @@ fun AuroNowPlayingScreen(
                         },
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Capa quadrada flutuante com margem lateral (abaixo da status bar)
+                    // Top bar limpa acima da capa (corrige seta v cortada e disputando com a capa)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .height(44.dp)
+                            .padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    AuroHaptics.click(view)
+                                    onCollapse()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.KeyboardArrowDown,
+                                contentDescription = stringResource(R.string.cd_collapse),
+                                tint = Color.White.copy(alpha = 0.85f),
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+                    }
+
+                    // Capa quadrada com margem lateral
                     Box(
                         modifier = Modifier
-                            .statusBarsPadding()
-                            .padding(horizontal = AuroSpace.ScreenMargin)
-                            .padding(top = 8.dp)
+                            .padding(horizontal = 20.dp)
                             .fillMaxWidth()
                             .aspectRatio(1f)
                             .graphicsLayer {
                                 scaleX = coverScale
                                 scaleY = coverScale
                             }
-                            .clip(AuroSquircle)
+                            .clip(RoundedCornerShape(28.dp))
                             .pointerInput(Unit) {
                                 var dx = 0f
                                 var dy = 0f
@@ -223,7 +252,7 @@ fun AuroNowPlayingScreen(
                                         if (dy < -45f && abs(dy) > abs(dx)) {
                                             AuroHaptics.click(view)
                                             coroutineScope.launch {
-                                                expandProgress.animateTo(1f, spring(0.84f, 320f))
+                                                expandProgress.animateTo(1f, AuroMotion.spatialDefault())
                                             }
                                         } else if (dy > 55f && abs(dy) > abs(dx)) {
                                             AuroHaptics.click(view)
@@ -250,44 +279,7 @@ fun AuroNowPlayingScreen(
                         } else {
                             AuroCoverPlaceholder(
                                 modifier = Modifier.fillMaxSize(),
-                                shape = AuroSquircle
-                            )
-                        }
-
-                        // Fade sutil no topo para legibilidade do chevron
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(64.dp)
-                                .align(Alignment.TopCenter)
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(Color.Black.copy(alpha = 0.35f), Color.Transparent)
-                                    )
-                                )
-                        )
-
-
-                        // Chevron v no canto superior esquerdo da capa (SEM statusBarsPadding duplicado)
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(start = 10.dp, top = 10.dp)
-                                .size(44.dp)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    AuroHaptics.click(view)
-                                    onCollapse()
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.KeyboardArrowDown,
-                                contentDescription = stringResource(R.string.cd_collapse),
-                                tint = Color.White.copy(alpha = 0.90f),
-                                modifier = Modifier.size(28.dp)
+                                shape = RoundedCornerShape(28.dp)
                             )
                         }
                     }
@@ -317,7 +309,7 @@ fun AuroNowPlayingScreen(
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
-                                    text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                                    text = formatDisplayArtist(track.artist, stringResource(R.string.unknown_artist)),
                                     style = AuroType.Subtitle.copy(fontSize = 16.sp),
                                     color = Color.White.copy(alpha = 0.55f),
                                     maxLines = 1,
@@ -332,7 +324,7 @@ fun AuroNowPlayingScreen(
                                 val isFavorite = track.rating > 0
                                 Box(
                                     modifier = Modifier
-                                        .size(40.dp)
+                                        .size(48.dp)
                                         .clickable(
                                             interactionSource = remember { MutableInteractionSource() },
                                             indication = null
@@ -352,7 +344,7 @@ fun AuroNowPlayingScreen(
 
                                 Box(
                                     modifier = Modifier
-                                        .size(40.dp)
+                                        .size(48.dp)
                                         .clickable(
                                             interactionSource = remember { MutableInteractionSource() },
                                             indication = null
@@ -373,6 +365,11 @@ fun AuroNowPlayingScreen(
                         }
 
                         // Transporte: Shuffle · Prev · Play (58dp) · Next · Repeat
+                        val playCornerRadius by animateDpAsState(
+                            targetValue = if (isPlaying) 20.dp else 32.dp,
+                            animationSpec = AuroMotion.spec(reduceMotion, AuroMotion.spatialFast()),
+                            label = "playMorphRadius"
+                        )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -381,7 +378,7 @@ fun AuroNowPlayingScreen(
                             val isShuffleActive = shuffleMode != ShuffleMode.OFF
                             IconButton(
                                 onClick = { AuroHaptics.click(view); onToggleShuffle() },
-                                modifier = Modifier.size(40.dp)
+                                modifier = Modifier.size(48.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.Shuffle,
@@ -431,6 +428,7 @@ fun AuroNowPlayingScreen(
                             TranslucentPlayButton(
                                 isPlaying = isPlaying,
                                 size = 64.dp,
+                                cornerRadius = playCornerRadius,
                                 onClick = onPlayPause
                             )
 
@@ -474,7 +472,7 @@ fun AuroNowPlayingScreen(
                             val isRepeatActive = repeatMode != RepeatMode.OFF
                             IconButton(
                                 onClick = { AuroHaptics.click(view); onToggleRepeat() },
-                                modifier = Modifier.size(40.dp)
+                                modifier = Modifier.size(48.dp)
                             ) {
                                 Icon(
                                     imageVector = if (repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
@@ -489,6 +487,7 @@ fun AuroNowPlayingScreen(
                         EditorialScrubber(
                             progressMs = progressMs,
                             durationMs = durationMs,
+                            isPlaying = isPlaying,
                             onSeek = { ms ->
                                 onSeek(if (durationMs > 0) ms.toFloat() / durationMs.toFloat() else 0f)
                             },
@@ -516,7 +515,7 @@ fun AuroNowPlayingScreen(
                                 onDragEnd = {
                                     val target = if (expandProgress.value < 0.78f) 0f else 1f
                                     coroutineScope.launch {
-                                        expandProgress.animateTo(target, spring(0.84f, 320f))
+                                        expandProgress.animateTo(target, AuroMotion.spatialDefault())
                                     }
                                 }
                             ) { change, drag ->
@@ -543,7 +542,7 @@ fun AuroNowPlayingScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                                text = formatDisplayArtist(track.artist, stringResource(R.string.unknown_artist)),
                                 style = AuroType.Subtitle.copy(fontSize = 13.sp),
                                 color = Color.White.copy(alpha = 0.58f),
                                 maxLines = 1,
@@ -551,9 +550,15 @@ fun AuroNowPlayingScreen(
                             )
                         }
                         Spacer(modifier = Modifier.width(12.dp))
+                        val playCornerRadiusSmall by animateDpAsState(
+                            targetValue = if (isPlaying) 12.dp else 19.dp,
+                            animationSpec = AuroMotion.spec(reduceMotion, AuroMotion.spatialFast()),
+                            label = "playMorphRadiusSmall"
+                        )
                         TranslucentPlayButton(
                             isPlaying = isPlaying,
                             size = 38.dp,
+                            cornerRadius = playCornerRadiusSmall,
                             onClick = onPlayPause
                         )
                     }
@@ -563,6 +568,7 @@ fun AuroNowPlayingScreen(
                     EditorialScrubber(
                         progressMs = progressMs,
                         durationMs = durationMs,
+                        isPlaying = isPlaying,
                         onSeek = { ms ->
                             onSeek(if (durationMs > 0) ms.toFloat() / durationMs.toFloat() else 0f)
                         },
@@ -606,7 +612,7 @@ fun AuroNowPlayingScreen(
                                 AuroHaptics.click(view)
                                 val target = if (progress < 0.5f) 1f else 0f
                                 coroutineScope.launch {
-                                    expandProgress.animateTo(target, spring(0.84f, 320f))
+                                    expandProgress.animateTo(target, AuroMotion.spatialDefault())
                                 }
                             }
                             .pointerInput(screenHeight) {
@@ -615,7 +621,7 @@ fun AuroNowPlayingScreen(
                                     onDragEnd = {
                                         val target = if (expandProgress.value > 0.22f) 1f else 0f
                                         coroutineScope.launch {
-                                            expandProgress.animateTo(target, spring(0.84f, 320f))
+                                            expandProgress.animateTo(target, AuroMotion.spatialDefault())
                                         }
                                     }
                                 ) { change, drag ->

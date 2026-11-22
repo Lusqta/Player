@@ -147,7 +147,7 @@ fun AuroQueueScreen(
             onBackClick = onBackClick,
             rightActions = {
                 if (totalCount > 0) {
-                    IconButton(onClick = onShuffleQueue, modifier = Modifier.size(40.dp)) {
+                    IconButton(onClick = onShuffleQueue, modifier = Modifier.size(44.dp)) {
                         Icon(
                             imageVector = Icons.Outlined.Shuffle,
                             contentDescription = stringResource(R.string.cd_shuffle),
@@ -155,7 +155,7 @@ fun AuroQueueScreen(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-                    IconButton(onClick = onClearQueue, modifier = Modifier.size(40.dp)) {
+                    IconButton(onClick = onClearQueue, modifier = Modifier.size(44.dp)) {
                         Icon(
                             imageVector = Icons.Outlined.DeleteOutline,
                             contentDescription = stringResource(R.string.cd_clear_queue),
@@ -189,8 +189,7 @@ fun AuroQueueScreen(
                     Text(
                         text = stringResource(R.string.queue_total_header),
                         style = AuroType.Caption.copy(
-                            color = AuroColor.TextTertiary,
-                            fontFamily = FontFamily.Monospace
+                            color = AuroColor.TextTertiary
                         )
                     )
                     Spacer(modifier = Modifier.height(2.dp))
@@ -222,10 +221,9 @@ fun AuroQueueScreen(
                     item(key = "header_priority") {
                         Text(
                             text = stringResource(R.string.queue_section_priority),
-                            style = AuroType.SectionHeader.copy(
+                            style = AuroType.Subtitle.copy(
                                 color = AuroColor.TextTertiary,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
+                                fontWeight = FontWeight.SemiBold
                             ),
                             modifier = Modifier.padding(horizontal = AuroSpace.ScreenMargin, vertical = 8.dp)
                         )
@@ -326,9 +324,9 @@ fun AuroQueueScreen(
                     item(key = "header_regular") {
                         Text(
                             text = stringResource(R.string.queue_section_normal),
-                            style = AuroType.SectionHeader.copy(
+                            style = AuroType.Subtitle.copy(
                                 color = AuroColor.TextTertiary,
-                                fontFamily = FontFamily.Monospace
+                                fontWeight = FontWeight.SemiBold
                             ),
                             modifier = Modifier.padding(horizontal = AuroSpace.ScreenMargin, vertical = 8.dp)
                         )
@@ -572,21 +570,21 @@ private fun AuroQueueTrackRow(
 
         Spacer(modifier = Modifier.width(4.dp))
 
-        IconButton(onClick = onRemove, modifier = Modifier.size(32.dp)) {
+        IconButton(onClick = onRemove, modifier = Modifier.size(44.dp)) {
             Icon(
                 imageVector = Icons.Rounded.Close,
                 contentDescription = stringResource(R.string.cd_remove_item),
                 tint = AuroColor.TextTertiary,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(18.dp)
             )
         }
 
         Spacer(modifier = Modifier.width(2.dp))
 
-        // Alça de 24dp para reordenação por arrasto (Fase 4.1)
+        // Alça para reordenação por arrasto (44dp target)
         Box(
             modifier = Modifier
-                .size(36.dp)
+                .size(44.dp)
                 .then(dragHandleModifier),
             contentAlignment = Alignment.Center
         ) {

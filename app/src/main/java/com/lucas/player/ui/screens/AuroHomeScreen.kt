@@ -116,11 +116,16 @@ fun AuroHomeScreen(
             )
         } else {
             val artists = remember(allTracks) {
-                allTracks.asSequence().map { it.artist }.filter { it.isNotEmpty() }.distinct().take(12).toList()
+                allTracks.asSequence()
+                    .map { it.artist }
+                    .filter { isValidHighlightName(it) }
+                    .distinct()
+                    .take(12)
+                    .toList()
             }
 
             val topAlbums = remember(mostPlayed) {
-                mostPlayed.filter { it.album.isNotBlank() }
+                mostPlayed.filter { isValidHighlightName(it.album) }
                     .groupBy { it.album }
                     .values
                     .sortedByDescending { it.size }
@@ -231,7 +236,7 @@ fun AuroHomeScreen(
                                     WideAlbumCard(
                                         coverTrack = t,
                                         album = t.album,
-                                        artist = t.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                                        artist = formatDisplayArtist(t.artist, stringResource(R.string.unknown_artist)),
                                         onClick = { onAlbumClick(t.album) },
                                         onPlay = { onAlbumPlay(t.album) }
                                     )
@@ -297,7 +302,7 @@ fun AuroHomeScreen(
                                         }
                                         Spacer(modifier = Modifier.height(6.dp))
                                         Text(
-                                            text = artistName,
+                                            text = formatDisplayArtist(artistName, stringResource(R.string.unknown_artist)),
                                             style = TextStyle(
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.SemiBold,
@@ -321,18 +326,89 @@ fun AuroHomeScreen(
                             title = stringResource(R.string.home_banner_collections),
                             actionLabel = null
                         )
-                        LazyRow(
-                            contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            item(key = "new_playlist") { NewPlaylistCard(onClick = onCreatePlaylist) }
-                            items(playlists, key = { it.name }) { pl ->
-                                PlaylistCard(
-                                    coverTrack = pl.coverTrack,
-                                    title = pl.name,
-                                    subtitle = pl.countText,
-                                    onClick = { onPlaylistClick(pl.name) }
-                                )
+                        if (playlists.isEmpty()) {
+                            val cardShape = RoundedCornerShape(22.dp)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(78.dp)
+                                    .padding(horizontal = AuroSpace.ScreenMargin)
+                                    .clip(cardShape)
+                                    .background(AuroColor.SurfaceCard.copy(alpha = 0.5f))
+                                    .drawBehind {
+                                        drawRoundRect(
+                                            color = Color.White.copy(alpha = 0.22f),
+                                            cornerRadius = CornerRadius(22.dp.toPx()),
+                                            style = Stroke(
+                                                width = 1.dp.toPx(),
+                                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f))
+                                            )
+                                        )
+                                    }
+                                    .clickable {
+                                        AuroHaptics.click(view)
+                                        onCreatePlaylist()
+                                    }
+                                    .padding(horizontal = 16.dp),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(42.dp)
+                                            .clip(CircleShape)
+                                            .background(Color.White.copy(alpha = 0.08f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Add,
+                                            contentDescription = null,
+                                            tint = Color.White.copy(alpha = 0.85f),
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(14.dp))
+                                    Column(
+                                        modifier = Modifier.weight(1f),
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = stringResource(R.string.empty_collections_title),
+                                            style = AuroType.CardTitle,
+                                            color = Color.White,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = stringResource(R.string.empty_collections_subtitle),
+                                            style = AuroType.Subtitle.copy(
+                                                fontSize = 12.sp,
+                                                color = Color.White.copy(alpha = 0.55f)
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            LazyRow(
+                                contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                item(key = "new_playlist") { NewPlaylistCard(onClick = onCreatePlaylist) }
+                                items(playlists, key = { it.name }) { pl ->
+                                    PlaylistCard(
+                                        coverTrack = pl.coverTrack,
+                                        title = pl.name,
+                                        subtitle = pl.countText,
+                                        onClick = { onPlaylistClick(pl.name) }
+                                    )
+                                }
                             }
                         }
                     }
@@ -423,6 +499,7 @@ private fun QuickMixCard(
         TranslucentPlayButton(
             isPlaying = false,
             size = 28.dp,
+            minTouchTarget = 48.dp,
             onClick = onClick,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
@@ -486,6 +563,7 @@ private fun WideAlbumCard(
         TranslucentPlayButton(
             isPlaying = false,
             size = 44.dp,
+            minTouchTarget = 48.dp,
             onClick = onPlay,
             modifier = Modifier
                 .align(Alignment.CenterStart)

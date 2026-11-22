@@ -8,12 +8,14 @@ import android.provider.Settings
 import android.view.View
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -75,16 +77,18 @@ import kotlinx.coroutines.withContext
 object AuroColor {
     val Canvas = Color(0xFF050505)                      // Fundo OLED profundo
     val Black = Canvas                                  // Alias
-    val SurfaceCard = Color(0xFF141416)                 // Cards horizontais e agrupados
-    val SurfaceGrouped = Color(0xFF1C1C1E)              // Platters secundários e sheets
-    val SurfaceElevated = Color(0xFF262629)             // Superfícies elevadas
+    val SurfaceLow = Color(0xFF0E0E10)                  // Navbar, fundos secundários
+    val SurfaceCard = Color(0xFF151518)                 // Cards de álbuns, configurações, mini player
+    val SurfaceGrouped = Color(0xFF1C1C20)              // Sheets, diálogos, grupos do EQ
+    val SurfaceElevated = Color(0xFF25252A)             // Placeholders, pílulas elevadas
     val NavBarBg = Color(0xE0161618)                    // Fundo da barra flutuante (88% opacidade)
     val NavBarBorder = Color.White.copy(alpha = 0.08f)  // Borda sutil da navbar
     val ControlGlass = Color.White.copy(alpha = 0.22f)  // Botões de controle translúcidos
     val PillMuted = Color.White.copy(alpha = 0.12f)     // Pílulas secundárias ("Ver tudo")
     val TextPrimary = Color(0xFFFFFFFF)                 // Texto principal 100% branco
-    val TextSecondary = Color.White.copy(alpha = 0.55f) // Rótulos secundários 55% branco
-    val TextTertiary = Color.White.copy(alpha = 0.28f)  // Rótulos terciários 28% branco
+    val TextSecondary = Color.White.copy(alpha = 0.62f) // Rótulos secundários 62% branco
+    val TextTertiary = Color.White.copy(alpha = 0.46f)  // Rótulos terciários 46% branco (WCAG em dicas/legendas)
+    val LyricsInactive = Color.White.copy(alpha = 0.28f)// Exclusivo para versos inativos da letra
     val ScrubberTrack = Color.White.copy(alpha = 0.20f) // Trilho inativo do scrubber
     val ScrubberActive = Color(0xFFFFFFFF)              // Trilho ativo do scrubber branco puro
     val Separator = Color.White.copy(alpha = 0.08f)     // Divisores sutis
@@ -136,7 +140,7 @@ object AuroType {
         lineHeight = 23.sp,
         fontWeight = FontWeight.Normal,
         textAlign = TextAlign.Center,
-        color = Color.White.copy(alpha = 0.28f)
+        color = AuroColor.LyricsInactive
     )
     val CardTitle = TextStyle(
         fontSize = 15.sp,
@@ -203,7 +207,7 @@ object AuroSpace {
     val Large = 32.dp
     val TouchTarget = 48.dp
 
-    val ScreenMargin = 24.dp
+    val ScreenMargin = 16.dp
     val EdgeMargin = 16.dp
 }
 
@@ -240,12 +244,24 @@ object AuroRadius {
 val AuroSquircle = RoundedCornerShape(percent = 26)
 
 object AuroMotion {
+    // Spatial: posição, escala, tamanho, forma (elásticas e interrompíveis)
+    fun <T> spatialFast(): FiniteAnimationSpec<T> = spring(dampingRatio = 0.72f, stiffness = 520f)
+    fun <T> spatialDefault(): FiniteAnimationSpec<T> = spring(dampingRatio = 0.80f, stiffness = 340f)
+    fun <T> spatialSlow(): FiniteAnimationSpec<T> = spring(dampingRatio = 0.84f, stiffness = 240f)
+
+    // Effects: cor e opacidade (damping = 1.0, ZERO overshoot)
+    fun <T> effectsFast(): FiniteAnimationSpec<T> = spring(dampingRatio = 1.0f, stiffness = 600f)
+    fun <T> effectsDefault(): FiniteAnimationSpec<T> = spring(dampingRatio = 1.0f, stiffness = 260f)
+
+    fun <T> spec(reduceMotion: Boolean, normal: FiniteAnimationSpec<T>): FiniteAnimationSpec<T> =
+        if (reduceMotion) snap() else normal
+
     val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)   // Suave e responsivo
     const val ColorMs = 700                                 // Transição de cores da capa
     const val DriftMs = 18000                               // Onda de fundo do Now Playing
-    fun <T> accent() = tween<T>(ColorMs, easing = Emphasized)
-    fun <T> liquid() = spring<T>(dampingRatio = 0.82f, stiffness = 280f)
-    fun <T> press() = spring<T>(dampingRatio = 0.75f, stiffness = 500f)
+    fun <T> accent(): FiniteAnimationSpec<T> = effectsDefault()
+    fun <T> liquid(): FiniteAnimationSpec<T> = spatialDefault()
+    fun <T> press(): FiniteAnimationSpec<T> = spatialFast()
 }
 
 // ─────────────────────── Cor da capa -> Glow & Mesh ───────────────────────

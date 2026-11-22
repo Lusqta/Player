@@ -3,8 +3,10 @@ package com.lucas.player.ui.components
 import android.graphics.Bitmap
 import androidx.compose.ui.unit.Dp
 import kotlin.math.abs
+import kotlin.math.sin
 import androidx.compose.animation.*
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
@@ -33,9 +35,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -76,6 +83,17 @@ fun formatTimeMs(ms: Long): String {
     } else {
         String.format(Locale.getDefault(), "%02d:%02d", min, sec)
     }
+}
+
+fun formatDisplayArtist(raw: String, fallback: String): String {
+    val cleaned = raw.trim()
+    if (cleaned.isEmpty() || cleaned.equals("<unknown>", ignoreCase = true)) return fallback
+    return cleaned.split(";").map { it.trim() }.filter { it.isNotEmpty() }.joinToString(", ")
+}
+
+fun isValidHighlightName(raw: String): Boolean {
+    val t = raw.trim()
+    return t.isNotEmpty() && !t.equals("<unknown>", ignoreCase = true) && !t.equals("Desconhecido", ignoreCase = true)
 }
 
 @Composable
@@ -185,7 +203,7 @@ private fun EditorialNavIcon(
 
     val tint by animateColorAsState(
         targetValue = if (isActive) Color.White else Color.White.copy(alpha = 0.45f),
-        animationSpec = tween(200),
+        animationSpec = AuroMotion.effectsFast(),
         label = "nav_icon_tint"
     )
 
@@ -222,6 +240,9 @@ fun TranslucentPlayButton(
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
     size: Dp = 40.dp,
+    cornerRadius: Dp = size / 2,
+    containerColor: Color = AuroColor.ControlGlass,
+    minTouchTarget: Dp = 48.dp,
     onClick: () -> Unit
 ) {
     val view = LocalView.current
@@ -232,14 +253,11 @@ fun TranslucentPlayButton(
         animationSpec = AuroMotion.press(),
         label = "translucent_play_scale"
     )
+    val shape = RoundedCornerShape(cornerRadius)
 
     Box(
         modifier = modifier
-            .size(size)
-            .scale(scale)
-            .clip(CircleShape)
-            .background(AuroColor.ControlGlass)
-            .border(0.5.dp, Color.White.copy(alpha = 0.15f), CircleShape)
+            .defaultMinSize(minWidth = minTouchTarget, minHeight = minTouchTarget)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -250,12 +268,22 @@ fun TranslucentPlayButton(
             ),
         contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-            contentDescription = if (isPlaying) stringResource(R.string.cd_pause) else stringResource(R.string.cd_play),
-            tint = Color.White,
-            modifier = Modifier.size(size * 0.52f)
-        )
+        Box(
+            modifier = Modifier
+                .size(size)
+                .scale(scale)
+                .clip(shape)
+                .background(containerColor)
+                .border(0.5.dp, Color.White.copy(alpha = 0.18f), shape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                contentDescription = if (isPlaying) stringResource(R.string.cd_pause) else stringResource(R.string.cd_play),
+                tint = Color.White,
+                modifier = Modifier.size(size * 0.52f)
+            )
+        }
     }
 }
 
@@ -303,7 +331,8 @@ fun EditorialMiniPlayer(
                 .fillMaxWidth()
                 .height(2.dp)
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 20.dp)
+                .padding(horizontal = 28.dp)
+                .padding(bottom = 1.dp)
                 .background(Color.White.copy(alpha = 0.08f), CircleShape)
         ) {
             Box(
@@ -387,7 +416,7 @@ fun EditorialMiniPlayer(
                 )
                 Spacer(modifier = Modifier.height(1.dp))
                 Text(
-                    text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                    text = formatDisplayArtist(track.artist, stringResource(R.string.unknown_artist)),
                     style = AuroType.Subtitle,
                     color = AuroColor.TextSecondary,
                     maxLines = 1,
@@ -399,18 +428,19 @@ fun EditorialMiniPlayer(
             TranslucentPlayButton(
                 isPlaying = isPlaying,
                 size = 34.dp,
+                minTouchTarget = 44.dp,
                 onClick = onPlayPause
             )
 
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(2.dp))
 
-            // SkipNext (20dp)
+            // SkipNext (alvo de toque 44dp, ícone 20dp)
             IconButton(
                 onClick = {
                     AuroHaptics.click(view)
                     onNext()
                 },
-                modifier = Modifier.size(34.dp)
+                modifier = Modifier.size(44.dp)
             ) {
                 Icon(
                     imageVector = Icons.Rounded.SkipNext,
@@ -470,7 +500,7 @@ fun EditorialSectionHeader(
 
 /**
  * EDITORIAL SCRUBBER (Editorial Dark OLED)
- * Barra de progresso com trilho de 2.5dp, thumb de 10dp e números monoespaçados.
+ * Canvas preciso, bolinha perfeitamente circular de 0% a 100%, e onda sutil em reprodução.
  */
 @Composable
 fun EditorialScrubber(
@@ -478,33 +508,55 @@ fun EditorialScrubber(
     durationMs: Long,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
+    isPlaying: Boolean = false,
     activeColor: Color = Color.White,
-    trackColor: Color = Color.White.copy(alpha = 0.30f),
+    trackColor: Color = Color.White.copy(alpha = 0.24f),
     showTimestampsOnlyWhenDragging: Boolean = true
 ) {
+    val reduceMotion = rememberReduceMotion()
     var isDragging by remember { mutableStateOf(false) }
     var draggingFraction by remember { mutableFloatStateOf(-1f) }
     val view = LocalView.current
+
     val currentFraction = if (durationMs > 0) (progressMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
-    val displayFraction = if (draggingFraction >= 0f) draggingFraction else currentFraction
+    val displayFraction = (if (draggingFraction >= 0f) draggingFraction else currentFraction).coerceIn(0f, 1f)
+
+    val showWave = isPlaying && !isDragging && !reduceMotion
+    val waveFactor by animateFloatAsState(
+        targetValue = if (showWave) 1f else 0f,
+        animationSpec = AuroMotion.spec(reduceMotion, AuroMotion.effectsFast()),
+        label = "scrubberWaveAmp"
+    )
+    val thumbScale by animateFloatAsState(
+        targetValue = if (isDragging) 1.25f else 1f,
+        animationSpec = AuroMotion.spec(reduceMotion, AuroMotion.spatialFast()),
+        label = "scrubberThumbScale"
+    )
+
+    val wavePhase = if (showWave) {
+        val inf = rememberInfiniteTransition(label = "scrubberWave")
+        inf.animateFloat(
+            initialValue = 0f,
+            targetValue = (2f * Math.PI).toFloat(),
+            animationSpec = infiniteRepeatable(tween(1400, easing = LinearEasing)),
+            label = "wavePhase"
+        ).value
+    } else 0f
 
     Column(modifier = modifier.fillMaxWidth()) {
-        Box(
+        androidx.compose.foundation.Canvas(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(28.dp)
+                .height(36.dp)
                 .pointerInput(durationMs) {
                     detectDragGestures(
                         onDragStart = { offset ->
                             isDragging = true
-                            val f = (offset.x / size.width).coerceIn(0f, 1f)
-                            draggingFraction = f
+                            draggingFraction = (offset.x / size.width).coerceIn(0f, 1f)
                             AuroHaptics.sliderTick(view)
                         },
                         onDragEnd = {
-                            if (draggingFraction >= 0f) {
-                                onSeek((draggingFraction * durationMs).toLong())
-                            }
+                            if (draggingFraction >= 0f) onSeek((draggingFraction * durationMs).toLong())
                             draggingFraction = -1f
                             isDragging = false
                             AuroHaptics.click(view)
@@ -515,8 +567,7 @@ fun EditorialScrubber(
                         }
                     ) { change, _ ->
                         change.consume()
-                        val f = (change.position.x / size.width).coerceIn(0f, 1f)
-                        draggingFraction = f
+                        draggingFraction = (change.position.x / size.width).coerceIn(0f, 1f)
                     }
                 }
                 .pointerInput(durationMs) {
@@ -525,69 +576,84 @@ fun EditorialScrubber(
                         onSeek((f * durationMs).toLong())
                         AuroHaptics.sliderTick(view)
                     }
-                },
-            contentAlignment = Alignment.CenterStart
+                }
         ) {
-            // Track base
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .clip(CircleShape)
-                    .background(trackColor)
+            val baseThumbR = 6.dp.toPx()
+            val padX = baseThumbR * 1.25f
+            val usableW = (size.width - padX * 2f).coerceAtLeast(1f)
+            val activeX = padX + usableW * displayFraction
+            val cy = size.height / 2f
+            val strokeW = 2.8.dp.toPx()
+
+            // Trilho inativo (reto)
+            drawLine(
+                color = trackColor,
+                start = Offset(activeX, cy),
+                end = Offset(size.width - padX, cy),
+                strokeWidth = strokeW,
+                cap = StrokeCap.Round
             )
-            // Active progress
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(displayFraction)
-                    .height(3.dp)
-                    .clip(CircleShape)
-                    .background(activeColor)
-            )
-            // Thumb
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(displayFraction),
-                contentAlignment = Alignment.CenterEnd
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(14.dp)
-                        .clip(CircleShape)
-                        .background(Color.White)
-                )
+
+            // Trilho ativo (ondulado suave quando tocando, reto quando pausado)
+            val activeLen = activeX - padX
+            if (activeLen > 1f) {
+                if (waveFactor > 0.02f && activeLen > 8f) {
+                    val path = Path()
+                    val wavelength = 22.dp.toPx()
+                    val maxAmp = 2.2.dp.toPx() * waveFactor
+                    val step = 3f
+                    var x = padX
+                    var first = true
+                    while (x <= activeX) {
+                        val distEnd = ((activeX - x) / (wavelength * 0.5f)).coerceIn(0f, 1f)
+                        val distStart = ((x - padX) / (wavelength * 0.35f)).coerceIn(0f, 1f)
+                        val env = distEnd * distStart
+                        val y = cy + sin((x / wavelength) * 2f * Math.PI.toFloat() - wavePhase) * maxAmp * env
+                        if (first) { path.moveTo(x, y); first = false } else path.lineTo(x, y)
+                        x += step
+                    }
+                    path.lineTo(activeX, cy)
+                    drawPath(path, color = activeColor, style = Stroke(width = strokeW, cap = StrokeCap.Round, join = StrokeJoin.Round))
+                } else {
+                    drawLine(
+                        color = activeColor,
+                        start = Offset(padX, cy),
+                        end = Offset(activeX, cy),
+                        strokeWidth = strokeW,
+                        cap = StrokeCap.Round
+                    )
+                }
             }
+
+            // Bolinha perfeitamente circular em qualquer posição (0% a 100%)
+            drawCircle(
+                color = Color.White,
+                radius = baseThumbR * thumbScale,
+                center = Offset(activeX, cy)
+            )
         }
 
-        // Time labels com AnimatedVisibility
         AnimatedVisibility(
             visible = !showTimestampsOnlyWhenDragging || isDragging,
-            enter = fadeIn(tween(150)),
-            exit = fadeOut(tween(150))
+            enter = fadeIn(AuroMotion.effectsFast()),
+            exit = fadeOut(AuroMotion.effectsFast())
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 2.dp, end = 2.dp, top = 2.dp),
+                    .padding(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 val elapsed = if (draggingFraction >= 0f) (draggingFraction * durationMs).toLong() else progressMs
                 val remaining = (durationMs - elapsed).coerceAtLeast(0)
-
                 Text(
                     text = formatTimeMs(elapsed),
-                    style = AuroType.MicroLabel.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontFeatureSettings = "tnum"
-                    ),
+                    style = AuroType.MicroLabel.copy(fontFamily = FontFamily.Monospace, fontFeatureSettings = "tnum"),
                     color = AuroColor.TextSecondary
                 )
                 Text(
                     text = "-${formatTimeMs(remaining)}",
-                    style = AuroType.MicroLabel.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontFeatureSettings = "tnum"
-                    ),
+                    style = AuroType.MicroLabel.copy(fontFamily = FontFamily.Monospace, fontFeatureSettings = "tnum"),
                     color = AuroColor.TextSecondary
                 )
             }
@@ -845,8 +911,14 @@ fun AuroTrackRow(
             Spacer(modifier = Modifier.height(1.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
+                val displayArtist = formatDisplayArtist(track.artist, stringResource(R.string.unknown_artist))
+                val subtitleText = if (track.album.isNotBlank() && !track.album.equals("<unknown>", ignoreCase = true) && !track.album.equals("Álbum desconhecido", ignoreCase = true)) {
+                    "$displayArtist — ${track.album}"
+                } else {
+                    displayArtist
+                }
                 Text(
-                    text = "${track.artist} • ${track.album}",
+                    text = subtitleText,
                     style = AuroType.Subtitle,
                     color = AuroColor.TextSecondary,
                     maxLines = 1,
@@ -903,10 +975,10 @@ fun AuroTrackRow(
         if (!isSelectionMode) {
             Spacer(modifier = Modifier.width(2.dp))
 
-            // Menu da faixa: três pontos horizontais (•••)
+            // Menu da faixa: três pontos horizontais (•••) com alvo de toque 48dp
             IconButton(
                 onClick = onMenuClick,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Rounded.MoreHoriz,

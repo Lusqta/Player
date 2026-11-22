@@ -144,8 +144,7 @@ fun AuroEqualizerScreen(
                     Text(
                         text = stringResource(R.string.eq_presets_header),
                         style = AuroType.Caption.copy(
-                            color = AuroColor.TextTertiary,
-                            fontFamily = FontFamily.Monospace
+                            color = AuroColor.TextTertiary
                         ),
                         modifier = Modifier.weight(1f)
                     )
@@ -267,8 +266,7 @@ fun AuroEqualizerScreen(
                             Text(
                                 text = stringResource(R.string.spatial_header),
                                 style = AuroType.Caption.copy(
-                                    color = AuroColor.TextTertiary,
-                                    fontFamily = FontFamily.Monospace
+                                    color = AuroColor.TextTertiary
                                 )
                             )
                         }
@@ -452,11 +450,11 @@ fun AuroEqualizerScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "PARÂMETROS ACÚSTICOS 3D",
+                                    text = "Parâmetros acústicos 3D",
                                     style = AuroType.Caption.copy(
-                                        color = AuroColor.TextTertiary,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 11.sp
+                                        color = AuroColor.TextSecondary,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold
                                     )
                                 )
                                 AuroGlass(
@@ -568,8 +566,7 @@ fun AuroEqualizerScreen(
                                 Text(
                                     text = stringResource(R.string.eq_tone_preamp_header),
                                     style = AuroType.Caption.copy(
-                                        color = AuroColor.TextTertiary,
-                                        fontFamily = FontFamily.Monospace
+                                        color = AuroColor.TextTertiary
                                     )
                                 )
                                 Spacer(modifier = Modifier.width(10.dp))
@@ -613,8 +610,7 @@ fun AuroEqualizerScreen(
                     Text(
                         text = stringResource(R.string.eq_bands_header),
                         style = AuroType.Caption.copy(
-                            color = AuroColor.TextTertiary,
-                            fontFamily = FontFamily.Monospace
+                            color = AuroColor.TextTertiary
                         )
                     )
                         Spacer(modifier = Modifier.height(8.dp))
