@@ -2888,10 +2888,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
@@ -2905,13 +2908,18 @@ import com.lucas.player.model.Track
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.*
 
+data class HomePlaylist(val name: String, val countText: String, val coverTrack: Track?)
+
+private val HomeCardSize = 140.dp
+private val HomeCardRadius = 20.dp
+
 /**
  * ABA INÍCIO (Editorial Dark OLED - Minimalista & Atmosférico)
  * - Top greeting 2 linhas: "Recomendado\nPara Você Hoje"
- * - Carrossel de Mixes rápidos (112dp × 68dp, raio 18dp) com gradientes atmosféricos
- * - Adicionadas Recentemente em cartões horizontais (270dp × 112dp, raio 24dp)
+ * - Carrossel de Mixes rápidos (108dp × 68dp, raio 18dp) com gradientes atmosféricos
+ * - Carrossel de Álbuns mais ouvidos (140dp × 140dp, raio 20dp)
  * - Linha de Artistas (72dp × 72dp, raio 18dp)
- * - Banner Coleções & Pastas (110dp, raio 24dp)
+ * - Coleções como carrossel de playlists com card tracejado para criar nova playlist
  */
 @Composable
 fun AuroHomeScreen(
@@ -2919,7 +2927,6 @@ fun AuroHomeScreen(
     isPlaying: Boolean,
     recentlyPlayed: List<Track>,
     mostPlayed: List<Track>,
-    recentlyAdded: List<Track>,
     allTracks: List<Track>,
     isLoading: Boolean = false,
     loadingCount: Int = 0,
@@ -2931,6 +2938,10 @@ fun AuroHomeScreen(
     onOpenSettings: () -> Unit,
     onOpenLibrary: () -> Unit = {},
     onArtistClick: (String) -> Unit = {},
+    playlists: List<HomePlaylist> = emptyList(),
+    onAlbumClick: (String) -> Unit = {},
+    onPlaylistClick: (String) -> Unit = {},
+    onCreatePlaylist: () -> Unit = {},
     listState: LazyListState = rememberLazyListState(),
     modifier: Modifier = Modifier
 ) {
@@ -2969,6 +2980,15 @@ fun AuroHomeScreen(
         } else {
             val artists = remember(allTracks) {
                 allTracks.asSequence().map { it.artist }.filter { it.isNotEmpty() }.distinct().take(12).toList()
+            }
+
+            val topAlbums = remember(mostPlayed) {
+                mostPlayed.filter { it.album.isNotBlank() }
+                    .groupBy { it.album }
+                    .values
+                    .sortedByDescending { it.size }
+                    .map { it.first() }
+                    .take(10)
             }
 
             LazyColumn(
@@ -3049,28 +3069,25 @@ fun AuroHomeScreen(
                     }
                 }
 
-                // Seção: Adicionadas Recentemente (Cartões Horizontais 270dp × 112dp)
-                val displayAdded = if (recentlyAdded.isNotEmpty()) recentlyAdded else allTracks.take(10)
-                if (displayAdded.isNotEmpty()) {
-                    item(key = "featured_recent") {
-                        Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                // Seção: Álbuns mais ouvidos
+                if (topAlbums.isNotEmpty()) {
+                    item(key = "top_albums") {
+                        Column(modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) {
                             EditorialSectionHeader(
-                                title = stringResource(R.string.home_recently_added),
+                                title = stringResource(R.string.home_top_albums),
                                 actionLabel = stringResource(R.string.view_all),
                                 onAction = onOpenLibrary
                             )
-
                             LazyRow(
-                                modifier = Modifier.fillMaxWidth(),
                                 contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
                                 horizontalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
-                                items(displayAdded.take(8), key = { it.id }) { track ->
-                                    FeaturedTrackCard(
-                                        track = track,
-                                        onPlay = {
-                                            onTrackClick(track)
-                                        }
+                                items(topAlbums, key = { it.album }) { t ->
+                                    CoverCard(
+                                        coverTrack = t,
+                                        title = t.album,
+                                        subtitle = t.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                                        onClick = { onAlbumClick(t.album) }
                                     )
                                 }
                             }
@@ -3081,7 +3098,7 @@ fun AuroHomeScreen(
                 // Seção: Artistas (72dp × 72dp, raio 18dp)
                 if (artists.isNotEmpty()) {
                     item(key = "artists_row") {
-                        Column(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) {
                             EditorialSectionHeader(
                                 title = stringResource(R.string.category_artists),
                                 actionLabel = stringResource(R.string.view_all),
@@ -3147,41 +3164,26 @@ fun AuroHomeScreen(
                     }
                 }
 
-                // Banner: Coleções (104dp, raio 24dp)
-                item(key = "collections_banner") {
-                    val warmGlow = LocalAuroAccent.current.mesh1.value.takeIf { it != Color.Unspecified } ?: Color(0xFF9A1D1D)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 20.dp)
-                            .height(104.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(AuroColor.SurfaceCard)
-                            .drawBehind {
-                                drawRect(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(
-                                            warmGlow.copy(alpha = 0.62f),
-                                            warmGlow.copy(alpha = 0.25f),
-                                            Color.Transparent
-                                        ),
-                                        center = Offset(size.width / 2f, size.height * 0.85f),
-                                        radius = size.width * 0.55f
-                                    )
+                item(key = "collections") {
+                    Column(modifier = Modifier.fillMaxWidth().padding(top = 24.dp)) {
+                        EditorialSectionHeader(
+                            title = stringResource(R.string.home_banner_collections),
+                            actionLabel = null
+                        )
+                        LazyRow(
+                            contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            item(key = "new_playlist") { NewPlaylistCard(onClick = onCreatePlaylist) }
+                            items(playlists, key = { it.name }) { pl ->
+                                CoverCard(
+                                    coverTrack = pl.coverTrack,
+                                    title = pl.name,
+                                    subtitle = pl.countText,
+                                    onClick = { onPlaylistClick(pl.name) }
                                 )
                             }
-                            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
-                            .clickable {
-                                AuroHaptics.click(view)
-                                onOpenLibrary()
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = stringResource(R.string.home_banner_collections),
-                            style = AuroType.CardTitle.copy(fontSize = 17.sp, fontWeight = FontWeight.SemiBold),
-                            color = AuroColor.TextPrimary
-                        )
+                        }
                     }
                 }
             }
@@ -3237,97 +3239,98 @@ private fun QuickMixCard(
     }
 }
 
-/**
- * Cartão de Faixa em Destaque (270dp × 104dp, raio 24dp)
- */
 @Composable
-private fun FeaturedTrackCard(
-    track: Track,
-    onPlay: () -> Unit
+private fun CoverCard(
+    coverTrack: Track?,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
 ) {
-    val coverBitmap = rememberTrackCover(track, 180)
     val view = LocalView.current
-
-    Box(
+    val bitmap = rememberTrackCover(coverTrack, 320)
+    val shape = RoundedCornerShape(HomeCardRadius)
+    Column(
         modifier = Modifier
-            .size(width = 270.dp, height = 104.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(AuroColor.SurfaceCard)
-            .border(0.5.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
-            .clickable {
-                AuroHaptics.click(view)
-                onPlay()
-            }
-            .padding(12.dp)
+            .width(HomeCardSize)
+            .clip(shape)
+            .clickable { AuroHaptics.click(view); onClick() }
     ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier
+                .size(HomeCardSize)
+                .clip(shape)
+                .background(AuroColor.SurfaceCard)
+                .border(0.5.dp, Color.White.copy(alpha = 0.08f), shape)
         ) {
-            // Capa 80dp com raio 18dp + TranslucentPlayButton(34.dp) sobrepondo a borda direita (metade dentro, metade fora)
-            Box(
-                modifier = Modifier
-                    .width(80.dp + 17.dp)
-                    .height(80.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(80.dp)
-                        .align(Alignment.CenterStart)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(AuroColor.SurfaceGrouped),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (coverBitmap != null) {
-                        Image(
-                            bitmap = coverBitmap.asImageBitmap(),
-                            contentDescription = track.title,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        AuroCoverPlaceholder(
-                            modifier = Modifier.fillMaxSize(),
-                            glass = false,
-                            shape = RoundedCornerShape(18.dp)
-                        )
-                    }
-                }
-
-                // Play Button sobrepondo a borda direita (centro em x = 80dp)
-                TranslucentPlayButton(
-                    isPlaying = false,
-                    size = 34.dp,
-                    onClick = onPlay,
-                    modifier = Modifier.align(Alignment.CenterEnd)
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
                 )
-            }
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(end = 4.dp),
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = track.title,
-                    style = AuroType.CardTitle,
-                    color = AuroColor.TextPrimary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                    style = AuroType.Subtitle,
-                    color = AuroColor.TextSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            } else {
+                AuroCoverPlaceholder(modifier = Modifier.fillMaxSize(), glass = false, shape = shape)
             }
         }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = title,
+            style = AuroType.CardTitle.copy(fontSize = 14.sp),
+            color = AuroColor.TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = subtitle,
+            style = AuroType.Subtitle.copy(fontSize = 12.sp),
+            color = AuroColor.TextSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun NewPlaylistCard(onClick: () -> Unit) {
+    val view = LocalView.current
+    val shape = RoundedCornerShape(HomeCardRadius)
+    Column(
+        modifier = Modifier
+            .width(HomeCardSize)
+            .clip(shape)
+            .clickable { AuroHaptics.click(view); onClick() }
+    ) {
+        Box(
+            modifier = Modifier
+                .size(HomeCardSize)
+                .drawBehind {
+                    drawRoundRect(
+                        color = Color.White.copy(alpha = 0.22f),
+                        cornerRadius = CornerRadius(HomeCardRadius.toPx()),
+                        style = Stroke(
+                            width = 1.dp.toPx(),
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f))
+                        )
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Add,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.70f),
+                modifier = Modifier.size(28.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = stringResource(R.string.create_playlist),
+            style = AuroType.CardTitle.copy(fontSize = 14.sp),
+            color = AuroColor.TextPrimary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -4639,14 +4642,13 @@ fun AuroNowPlayingScreen(
                         },
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Capa ocupando 100% da largura da tela sem deformar/cortar as laterais (abaixo da status bar)
+                    // Capa quadrada flutuante com margem lateral (abaixo da status bar)
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
                             .statusBarsPadding()
-                            .padding(top = 6.dp)
+                            .padding(start = 24.dp, end = 24.dp, top = 8.dp)
+                            .fillMaxWidth()
                             .aspectRatio(1f)
-                            .heightIn(max = screenHeight * 0.52f)
                             .graphicsLayer {
                                 scaleX = coverScale
                                 scaleY = coverScale
@@ -4705,18 +4707,6 @@ fun AuroNowPlayingScreen(
                                 )
                         )
 
-                        // Fade inferior fundindo a capa no fundo borrado de 2 cores
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .fillMaxHeight(0.28f)
-                                .align(Alignment.BottomCenter)
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f))
-                                    )
-                                )
-                        )
 
                         // Chevron v no canto superior esquerdo da capa (SEM statusBarsPadding duplicado)
                         Box(
@@ -9603,6 +9593,7 @@ import com.lucas.player.ui.components.*
 import com.lucas.player.ui.navigation.NavScreen
 import com.lucas.player.ui.navigation.PlayerNavController
 import com.lucas.player.ui.screens.*
+import com.lucas.player.ui.screens.HomePlaylist
 import com.lucas.player.ui.theme.*
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -10199,14 +10190,19 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             is NavScreen.Home -> {
                                 val all = libraryRepo.getAllTracks()
                                 val recent = libraryRepo.getRecentlyPlayed().take(20)
-                                val most = libraryRepo.getMostPlayed().take(20)
-                                val added = libraryRepo.getRecentlyAdded().take(20)
+                                val most = libraryRepo.getMostPlayed().take(60)
+                                val homePlaylists = libraryRepo.getUserPlaylists().map { pl ->
+                                    HomePlaylist(
+                                        name = pl.name,
+                                        countText = resources.getQuantityString(R.plurals.tracks_count, pl.trackCount, pl.trackCount),
+                                        coverTrack = libraryRepo.getTracksForUserPlaylist(pl.id).firstOrNull()
+                                    )
+                                }
                                 AuroHomeScreen(
                                     currentTrack = currentTrack,
                                     isPlaying = isPlaying,
                                     recentlyPlayed = recent,
                                     mostPlayed = most,
-                                    recentlyAdded = added,
                                     allTracks = all,
                                     isLoading = isLoadingLibrary,
                                     loadingCount = loadingTracksCount,
@@ -10250,6 +10246,28 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                             )
                                         )
                                     },
+                                    playlists = homePlaylists,
+                                    onAlbumClick = { albumName ->
+                                        drillDownGroup(LibraryCategory.ALBUMS, albumName)
+                                        navController.navigateTo(
+                                            NavScreen.Drilldown(
+                                                category = LibraryCategory.ALBUMS,
+                                                title = albumName,
+                                                subtitle = getString(R.string.group_subtitle_album)
+                                            )
+                                        )
+                                    },
+                                    onPlaylistClick = { name ->
+                                        drillDownGroup(LibraryCategory.PLAYLISTS, name)
+                                        navController.navigateTo(
+                                            NavScreen.Drilldown(
+                                                category = LibraryCategory.PLAYLISTS,
+                                                title = name,
+                                                subtitle = getString(R.string.group_subtitle_playlist)
+                                            )
+                                        )
+                                    },
+                                    onCreatePlaylist = { showCreatePlaylistDialogState.value = true },
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -11830,6 +11848,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     <string name="home_recently_played">Tocadas Recentemente</string>
     <string name="home_most_played">Mais Tocadas</string>
     <string name="home_recently_added">Adicionadas Recentemente</string>
+    <string name="home_top_albums">Álbuns mais ouvidos</string>
     <string name="library_pins_title">Fixados</string>
     <string name="action_pin">Fixar na Biblioteca</string>
     <string name="action_unpin">Desafixar</string>
@@ -12205,6 +12224,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     <string name="home_recently_played">Recently Played</string>
     <string name="home_most_played">Most Played</string>
     <string name="home_recently_added">Recently Added</string>
+    <string name="home_top_albums">Top albums</string>
     <string name="library_pins_title">Pinned</string>
     <string name="action_pin">Pin to Library</string>
     <string name="action_unpin">Unpin</string>

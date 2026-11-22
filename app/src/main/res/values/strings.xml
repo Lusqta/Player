@@ -241,6 +241,7 @@
     <string name="home_recently_played">Tocadas Recentemente</string>
     <string name="home_most_played">Mais Tocadas</string>
     <string name="home_recently_added">Adicionadas Recentemente</string>
+    <string name="home_top_albums">Álbuns mais ouvidos</string>
     <string name="library_pins_title">Fixados</string>
     <string name="action_pin">Fixar na Biblioteca</string>
     <string name="action_unpin">Desafixar</string>

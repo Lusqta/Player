@@ -1,4 +1,4 @@
-﻿package com.lucas.player.ui.screens
+package com.lucas.player.ui.screens
 
 import android.graphics.Bitmap
 import androidx.activity.BackEventCompat
@@ -200,14 +200,13 @@ fun AuroNowPlayingScreen(
                         },
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Capa ocupando 100% da largura da tela sem deformar/cortar as laterais (abaixo da status bar)
+                    // Capa quadrada flutuante com margem lateral (abaixo da status bar)
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
                             .statusBarsPadding()
-                            .padding(top = 6.dp)
+                            .padding(start = 24.dp, end = 24.dp, top = 8.dp)
+                            .fillMaxWidth()
                             .aspectRatio(1f)
-                            .heightIn(max = screenHeight * 0.52f)
                             .graphicsLayer {
                                 scaleX = coverScale
                                 scaleY = coverScale
@@ -266,18 +265,6 @@ fun AuroNowPlayingScreen(
                                 )
                         )
 
-                        // Fade inferior fundindo a capa no fundo borrado de 2 cores
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .fillMaxHeight(0.28f)
-                                .align(Alignment.BottomCenter)
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(Color.Transparent, Color.Black.copy(alpha = 0.45f))
-                                    )
-                                )
-                        )
 
                         // Chevron v no canto superior esquerdo da capa (SEM statusBarsPadding duplicado)
                         Box(

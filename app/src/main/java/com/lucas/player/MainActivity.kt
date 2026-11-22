@@ -60,6 +60,7 @@ import com.lucas.player.ui.components.*
 import com.lucas.player.ui.navigation.NavScreen
 import com.lucas.player.ui.navigation.PlayerNavController
 import com.lucas.player.ui.screens.*
+import com.lucas.player.ui.screens.HomePlaylist
 import com.lucas.player.ui.theme.*
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -656,14 +657,19 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             is NavScreen.Home -> {
                                 val all = libraryRepo.getAllTracks()
                                 val recent = libraryRepo.getRecentlyPlayed().take(20)
-                                val most = libraryRepo.getMostPlayed().take(20)
-                                val added = libraryRepo.getRecentlyAdded().take(20)
+                                val most = libraryRepo.getMostPlayed().take(60)
+                                val homePlaylists = libraryRepo.getUserPlaylists().map { pl ->
+                                    HomePlaylist(
+                                        name = pl.name,
+                                        countText = resources.getQuantityString(R.plurals.tracks_count, pl.trackCount, pl.trackCount),
+                                        coverTrack = libraryRepo.getTracksForUserPlaylist(pl.id).firstOrNull()
+                                    )
+                                }
                                 AuroHomeScreen(
                                     currentTrack = currentTrack,
                                     isPlaying = isPlaying,
                                     recentlyPlayed = recent,
                                     mostPlayed = most,
-                                    recentlyAdded = added,
                                     allTracks = all,
                                     isLoading = isLoadingLibrary,
                                     loadingCount = loadingTracksCount,
@@ -707,6 +713,28 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                             )
                                         )
                                     },
+                                    playlists = homePlaylists,
+                                    onAlbumClick = { albumName ->
+                                        drillDownGroup(LibraryCategory.ALBUMS, albumName)
+                                        navController.navigateTo(
+                                            NavScreen.Drilldown(
+                                                category = LibraryCategory.ALBUMS,
+                                                title = albumName,
+                                                subtitle = getString(R.string.group_subtitle_album)
+                                            )
+                                        )
+                                    },
+                                    onPlaylistClick = { name ->
+                                        drillDownGroup(LibraryCategory.PLAYLISTS, name)
+                                        navController.navigateTo(
+                                            NavScreen.Drilldown(
+                                                category = LibraryCategory.PLAYLISTS,
+                                                title = name,
+                                                subtitle = getString(R.string.group_subtitle_playlist)
+                                            )
+                                        )
+                                    },
+                                    onCreatePlaylist = { showCreatePlaylistDialogState.value = true },
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }

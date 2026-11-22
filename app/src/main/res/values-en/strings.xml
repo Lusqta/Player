@@ -241,6 +241,7 @@
     <string name="home_recently_played">Recently Played</string>
     <string name="home_most_played">Most Played</string>
     <string name="home_recently_added">Recently Added</string>
+    <string name="home_top_albums">Top albums</string>
     <string name="library_pins_title">Pinned</string>
     <string name="action_pin">Pin to Library</string>
     <string name="action_unpin">Unpin</string>
