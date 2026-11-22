@@ -35,10 +35,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -371,6 +375,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         startAndBindService()
 
         setContent {
+            val backdropLayer = rememberGraphicsLayer()
+            var contentRootOffset by remember { mutableStateOf(Offset.Zero) }
             val libraryAccess by libraryAccessState
             val isLoadingLibrary by isLoadingLibraryState
             val loadingTracksCount by loadingTracksCountState
@@ -648,7 +654,17 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                     // Conteúdo Principal de Acordo com a Tela Ativa (Fase 5.4: insets medidos via LocalAuroBottomInset)
                     Box(
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .onGloballyPositioned { contentRootOffset = it.positionInRoot() }
+                            .drawWithContent {
+                                if (size.width > 0f && size.height > 0f) {
+                                    backdropLayer.record { this@drawWithContent.drawContent() }
+                                    drawLayer(backdropLayer)
+                                } else {
+                                    drawContent()
+                                }
+                            }
                     ) {
                         AnimatedContent(
                             targetState = currentScreen,
@@ -1544,7 +1560,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         .fillMaxWidth()
                                         .background(
                                             Brush.verticalGradient(
-                                                listOf(Color.Transparent, Color(0xCC050505), Color(0xF2121214))
+                                                listOf(Color.Transparent, Color(0xCC050505), Color.Transparent)
                                             )
                                         )
                                         .padding(top = 8.dp, bottom = 8.dp)
@@ -1568,7 +1584,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 onHomeClick = { navController.toggleHome() },
                                 onSearchClick = { navController.toggleSearch() },
                                 onLibraryClick = { navController.toggleLibrary() },
-                                onTuneClick = { showMenuSheetState.value = true }
+                                onTuneClick = { showMenuSheetState.value = true },
+                                backdropLayer = backdropLayer,
+                                backdropOrigin = contentRootOffset
                             )
                         }
                     }

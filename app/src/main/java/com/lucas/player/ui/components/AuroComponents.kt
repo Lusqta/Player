@@ -34,6 +34,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -43,11 +45,15 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
@@ -129,57 +135,108 @@ fun EditorialFloatingNavbar(
     onSearchClick: () -> Unit,
     onLibraryClick: () -> Unit,
     onTuneClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    backdropLayer: androidx.compose.ui.graphics.layer.GraphicsLayer? = null,
+    backdropOrigin: androidx.compose.ui.geometry.Offset = androidx.compose.ui.geometry.Offset.Zero
 ) {
-    Column(
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    var navPosition by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    val blurRadiusPx = remember(density) { with(density) { 24.dp.toPx() } }
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color(0xF2121214))
-            .navigationBarsPadding()
+            .onGloballyPositioned { navPosition = it.positionInRoot() }
+            // Bloqueia cliques e arrastos nos espaços vazios para não atravessarem para a lista atrás
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Main)
+                        event.changes.forEach { it.consume() }
+                    }
+                }
+            }
+            .clipToBounds()
     ) {
-        HorizontalDivider(
-            thickness = 0.5.dp,
-            color = Color.White.copy(alpha = 0.08f)
-        )
-        Row(
+        // Camada de blur real do conteúdo passando por trás (API 31+)
+        if (backdropLayer != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .graphicsLayer {
+                        renderEffect = androidx.compose.ui.graphics.BlurEffect(
+                            radiusX = blurRadiusPx,
+                            radiusY = blurRadiusPx,
+                            edgeTreatment = androidx.compose.ui.graphics.TileMode.Clamp
+                        )
+                    }
+                    .drawBehind {
+                        val dx = navPosition.x - backdropOrigin.x
+                        val dy = navPosition.y - backdropOrigin.y
+                        translate(left = -dx, top = -dy) {
+                            drawLayer(backdropLayer)
+                        }
+                    }
+            )
+        }
+
+        // Película escura translúcida + conteúdo da navbar
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
-                .padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically
+                .background(
+                    if (backdropLayer != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                        Color(0xA6101012) // ~65% opacidade para deixar o blur visível
+                    } else {
+                        Color(0xF0121214)
+                    }
+                )
+                .navigationBarsPadding()
         ) {
-            EditorialNavIcon(
-                activeIcon = Icons.Rounded.Home,
-                inactiveIcon = Icons.Outlined.Home,
-                contentDescription = stringResource(R.string.tab_home),
-                isActive = currentScreen is NavScreen.Home,
-                onClick = onHomeClick
+            HorizontalDivider(
+                thickness = 0.5.dp,
+                color = Color.White.copy(alpha = 0.10f)
             )
-            EditorialNavIcon(
-                activeIcon = Icons.Rounded.Search,
-                inactiveIcon = Icons.Outlined.Search,
-                contentDescription = stringResource(R.string.tab_search),
-                isActive = currentScreen is NavScreen.Search,
-                onClick = onSearchClick
-            )
-            EditorialNavIcon(
-                activeIcon = Icons.Rounded.Favorite,
-                inactiveIcon = Icons.Outlined.FavoriteBorder,
-                contentDescription = stringResource(R.string.tab_library),
-                isActive = currentScreen is NavScreen.LibraryRoot ||
-                    currentScreen is NavScreen.CategoryList ||
-                    currentScreen is NavScreen.Drilldown,
-                onClick = onLibraryClick
-            )
-            EditorialNavIcon(
-                activeIcon = Icons.Rounded.Tune,
-                inactiveIcon = Icons.Outlined.Tune,
-                contentDescription = stringResource(R.string.tab_tune),
-                isActive = currentScreen is NavScreen.Equalizer ||
-                    currentScreen is NavScreen.Settings,
-                onClick = onTuneClick
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                EditorialNavIcon(
+                    activeIcon = Icons.Rounded.Home,
+                    inactiveIcon = Icons.Outlined.Home,
+                    contentDescription = stringResource(R.string.tab_home),
+                    isActive = currentScreen is NavScreen.Home,
+                    onClick = onHomeClick
+                )
+                EditorialNavIcon(
+                    activeIcon = Icons.Rounded.Search,
+                    inactiveIcon = Icons.Outlined.Search,
+                    contentDescription = stringResource(R.string.tab_search),
+                    isActive = currentScreen is NavScreen.Search,
+                    onClick = onSearchClick
+                )
+                EditorialNavIcon(
+                    activeIcon = Icons.Rounded.Favorite,
+                    inactiveIcon = Icons.Outlined.FavoriteBorder,
+                    contentDescription = stringResource(R.string.tab_library),
+                    isActive = currentScreen is NavScreen.LibraryRoot ||
+                        currentScreen is NavScreen.CategoryList ||
+                        currentScreen is NavScreen.Drilldown,
+                    onClick = onLibraryClick
+                )
+                EditorialNavIcon(
+                    activeIcon = Icons.Rounded.Tune,
+                    inactiveIcon = Icons.Outlined.Tune,
+                    contentDescription = stringResource(R.string.tab_tune),
+                    isActive = currentScreen is NavScreen.Equalizer ||
+                        currentScreen is NavScreen.Settings,
+                    onClick = onTuneClick
+                )
+            }
         }
     }
 }
