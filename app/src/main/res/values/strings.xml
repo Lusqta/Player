@@ -66,8 +66,10 @@
     <string name="settings_ignore_shorter_than_sec">%1$d s</string>
     <string name="settings_rescan_library">Atualizar biblioteca</string>
     <string name="settings_rescan_library_desc">Recarrega arquivos de áudio do dispositivo</string>
-    <string name="settings_music_folders">Pastas de áudio</string>
-    <string name="settings_music_folders_desc">Todas as pastas indexadas do aparelho</string>
+    <string name="settings_music_folders">Pasta de músicas</string>
+    <string name="settings_music_folders_desc">Todas as mídias (toque para escolher pasta)</string>
+    <string name="settings_music_folder_selected">Acessando apenas: %1$s</string>
+    <string name="settings_music_folder_clear">Remover filtro de pasta</string>
     <string name="settings_pause_headset">Pausar ao desconectar fones</string>
     <string name="settings_pause_headset_desc">Interrompe quando fones Bluetooth ou cabo forem desconectados</string>
     <string name="settings_gapless">Reprodução contínua (Gapless)</string>
@@ -316,6 +318,9 @@
     <string name="snackbar_preset_saved">Preset “%1$s” salvo</string>
     <string name="snackbar_preset_deleted">Preset “%1$s” excluído</string>
     <string name="snackbar_playlist_deleted">Playlist “%1$s” excluída</string>
+    <string name="snackbar_folder_selected">Biblioteca restrita à pasta: %1$s</string>
+    <string name="snackbar_folder_cleared">Filtro removido: acessando todas as mídias</string>
+    <string name="empty_folder_message">Nenhum arquivo de áudio encontrado na pasta \"%1$s\". Você pode selecionar outra pasta nas Configurações.</string>
     <string name="settings_licenses_text">• Android Jetpack Compose (Apache 2.0)\n• Oboe C++ Audio Engine (Apache 2.0)\n• Material 3 Icons (Apache 2.0)\n• AndroidX Palette (Apache 2.0)\n• AGSL Runtime Shaders (Google DeepMind/Auro)</string>
 
     <!-- Categorias da Biblioteca (Fase 5.3) -->

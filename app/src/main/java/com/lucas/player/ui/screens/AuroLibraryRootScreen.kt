@@ -75,6 +75,7 @@ fun AuroLibraryRootScreen(
     onSortClick: () -> Unit,
     onRescanClick: () -> Unit,
     onSettingsClick: () -> Unit = {},
+    selectedFolderName: String? = null,
     listState: LazyListState = rememberLazyListState(),
     modifier: Modifier = Modifier
 ) {
@@ -109,9 +110,13 @@ fun AuroLibraryRootScreen(
             AuroEmptyState(
                 icon = Icons.Rounded.MusicOff,
                 title = stringResource(R.string.empty_library_title),
-                message = stringResource(R.string.empty_library_message),
+                message = if (!selectedFolderName.isNullOrEmpty()) {
+                    stringResource(R.string.empty_folder_message, selectedFolderName)
+                } else {
+                    stringResource(R.string.empty_library_message)
+                },
                 actionLabel = stringResource(R.string.empty_library_action),
-                onAction = onRescanClick,
+                onAction = onSettingsClick,
                 modifier = Modifier.fillMaxSize()
             )
         } else {
@@ -137,8 +142,14 @@ fun AuroLibraryRootScreen(
                                 maxLines = 1
                             )
                             if (totalTracksCount > 0) {
+                                val countStr = pluralStringResource(R.plurals.tracks_indexed_count, totalTracksCount, totalTracksCount)
+                                val subtitleText = if (!selectedFolderName.isNullOrEmpty()) {
+                                    "$countStr • $selectedFolderName"
+                                } else {
+                                    countStr
+                                }
                                 Text(
-                                    text = pluralStringResource(R.plurals.tracks_indexed_count, totalTracksCount, totalTracksCount),
+                                    text = subtitleText,
                                     style = AuroType.Caption.copy(color = AuroColor.TextSecondary)
                                 )
                             }

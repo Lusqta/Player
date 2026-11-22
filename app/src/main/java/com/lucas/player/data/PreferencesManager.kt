@@ -178,6 +178,50 @@ class PreferencesManager(context: Context) {
         return getPinnedGroups().contains(groupKey)
     }
 
+    fun getSelectedMusicFolderPath(): String? {
+        return prefs.getString(KEY_SELECTED_FOLDER_PATH, null)
+    }
+
+    fun setSelectedMusicFolderPath(path: String?) {
+        if (path == null) {
+            prefs.edit().remove(KEY_SELECTED_FOLDER_PATH).apply()
+        } else {
+            prefs.edit().putString(KEY_SELECTED_FOLDER_PATH, path).apply()
+        }
+    }
+
+    fun getSelectedMusicFolderName(): String? {
+        return prefs.getString(KEY_SELECTED_FOLDER_NAME, null)
+    }
+
+    fun setSelectedMusicFolderName(name: String?) {
+        if (name == null) {
+            prefs.edit().remove(KEY_SELECTED_FOLDER_NAME).apply()
+        } else {
+            prefs.edit().putString(KEY_SELECTED_FOLDER_NAME, name).apply()
+        }
+    }
+
+    fun getSelectedMusicFolderUri(): String? {
+        return prefs.getString(KEY_SELECTED_FOLDER_URI, null)
+    }
+
+    fun setSelectedMusicFolderUri(uri: String?) {
+        if (uri == null) {
+            prefs.edit().remove(KEY_SELECTED_FOLDER_URI).apply()
+        } else {
+            prefs.edit().putString(KEY_SELECTED_FOLDER_URI, uri).apply()
+        }
+    }
+
+    fun clearSelectedMusicFolder() {
+        prefs.edit()
+            .remove(KEY_SELECTED_FOLDER_PATH)
+            .remove(KEY_SELECTED_FOLDER_NAME)
+            .remove(KEY_SELECTED_FOLDER_URI)
+            .apply()
+    }
+
     fun isPauseOnHeadsetDisconnectEnabled(): Boolean {
         return prefs.getBoolean(KEY_PAUSE_ON_HEADSET_DISCONNECT, true)
     }
@@ -319,6 +363,9 @@ class PreferencesManager(context: Context) {
     companion object {
         private const val SEARCH_DELIMITER = "\u001F"
         private const val KEY_PINNED_GROUPS = "pinned_groups"
+        private const val KEY_SELECTED_FOLDER_PATH = "selected_folder_path"
+        private const val KEY_SELECTED_FOLDER_NAME = "selected_folder_name"
+        private const val KEY_SELECTED_FOLDER_URI = "selected_folder_uri"
         private const val KEY_RECENT_SEARCHES = "recent_searches"
         private const val KEY_PROMPTED_NOTIFICATION = "prompted_notification"
         private const val KEY_REQUESTED_AUDIO_PERM = "requested_audio_perm"

@@ -3412,6 +3412,7 @@ fun AuroLibraryRootScreen(
     onSortClick: () -> Unit,
     onRescanClick: () -> Unit,
     onSettingsClick: () -> Unit = {},
+    selectedFolderName: String? = null,
     listState: LazyListState = rememberLazyListState(),
     modifier: Modifier = Modifier
 ) {
@@ -3446,9 +3447,13 @@ fun AuroLibraryRootScreen(
             AuroEmptyState(
                 icon = Icons.Rounded.MusicOff,
                 title = stringResource(R.string.empty_library_title),
-                message = stringResource(R.string.empty_library_message),
+                message = if (!selectedFolderName.isNullOrEmpty()) {
+                    stringResource(R.string.empty_folder_message, selectedFolderName)
+                } else {
+                    stringResource(R.string.empty_library_message)
+                },
                 actionLabel = stringResource(R.string.empty_library_action),
-                onAction = onRescanClick,
+                onAction = onSettingsClick,
                 modifier = Modifier.fillMaxSize()
             )
         } else {
@@ -3474,8 +3479,14 @@ fun AuroLibraryRootScreen(
                                 maxLines = 1
                             )
                             if (totalTracksCount > 0) {
+                                val countStr = pluralStringResource(R.plurals.tracks_indexed_count, totalTracksCount, totalTracksCount)
+                                val subtitleText = if (!selectedFolderName.isNullOrEmpty()) {
+                                    "$countStr • $selectedFolderName"
+                                } else {
+                                    countStr
+                                }
                                 Text(
-                                    text = pluralStringResource(R.plurals.tracks_indexed_count, totalTracksCount, totalTracksCount),
+                                    text = subtitleText,
                                     style = AuroType.Caption.copy(color = AuroColor.TextSecondary)
                                 )
                             }
@@ -7796,6 +7807,8 @@ fun AuroSettingsScreen(
     preferencesManager: PreferencesManager,
     onBackClick: () -> Unit,
     onRescanLibrary: () -> Unit,
+    onSelectMusicFolder: () -> Unit = {},
+    onClearMusicFolder: () -> Unit = {},
     modifier: Modifier = Modifier,
     onSettingsChanged: () -> Unit = {}
 ) {
@@ -7814,6 +7827,7 @@ fun AuroSettingsScreen(
     var showFileFormat by remember { mutableStateOf(preferencesManager.isShowFileFormatEnabled()) }
 
     var ignoreShorterThanSec by remember { mutableIntStateOf(preferencesManager.getIgnoreShorterThanSeconds()) }
+    var selectedFolderName by remember { mutableStateOf(preferencesManager.getSelectedMusicFolderName()) }
 
     // Diálogos de Seleção
     var showReplayGainPicker by remember { mutableStateOf(false) }
@@ -7844,15 +7858,38 @@ fun AuroSettingsScreen(
                 SettingsCard {
                     SettingsClickableRow(
                         title = stringResource(R.string.settings_music_folders),
-                        subtitle = stringResource(R.string.settings_music_folders_desc),
-                        onClick = { onRescanLibrary() },
+                        subtitle = if (!selectedFolderName.isNullOrEmpty()) {
+                            stringResource(R.string.settings_music_folder_selected, selectedFolderName ?: "")
+                        } else {
+                            stringResource(R.string.settings_music_folders_desc)
+                        },
+                        onClick = { onSelectMusicFolder() },
                         trailingContent = {
-                            Icon(
-                                imageVector = Icons.Rounded.FolderOpen,
-                                contentDescription = null,
-                                tint = AuroColor.TextTertiary,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (!selectedFolderName.isNullOrEmpty()) {
+                                    IconButton(
+                                        onClick = {
+                                            selectedFolderName = null
+                                            onClearMusicFolder()
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Close,
+                                            contentDescription = stringResource(R.string.settings_music_folder_clear),
+                                            tint = AuroColor.TextSecondary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                Icon(
+                                    imageVector = Icons.Rounded.FolderOpen,
+                                    contentDescription = null,
+                                    tint = if (!selectedFolderName.isNullOrEmpty()) Color.White else AuroColor.TextTertiary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     )
                     HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
@@ -9542,7 +9579,9 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.IBinder
+import android.provider.DocumentsContract
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -9759,6 +9798,53 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             checkNotificationPermissionNonBlocking()
         } else {
             libraryAccessState.value = evaluateLibraryAccess()
+        }
+    }
+
+    private val folderPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Exception) {}
+
+            val docId = try {
+                DocumentsContract.getTreeDocumentId(uri)
+            } catch (_: Exception) {
+                uri.lastPathSegment ?: ""
+            }
+
+            val folderName = when {
+                docId.contains(":") -> {
+                    val sub = docId.substringAfter(":")
+                    if (sub.contains("/")) sub.substringAfterLast("/") else sub
+                }
+                else -> docId
+            }.ifEmpty { "Música" }
+
+            val folderPath = when {
+                docId.startsWith("primary:", ignoreCase = true) -> {
+                    val rel = docId.substringAfter(":")
+                    val base = Environment.getExternalStorageDirectory().absolutePath
+                    if (rel.isEmpty()) base else "$base/$rel"
+                }
+                docId.contains(":") -> {
+                    val parts = docId.split(":")
+                    "/storage/${parts[0]}/${parts.getOrElse(1) { "" }}"
+                }
+                else -> docId
+            }
+
+            preferencesManager.setSelectedMusicFolderUri(uri.toString())
+            preferencesManager.setSelectedMusicFolderPath(folderPath)
+            preferencesManager.setSelectedMusicFolderName(folderName)
+
+            loadLibrary()
+            snackbarState.show(getString(R.string.snackbar_folder_selected, folderName))
         }
     }
 
@@ -10324,6 +10410,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onSortClick = { showSortOrderState.value = true },
                                     onRescanClick = { loadLibrary() },
                                     onSettingsClick = { showMenuSheetState.value = true },
+                                    selectedFolderName = preferencesManager.getSelectedMusicFolderName(),
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -10954,6 +11041,14 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onRescanLibrary = {
                                         loadLibrary()
                                         snackbarState.show(getString(R.string.snackbar_library_updated))
+                                    },
+                                    onSelectMusicFolder = {
+                                        folderPickerLauncher.launch(null)
+                                    },
+                                    onClearMusicFolder = {
+                                        preferencesManager.clearSelectedMusicFolder()
+                                        loadLibrary()
+                                        snackbarState.show(getString(R.string.snackbar_folder_cleared))
                                     },
                                     onSettingsChanged = {
                                         playbackService?.let { s -> s.queueManager.currentTrack?.let { s.applyEffectivePreamp(it) } }
@@ -11673,8 +11768,10 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     <string name="settings_ignore_shorter_than_sec">%1$d s</string>
     <string name="settings_rescan_library">Atualizar biblioteca</string>
     <string name="settings_rescan_library_desc">Recarrega arquivos de áudio do dispositivo</string>
-    <string name="settings_music_folders">Pastas de áudio</string>
-    <string name="settings_music_folders_desc">Todas as pastas indexadas do aparelho</string>
+    <string name="settings_music_folders">Pasta de músicas</string>
+    <string name="settings_music_folders_desc">Todas as mídias (toque para escolher pasta)</string>
+    <string name="settings_music_folder_selected">Acessando apenas: %1$s</string>
+    <string name="settings_music_folder_clear">Remover filtro de pasta</string>
     <string name="settings_pause_headset">Pausar ao desconectar fones</string>
     <string name="settings_pause_headset_desc">Interrompe quando fones Bluetooth ou cabo forem desconectados</string>
     <string name="settings_gapless">Reprodução contínua (Gapless)</string>
@@ -11923,6 +12020,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     <string name="snackbar_preset_saved">Preset “%1$s” salvo</string>
     <string name="snackbar_preset_deleted">Preset “%1$s” excluído</string>
     <string name="snackbar_playlist_deleted">Playlist “%1$s” excluída</string>
+    <string name="snackbar_folder_selected">Biblioteca restrita à pasta: %1$s</string>
+    <string name="snackbar_folder_cleared">Filtro removido: acessando todas as mídias</string>
+    <string name="empty_folder_message">Nenhum arquivo de áudio encontrado na pasta \"%1$s\". Você pode selecionar outra pasta nas Configurações.</string>
     <string name="settings_licenses_text">• Android Jetpack Compose (Apache 2.0)\n• Oboe C++ Audio Engine (Apache 2.0)\n• Material 3 Icons (Apache 2.0)\n• AndroidX Palette (Apache 2.0)\n• AGSL Runtime Shaders (Google DeepMind/Auro)</string>
 
     <!-- Categorias da Biblioteca (Fase 5.3) -->
@@ -12049,8 +12149,10 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     <string name="settings_ignore_shorter_than_sec">%1$d s</string>
     <string name="settings_rescan_library">Refresh library</string>
     <string name="settings_rescan_library_desc">Reload audio files from device</string>
-    <string name="settings_music_folders">Audio folders</string>
-    <string name="settings_music_folders_desc">All indexed device folders</string>
+    <string name="settings_music_folders">Music folder</string>
+    <string name="settings_music_folders_desc">All media (tap to choose folder)</string>
+    <string name="settings_music_folder_selected">Accessing only: %1$s</string>
+    <string name="settings_music_folder_clear">Remove folder filter</string>
     <string name="settings_pause_headset">Pause on headset disconnect</string>
     <string name="settings_pause_headset_desc">Stops playback when Bluetooth or wired headphones are disconnected</string>
     <string name="settings_gapless">Gapless playback</string>
@@ -12298,6 +12400,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     <string name="snackbar_preset_saved">Preset “%1$s” saved</string>
     <string name="snackbar_preset_deleted">Preset “%1$s” deleted</string>
     <string name="snackbar_playlist_deleted">Playlist “%1$s” deleted</string>
+    <string name="snackbar_folder_selected">Library restricted to folder: %1$s</string>
+    <string name="snackbar_folder_cleared">Filter removed: accessing all media</string>
+    <string name="empty_folder_message">No audio files found in folder \"%1$s\". You can choose another folder in Settings.</string>
     <string name="settings_licenses_text">• Android Jetpack Compose (Apache 2.0)\n• Oboe C++ Audio Engine (Apache 2.0)\n• Material 3 Icons (Apache 2.0)\n• AndroidX Palette (Apache 2.0)\n• AGSL Runtime Shaders (Google DeepMind/Auro)</string>
 
     <!-- Library Categories (Phase 5.3) -->

@@ -9,7 +9,9 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.IBinder
+import android.provider.DocumentsContract
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -226,6 +228,53 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             checkNotificationPermissionNonBlocking()
         } else {
             libraryAccessState.value = evaluateLibraryAccess()
+        }
+    }
+
+    private val folderPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Exception) {}
+
+            val docId = try {
+                DocumentsContract.getTreeDocumentId(uri)
+            } catch (_: Exception) {
+                uri.lastPathSegment ?: ""
+            }
+
+            val folderName = when {
+                docId.contains(":") -> {
+                    val sub = docId.substringAfter(":")
+                    if (sub.contains("/")) sub.substringAfterLast("/") else sub
+                }
+                else -> docId
+            }.ifEmpty { "Música" }
+
+            val folderPath = when {
+                docId.startsWith("primary:", ignoreCase = true) -> {
+                    val rel = docId.substringAfter(":")
+                    val base = Environment.getExternalStorageDirectory().absolutePath
+                    if (rel.isEmpty()) base else "$base/$rel"
+                }
+                docId.contains(":") -> {
+                    val parts = docId.split(":")
+                    "/storage/${parts[0]}/${parts.getOrElse(1) { "" }}"
+                }
+                else -> docId
+            }
+
+            preferencesManager.setSelectedMusicFolderUri(uri.toString())
+            preferencesManager.setSelectedMusicFolderPath(folderPath)
+            preferencesManager.setSelectedMusicFolderName(folderName)
+
+            loadLibrary()
+            snackbarState.show(getString(R.string.snackbar_folder_selected, folderName))
         }
     }
 
@@ -791,6 +840,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onSortClick = { showSortOrderState.value = true },
                                     onRescanClick = { loadLibrary() },
                                     onSettingsClick = { showMenuSheetState.value = true },
+                                    selectedFolderName = preferencesManager.getSelectedMusicFolderName(),
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -1421,6 +1471,14 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onRescanLibrary = {
                                         loadLibrary()
                                         snackbarState.show(getString(R.string.snackbar_library_updated))
+                                    },
+                                    onSelectMusicFolder = {
+                                        folderPickerLauncher.launch(null)
+                                    },
+                                    onClearMusicFolder = {
+                                        preferencesManager.clearSelectedMusicFolder()
+                                        loadLibrary()
+                                        snackbarState.show(getString(R.string.snackbar_folder_cleared))
                                     },
                                     onSettingsChanged = {
                                         playbackService?.let { s -> s.queueManager.currentTrack?.let { s.applyEffectivePreamp(it) } }

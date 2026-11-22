@@ -66,8 +66,10 @@
     <string name="settings_ignore_shorter_than_sec">%1$d s</string>
     <string name="settings_rescan_library">Refresh library</string>
     <string name="settings_rescan_library_desc">Reload audio files from device</string>
-    <string name="settings_music_folders">Audio folders</string>
-    <string name="settings_music_folders_desc">All indexed device folders</string>
+    <string name="settings_music_folders">Music folder</string>
+    <string name="settings_music_folders_desc">All media (tap to choose folder)</string>
+    <string name="settings_music_folder_selected">Accessing only: %1$s</string>
+    <string name="settings_music_folder_clear">Remove folder filter</string>
     <string name="settings_pause_headset">Pause on headset disconnect</string>
     <string name="settings_pause_headset_desc">Stops playback when Bluetooth or wired headphones are disconnected</string>
     <string name="settings_gapless">Gapless playback</string>
@@ -315,6 +317,9 @@
     <string name="snackbar_preset_saved">Preset “%1$s” saved</string>
     <string name="snackbar_preset_deleted">Preset “%1$s” deleted</string>
     <string name="snackbar_playlist_deleted">Playlist “%1$s” deleted</string>
+    <string name="snackbar_folder_selected">Library restricted to folder: %1$s</string>
+    <string name="snackbar_folder_cleared">Filter removed: accessing all media</string>
+    <string name="empty_folder_message">No audio files found in folder \"%1$s\". You can choose another folder in Settings.</string>
     <string name="settings_licenses_text">• Android Jetpack Compose (Apache 2.0)\n• Oboe C++ Audio Engine (Apache 2.0)\n• Material 3 Icons (Apache 2.0)\n• AndroidX Palette (Apache 2.0)\n• AGSL Runtime Shaders (Google DeepMind/Auro)</string>
 
     <!-- Library Categories (Phase 5.3) -->

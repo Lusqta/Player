@@ -53,6 +53,8 @@ fun AuroSettingsScreen(
     preferencesManager: PreferencesManager,
     onBackClick: () -> Unit,
     onRescanLibrary: () -> Unit,
+    onSelectMusicFolder: () -> Unit = {},
+    onClearMusicFolder: () -> Unit = {},
     modifier: Modifier = Modifier,
     onSettingsChanged: () -> Unit = {}
 ) {
@@ -71,6 +73,7 @@ fun AuroSettingsScreen(
     var showFileFormat by remember { mutableStateOf(preferencesManager.isShowFileFormatEnabled()) }
 
     var ignoreShorterThanSec by remember { mutableIntStateOf(preferencesManager.getIgnoreShorterThanSeconds()) }
+    var selectedFolderName by remember { mutableStateOf(preferencesManager.getSelectedMusicFolderName()) }
 
     // Diálogos de Seleção
     var showReplayGainPicker by remember { mutableStateOf(false) }
@@ -101,15 +104,38 @@ fun AuroSettingsScreen(
                 SettingsCard {
                     SettingsClickableRow(
                         title = stringResource(R.string.settings_music_folders),
-                        subtitle = stringResource(R.string.settings_music_folders_desc),
-                        onClick = { onRescanLibrary() },
+                        subtitle = if (!selectedFolderName.isNullOrEmpty()) {
+                            stringResource(R.string.settings_music_folder_selected, selectedFolderName ?: "")
+                        } else {
+                            stringResource(R.string.settings_music_folders_desc)
+                        },
+                        onClick = { onSelectMusicFolder() },
                         trailingContent = {
-                            Icon(
-                                imageVector = Icons.Rounded.FolderOpen,
-                                contentDescription = null,
-                                tint = AuroColor.TextTertiary,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (!selectedFolderName.isNullOrEmpty()) {
+                                    IconButton(
+                                        onClick = {
+                                            selectedFolderName = null
+                                            onClearMusicFolder()
+                                        },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Close,
+                                            contentDescription = stringResource(R.string.settings_music_folder_clear),
+                                            tint = AuroColor.TextSecondary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                Icon(
+                                    imageVector = Icons.Rounded.FolderOpen,
+                                    contentDescription = null,
+                                    tint = if (!selectedFolderName.isNullOrEmpty()) Color.White else AuroColor.TextTertiary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     )
                     HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))

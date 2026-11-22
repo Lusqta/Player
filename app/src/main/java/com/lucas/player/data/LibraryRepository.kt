@@ -328,7 +328,10 @@ class LibraryRepository() {
         }
 
         val projection = projectionList.toTypedArray()
-        val minSec = PreferencesManager(context).getIgnoreShorterThanSeconds()
+        val prefs = PreferencesManager(context)
+        val minSec = prefs.getIgnoreShorterThanSeconds()
+        val selectedFolderPath = prefs.getSelectedMusicFolderPath()
+        val selectedFolderName = prefs.getSelectedMusicFolderName()
         val selection = if (minSec > 0) {
             "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= ${minSec * 1000L}"
         } else {
@@ -370,6 +373,13 @@ class LibraryRepository() {
                         File(path).parentFile?.name ?: "Música"
                     } else {
                         "Música"
+                    }
+
+                    // Se uma pasta específica foi selecionada, ignora todas as mídias fora dela
+                    if (!selectedFolderPath.isNullOrEmpty()) {
+                        if (!isPathInSelectedFolder(path, folder, selectedFolderPath, selectedFolderName)) {
+                            continue
+                        }
                     }
 
                     val year = if (yearCol != -1) cursor.getInt(yearCol) else 0
@@ -430,5 +440,51 @@ class LibraryRepository() {
         } catch (_: Exception) {}
 
         return result
+    }
+
+    private fun isPathInSelectedFolder(
+        path: String,
+        folder: String,
+        selectedPath: String,
+        selectedName: String?
+    ): Boolean {
+        if (selectedPath.isBlank()) return true
+        val normSelected = selectedPath.replace('\\', '/').trimEnd('/')
+
+        if (path.isNotEmpty()) {
+            val normPath = path.replace('\\', '/').trimEnd('/')
+
+            // Verificação direta de prefixo
+            if (normPath.startsWith("$normSelected/", ignoreCase = true) || normPath.equals(normSelected, ignoreCase = true)) {
+                return true
+            }
+
+            // Normalização para symlinks /sdcard/ vs /storage/emulated/0/
+            val altPath = when {
+                normPath.startsWith("/sdcard/", ignoreCase = true) ->
+                    normPath.replaceFirst("/sdcard/", "/storage/emulated/0/", ignoreCase = true)
+                normPath.startsWith("/storage/emulated/0/", ignoreCase = true) ->
+                    normPath.replaceFirst("/storage/emulated/0/", "/sdcard/", ignoreCase = true)
+                else -> null
+            }
+            if (altPath != null && (altPath.startsWith("$normSelected/", ignoreCase = true) || altPath.equals(normSelected, ignoreCase = true))) {
+                return true
+            }
+
+            // Se o selectedPath for um caminho relativo ou parcial (ex: "Music")
+            val targetSeg = normSelected.substringAfterLast('/')
+            if (targetSeg.isNotEmpty() && !normSelected.startsWith("/storage/", ignoreCase = true) && !normSelected.startsWith("/sdcard/", ignoreCase = true)) {
+                if (normPath.startsWith("$targetSeg/", ignoreCase = true) || normPath.contains("/$targetSeg/", ignoreCase = true)) {
+                    return true
+                }
+            }
+        }
+
+        // Fallback por nome da pasta caso o caminho do arquivo não esteja preenchido
+        if (!selectedName.isNullOrEmpty() && folder.equals(selectedName, ignoreCase = true)) {
+            return true
+        }
+
+        return false
     }
 }
