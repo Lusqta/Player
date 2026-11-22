@@ -773,6 +773,13 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                             )
                                         )
                                     },
+                                    onAlbumPlay = { album ->
+                                        val tracks = libraryRepo.getTracksForAlbum(album, currentSortModeState.value)
+                                        if (tracks.isNotEmpty()) {
+                                            playbackService?.playQueue(tracks, 0)
+                                            navController.openNowPlaying()
+                                        }
+                                    },
                                     onPlaylistClick = { name ->
                                         drillDownGroup(LibraryCategory.PLAYLISTS, name)
                                         navController.navigateTo(

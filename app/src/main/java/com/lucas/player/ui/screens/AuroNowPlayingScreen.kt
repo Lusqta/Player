@@ -40,6 +40,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -176,17 +177,17 @@ fun AuroNowPlayingScreen(
             val compactAlpha = ((progress - 0.30f) * 1.43f).coerceIn(0f, 1f)
 
             // Geometria interpolada da Aba Expansível de Letras:
-            // Recolhida (0f): pílula flutuante (padding 16dp, altura 50dp, raio 25dp) igual à referência
+            // Recolhida (0f): pílula flutuante (padding lateral 12dp, altura 60dp, raio 28dp) igual à referência
             // Expandida (1f): largura total 100% da tela (0dp lateral/inferior), deixando só o topo da faixa
-            val collapsedPillHeight = 50.dp
+            val collapsedPillHeight = 60.dp
             val collapsedBottomGap = navBarInset + 10.dp
             val collapsedTop = screenHeight - collapsedPillHeight - collapsedBottomGap
             val expandedTop = statusBarInset + 114.dp
             val currentTop = lerp(collapsedTop, expandedTop, progress)
-            val sheetHorizontalPadding = lerp(16.dp, 0.dp, progress)
+            val sheetHorizontalPadding = lerp(12.dp, 0.dp, progress)
             val sheetBottomPadding = lerp(collapsedBottomGap, 0.dp, progress)
-            val sheetTopRadius = lerp(25.dp, 28.dp, progress)
-            val sheetBottomRadius = lerp(25.dp, 0.dp, progress)
+            val sheetTopRadius = 28.dp
+            val sheetBottomRadius = lerp(28.dp, 0.dp, progress)
 
             // ─────────── CAMADA 1: PLAYER (Capa 100% largura + Metadados + Transporte + Scrubber) ───────────
             if (playerAlpha > 0f) {
@@ -204,14 +205,15 @@ fun AuroNowPlayingScreen(
                     Box(
                         modifier = Modifier
                             .statusBarsPadding()
-                            .padding(start = 24.dp, end = 24.dp, top = 8.dp)
+                            .padding(horizontal = AuroSpace.ScreenMargin)
+                            .padding(top = 8.dp)
                             .fillMaxWidth()
                             .aspectRatio(1f)
                             .graphicsLayer {
                                 scaleX = coverScale
                                 scaleY = coverScale
                             }
-                            .clip(RoundedCornerShape(28.dp))
+                            .clip(AuroSquircle)
                             .pointerInput(Unit) {
                                 var dx = 0f
                                 var dy = 0f
@@ -248,7 +250,7 @@ fun AuroNowPlayingScreen(
                         } else {
                             AuroCoverPlaceholder(
                                 modifier = Modifier.fillMaxSize(),
-                                shape = RoundedCornerShape(28.dp)
+                                shape = AuroSquircle
                             )
                         }
 
@@ -295,7 +297,7 @@ fun AuroNowPlayingScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
-                            .padding(horizontal = 22.dp)
+                            .padding(horizontal = AuroSpace.ScreenMargin)
                             .padding(bottom = collapsedPillHeight + collapsedBottomGap + 14.dp),
                         verticalArrangement = Arrangement.SpaceEvenly
                     ) {
@@ -316,8 +318,8 @@ fun AuroNowPlayingScreen(
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
-                                    style = AuroType.Subtitle.copy(fontSize = 14.sp),
-                                    color = Color.White.copy(alpha = 0.58f),
+                                    style = AuroType.Subtitle.copy(fontSize = 16.sp),
+                                    color = Color.White.copy(alpha = 0.55f),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -422,13 +424,13 @@ fun AuroNowPlayingScreen(
                                     imageVector = Icons.Rounded.SkipPrevious,
                                     contentDescription = stringResource(R.string.cd_previous),
                                     tint = Color.White,
-                                    modifier = Modifier.size(28.dp)
+                                    modifier = Modifier.size(30.dp)
                                 )
                             }
 
                             TranslucentPlayButton(
                                 isPlaying = isPlaying,
-                                size = 58.dp,
+                                size = 64.dp,
                                 onClick = onPlayPause
                             )
 
@@ -465,7 +467,7 @@ fun AuroNowPlayingScreen(
                                     imageVector = Icons.Rounded.SkipNext,
                                     contentDescription = stringResource(R.string.cd_next),
                                     tint = Color.White,
-                                    modifier = Modifier.size(28.dp)
+                                    modifier = Modifier.size(30.dp)
                                 )
                             }
 
@@ -503,7 +505,7 @@ fun AuroNowPlayingScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(horizontal = 22.dp, vertical = 10.dp)
+                        .padding(horizontal = AuroSpace.ScreenMargin, vertical = 10.dp)
                         .graphicsLayer {
                             alpha = compactAlpha
                             translationY = (-12.dp * (1f - progress)).toPx()
@@ -632,11 +634,11 @@ fun AuroNowPlayingScreen(
                         ) {
                             Text(
                                 text = stringResource(R.string.lyrics_label),
-                                style = AuroType.MicroLabel.copy(
-                                    fontSize = 13.5.sp,
-                                    fontWeight = FontWeight.Medium
+                                style = TextStyle(
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold
                                 ),
-                                color = Color.White.copy(alpha = 0.80f)
+                                color = Color.White.copy(alpha = 0.70f)
                             )
                             Spacer(modifier = Modifier.width(5.dp))
                             Icon(

@@ -98,26 +98,29 @@ object AuroColor {
 
 object AuroType {
     val GreetingTitle = TextStyle(
-        fontSize = 26.sp,
-        lineHeight = 32.sp,
-        fontWeight = FontWeight.Medium,
+        fontSize = 28.sp,
+        lineHeight = 34.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = (-0.3).sp,
         color = AuroColor.TextPrimary
     )
     val HeroName = TextStyle(
-        fontSize = 26.sp,
-        lineHeight = 32.sp,
-        fontWeight = FontWeight.Medium,
+        fontSize = 32.sp,
+        lineHeight = 38.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = (-0.4).sp,
         color = AuroColor.TextPrimary
     )
     val NowPlayingTitle = TextStyle(
-        fontSize = 20.sp,
-        lineHeight = 25.sp,
-        fontWeight = FontWeight.Medium,
+        fontSize = 24.sp,
+        lineHeight = 30.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = (-0.3).sp,
         color = AuroColor.TextPrimary
     )
     val SectionTitle = TextStyle(
-        fontSize = 17.sp,
-        lineHeight = 22.sp,
+        fontSize = 20.sp,
+        lineHeight = 26.sp,
         fontWeight = FontWeight.SemiBold,
         color = AuroColor.TextPrimary
     )
@@ -136,9 +139,9 @@ object AuroType {
         color = Color.White.copy(alpha = 0.28f)
     )
     val CardTitle = TextStyle(
-        fontSize = 14.sp,
-        lineHeight = 18.sp,
-        fontWeight = FontWeight.Medium,
+        fontSize = 15.sp,
+        lineHeight = 19.sp,
+        fontWeight = FontWeight.SemiBold,
         color = AuroColor.TextPrimary
     )
     val TrackTitle = TextStyle(
@@ -200,7 +203,7 @@ object AuroSpace {
     val Large = 32.dp
     val TouchTarget = 48.dp
 
-    val ScreenMargin = 16.dp
+    val ScreenMargin = 24.dp
     val EdgeMargin = 16.dp
 }
 
@@ -224,7 +227,7 @@ object AuroRadius {
     val cover = 28.dp
     val sheet = 28.dp
     val card = 24.dp
-    val mix = 18.dp
+    val mix = 22.dp
     val artist = 18.dp
     val thumbnail = 8.dp
     val pill = 999.dp
@@ -233,6 +236,8 @@ object AuroRadius {
     val dock = pill
     val button = pill
 }
+
+val AuroSquircle = RoundedCornerShape(percent = 26)
 
 object AuroMotion {
     val Emphasized = CubicBezierEasing(0.2f, 0f, 0f, 1f)   // Suave e responsivo
@@ -291,8 +296,8 @@ object GlowTone {
         val b = (argb and 0xFF) / 255f
         val hsl = rgbToHsl(r, g, b)
         val h = hsl[0]
-        val s = hsl[1].coerceIn(0.45f, 0.85f)
-        val l = hsl[2].coerceIn(0.18f, 0.34f)
+        val s = hsl[1].coerceIn(0.45f, 0.75f)
+        val l = hsl[2].coerceIn(0.16f, 0.30f)
         return Color(hslToArgb(h, s, l))
     }
 
@@ -620,21 +625,18 @@ half4 main(float2 fragCoord) {
     float2 aspect = float2(uSize.x / max(uSize.y, 1.0), 1.0);
 
     // 2 núcleos borrados em órbita orgânica suave
-    float2 p1 = float2(0.38 + 0.28 * cos(uTime), 0.28 + 0.15 * sin(uTime * 0.9));
-    float2 p2 = float2(0.62 + 0.28 * cos(-uTime + 2.2), 0.62 + 0.18 * sin(-uTime * 0.8 + 1.4));
-    float2 p3 = float2(0.50 + 0.22 * sin(uTime * 0.7 + 1.0), 0.85 + 0.10 * cos(uTime));
+    float2 p1 = float2(0.50 + 0.06 * cos(uTime), 0.26 + 0.04 * sin(uTime * 0.9));
+    float2 p2 = float2(0.18 + 0.06 * cos(-uTime + 2.2), 0.64 + 0.05 * sin(-uTime * 0.8 + 1.4));
 
     float d1 = length((uv - p1) * aspect);
     float d2 = length((uv - p2) * aspect);
-    float d3 = length((uv - p3) * aspect);
 
     // Queda gaussiana ultra suave (efeito blur real sem bandas)
-    float w1 = exp(-d1 * d1 * 2.2);
-    float w2 = exp(-d2 * d2 * 2.0);
-    float w3 = exp(-d3 * d3 * 2.8) * 0.45;
+    float w1 = exp(-d1 * d1 * 5.5);
+    float w2 = exp(-d2 * d2 * 7.0);
 
-    float3 base = float3(0.025, 0.025, 0.030);
-    float3 col = base + uColor1 * (w1 * 0.95 + w3 * 0.5) + uColor2 * (w2 * 0.90);
+    float3 base = float3(0.020, 0.020, 0.024);
+    float3 col = base + uColor1 * w1 * 0.60 + uColor2 * w2 * 0.38;
 
     // Vinheta discreta nas bordas para contraste dos controles brancos
     float vig = 1.0 - smoothstep(0.55, 1.35, length((uv - float2(0.5, 0.48)) * float2(1.0, 1.15))) * 0.45;

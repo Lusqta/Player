@@ -478,8 +478,8 @@ fun EditorialScrubber(
     durationMs: Long,
     onSeek: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    activeColor: Color = AuroColor.ScrubberActive,
-    trackColor: Color = AuroColor.ScrubberTrack,
+    activeColor: Color = Color.White,
+    trackColor: Color = Color.White.copy(alpha = 0.30f),
     showTimestampsOnlyWhenDragging: Boolean = true
 ) {
     var isDragging by remember { mutableStateOf(false) }
@@ -532,7 +532,7 @@ fun EditorialScrubber(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(2.5.dp)
+                    .height(3.dp)
                     .clip(CircleShape)
                     .background(trackColor)
             )
@@ -540,7 +540,7 @@ fun EditorialScrubber(
             Box(
                 modifier = Modifier
                     .fillMaxWidth(displayFraction)
-                    .height(2.5.dp)
+                    .height(3.dp)
                     .clip(CircleShape)
                     .background(activeColor)
             )
@@ -552,7 +552,7 @@ fun EditorialScrubber(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(10.dp)
+                        .size(14.dp)
                         .clip(CircleShape)
                         .background(Color.White)
                 )

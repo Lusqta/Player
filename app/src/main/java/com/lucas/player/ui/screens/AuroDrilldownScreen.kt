@@ -124,75 +124,77 @@ fun AuroDrilldownScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .statusBarsPadding()
-                            .padding(top = 56.dp, bottom = 12.dp),
+                            .padding(top = 52.dp, bottom = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Hero Portrait (altura 340dp, raio 32dp, padding horizontal 14dp)
+                        // Hero Squircle quadrado (aspectRatio 1f, padding lateral ScreenMargin)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 14.dp)
-                                .height(340.dp)
-                                .shadow(elevation = 24.dp, shape = RoundedCornerShape(32.dp), spotColor = groupAccent.mesh1.copy(alpha = 0.45f))
-                                .clip(RoundedCornerShape(32.dp))
-                                .background(AuroColor.SurfaceCard)
+                                .padding(horizontal = AuroSpace.ScreenMargin)
                         ) {
-                            if (heroCover != null) {
-                                Image(
-                                    bitmap = heroCover.asImageBitmap(),
-                                    contentDescription = groupTitle,
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            } else {
-                                AuroCoverPlaceholder(
-                                    modifier = Modifier.fillMaxSize(),
-                                    glass = false,
-                                    shape = RoundedCornerShape(32.dp)
-                                )
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(1f)
+                                    .clip(AuroSquircle)
+                                    .background(AuroColor.SurfaceCard)
+                            ) {
+                                if (heroCover != null) {
+                                    Image(
+                                        bitmap = heroCover.asImageBitmap(),
+                                        contentDescription = groupTitle,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                } else {
+                                    AuroCoverPlaceholder(
+                                        modifier = Modifier.fillMaxSize(),
+                                        glass = false,
+                                        shape = AuroSquircle
+                                    )
+                                }
                             }
 
-                            // TranslucentPlayButton (52dp) no canto inferior direito
+                            // TranslucentPlayButton (72dp) rente à borda direita da capa e 12dp pra fora embaixo
                             TranslucentPlayButton(
                                 isPlaying = false,
-                                size = 52.dp,
+                                size = 72.dp,
                                 onClick = onPlayAll,
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
-                                    .padding(14.dp)
+                                    .offset(y = 12.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(24.dp))
 
-                        // Nome Hero (30sp SemiBold) abaixo da imagem (zero sobreposição)
+                        // Nome Hero (HeroName = 32sp Bold) centralizado
                         Text(
                             text = groupTitle,
-                            style = AuroType.HeroName.copy(
-                                fontSize = 30.sp,
-                                fontWeight = FontWeight.SemiBold
-                            ),
+                            style = AuroType.HeroName,
                             color = AuroColor.TextPrimary,
                             textAlign = TextAlign.Center,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(horizontal = 20.dp)
+                            modifier = Modifier.padding(horizontal = AuroSpace.ScreenMargin)
                         )
 
                         Spacer(modifier = Modifier.height(4.dp))
 
-                        // Subtítulo e contagem
+                        // Subtítulo e contagem centralizado, 13sp branco 55%
                         Text(
                             text = "${stringResource(category.getTitleRes())} • ${pluralStringResource(R.plurals.tracks_count, tracks.size, tracks.size)} • ${formatTimeMs(totalDurationMs)}",
                             style = AuroType.Subtitle.copy(
-                                color = AuroColor.TextSecondary,
+                                fontSize = 13.sp,
+                                color = Color.White.copy(alpha = 0.55f),
                                 fontFeatureSettings = "tnum"
                             ),
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(horizontal = 20.dp)
+                            modifier = Modifier.padding(horizontal = AuroSpace.ScreenMargin)
                         )
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(28.dp))
 
                         // Cabeçalho da seção com ação de Aleatório
                         EditorialSectionHeader(
