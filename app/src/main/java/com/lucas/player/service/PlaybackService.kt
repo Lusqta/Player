@@ -265,8 +265,8 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
         playbackExecutor.execute {
             var success = false
             try {
-                val effectiveTrack = if (track.replayGainTrackGain == 0.0f && track.path.isNotEmpty()) {
-                    libraryRepo.ensureReplayGainLoaded(track)
+                val effectiveTrack = if (track.replayGainTrackGain == 0.0f) {
+                    libraryRepo.ensureReplayGainLoaded(this, track)
                 } else {
                     track
                 }
@@ -342,8 +342,8 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
 
         playbackExecutor.execute {
             try {
-                val effectiveTrack = if (track.replayGainTrackGain == 0.0f && track.path.isNotEmpty()) {
-                    libraryRepo.ensureReplayGainLoaded(track)
+                val effectiveTrack = if (track.replayGainTrackGain == 0.0f) {
+                    libraryRepo.ensureReplayGainLoaded(this, track)
                 } else {
                     track
                 }

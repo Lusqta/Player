@@ -2,6 +2,7 @@ package com.lucas.player.data
 
 import android.content.Context
 import android.media.MediaMetadataRetriever
+import android.net.Uri
 import com.lucas.player.model.Track
 import java.io.File
 import java.util.regex.Pattern
@@ -28,23 +29,45 @@ object LyricsManager {
 
     /**
      * Finds and loads lyrics for the given track.
-     * Searches for local .lrc sidecar file first, then checks embedded metadata.
+     * Searches for SAF sidecar .lrc first, then local filesystem .lrc, then checks embedded metadata.
      */
     fun loadLyrics(context: Context, track: Track): Lyrics? {
-        // 1. Try external .lrc sidecar file next to audio
-        val sidecarLrc = findSidecarLrcFile(track.path)
-        if (sidecarLrc != null && sidecarLrc.exists() && sidecarLrc.canRead()) {
-            val content = try { sidecarLrc.readText(Charsets.UTF_8) } catch (_: Exception) { null }
-            if (!content.isNullOrBlank()) {
-                val parsed = parseLrc(content, "Arquivo .LRC (${sidecarLrc.name})")
-                if (parsed != null && parsed.lines.isNotEmpty()) return parsed
+        // 1. Try SAF .lrc sidecar file if lrcUri is present
+        if (track.lrcUri.isNotBlank()) {
+            try {
+                val lrcUri = Uri.parse(track.lrcUri)
+                val text = context.contentResolver.openInputStream(lrcUri)?.use { stream ->
+                    stream.bufferedReader(Charsets.UTF_8).readText()
+                }
+                if (!text.isNullOrBlank()) {
+                    val parsed = parseLrc(text, "Arquivo .LRC")
+                    if (parsed != null && parsed.lines.isNotEmpty()) return parsed
+                }
+            } catch (_: Exception) {}
+        }
+
+        // 2. Try external .lrc sidecar file next to audio (filesystem fallback)
+        if (track.path.isNotBlank()) {
+            val sidecarLrc = findSidecarLrcFile(track.path)
+            if (sidecarLrc != null && sidecarLrc.exists() && sidecarLrc.canRead()) {
+                val content = try { sidecarLrc.readText(Charsets.UTF_8) } catch (_: Exception) { null }
+                if (!content.isNullOrBlank()) {
+                    val parsed = parseLrc(content, "Arquivo .LRC (${sidecarLrc.name})")
+                    if (parsed != null && parsed.lines.isNotEmpty()) return parsed
+                }
             }
         }
 
-        // 2. Try embedded tags via MediaMetadataRetriever
+        // 3. Try embedded tags via MediaMetadataRetriever (using context and track.uri)
         try {
             val retriever = MediaMetadataRetriever()
-            retriever.setDataSource(track.path)
+            try {
+                retriever.setDataSource(context, track.uri)
+            } catch (_: Exception) {
+                if (track.path.isNotBlank()) {
+                    retriever.setDataSource(track.path)
+                }
+            }
             // Some devices expose lyrics in metadata or author tags
             val rawLyrics = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_AUTHOR)
                 ?: retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_COMPILATION)

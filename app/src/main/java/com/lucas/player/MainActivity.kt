@@ -112,6 +112,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     // Estados da Biblioteca
     private val totalTracksCountState = mutableIntStateOf(0)
     private val libraryAccessState = mutableStateOf<LibraryAccess>(LibraryAccess.NeedsRequest)
+    private val selectedFoldersState = mutableStateOf<List<String>>(emptyList())
     private val isLoadingLibraryState = mutableStateOf(false)
     private val loadingTracksCountState = mutableIntStateOf(0)
     private val errorTrackIdsState = mutableStateListOf<Long>()
@@ -195,40 +196,19 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         }
     }
 
-    private fun getAudioPermission(): String {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            Manifest.permission.READ_MEDIA_AUDIO
-        } else {
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        }
-    }
-
     private fun evaluateLibraryAccess(): LibraryAccess {
-        val permission = getAudioPermission()
-        val isGranted = ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
-        if (isGranted) return LibraryAccess.Granted
-
-        val hasRequestedBefore = preferencesManager.hasRequestedAudioPermission()
-        val shouldShowRationale = ActivityCompat.shouldShowRequestPermissionRationale(this, permission)
-
-        return when {
-            !hasRequestedBefore -> LibraryAccess.NeedsRequest
-            shouldShowRationale -> LibraryAccess.Denied
-            else -> LibraryAccess.PermanentlyDenied
+        val configuredUris = preferencesManager.getMusicFolderUris()
+        if (configuredUris.isEmpty()) {
+            return LibraryAccess.NeedsRequest
         }
-    }
-
-    private val requestAudioPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        preferencesManager.setHasRequestedAudioPermission(true)
-        if (isGranted) {
-            libraryAccessState.value = LibraryAccess.Granted
-            loadLibrary()
-            checkNotificationPermissionNonBlocking()
-        } else {
-            libraryAccessState.value = evaluateLibraryAccess()
+        val persistedPermissions = contentResolver.persistedUriPermissions
+        val hasValidPermission = configuredUris.any { uriStr ->
+            val uri = try { Uri.parse(uriStr) } catch (_: Exception) { null }
+            uri != null && persistedPermissions.any { perm ->
+                perm.uri == uri && perm.isReadPermission
+            }
         }
+        return if (hasValidPermission) LibraryAccess.Granted else LibraryAccess.NeedsRequest
     }
 
     private val folderPickerLauncher = registerForActivityResult(
@@ -269,17 +249,35 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 else -> docId
             }
 
+            preferencesManager.addMusicFolderUri(uri.toString())
             preferencesManager.setSelectedMusicFolderUri(uri.toString())
             preferencesManager.setSelectedMusicFolderPath(folderPath)
             preferencesManager.setSelectedMusicFolderName(folderName)
 
+            selectedFoldersState.value = preferencesManager.getMusicFolderUris()
+            libraryAccessState.value = LibraryAccess.Granted
             loadLibrary()
+            checkNotificationPermissionNonBlocking()
             snackbarState.show(getString(R.string.snackbar_folder_selected, folderName))
         }
     }
 
+    private fun removeMusicFolder(uriString: String) {
+        try {
+            contentResolver.releasePersistableUriPermission(
+                Uri.parse(uriString),
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+        } catch (_: Exception) {}
+        preferencesManager.removeMusicFolderUri(uriString)
+        selectedFoldersState.value = preferencesManager.getMusicFolderUris()
+        libraryAccessState.value = evaluateLibraryAccess()
+        loadLibrary()
+        snackbarState.show(getString(R.string.snackbar_folder_removed))
+    }
+
     private fun requestLibraryPermission() {
-        requestAudioPermissionLauncher.launch(getAudioPermission())
+        folderPickerLauncher.launch(null)
     }
 
     private fun checkNotificationPermissionNonBlocking() {
@@ -314,6 +312,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
     override fun onResume() {
         super.onResume()
+        selectedFoldersState.value = preferencesManager.getMusicFolderUris()
         val access = evaluateLibraryAccess()
         if (access != libraryAccessState.value) {
             libraryAccessState.value = access
@@ -362,6 +361,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         AuroHaptics.init(this)
         LibraryRepository.init(this)
 
+        selectedFoldersState.value = preferencesManager.getMusicFolderUris()
         libraryAccessState.value = evaluateLibraryAccess()
         if (libraryAccessState.value is LibraryAccess.Granted) {
             loadLibrary()
@@ -470,7 +470,6 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             }
 
             if (libraryAccess !is LibraryAccess.Granted) {
-                val isPermanent = libraryAccess is LibraryAccess.PermanentlyDenied
                 AuroTheme(
                     accent = currentAccent,
                     playing = false
@@ -482,14 +481,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             .statusBarsPadding()
                     ) {
                         AuroEmptyState(
-                            icon = Icons.Rounded.MusicOff,
+                            icon = Icons.Rounded.FolderOpen,
                             title = stringResource(R.string.permission_library_title),
                             message = stringResource(R.string.permission_library_message),
-                            actionLabel = stringResource(
-                                if (isPermanent) R.string.permission_action_settings else R.string.permission_action_grant
-                            ),
+                            actionLabel = stringResource(R.string.permission_action_grant),
                             onAction = {
-                                if (isPermanent) openAppSettings() else requestLibraryPermission()
+                                folderPickerLauncher.launch(null)
                             },
                             modifier = Modifier.fillMaxSize()
                         )
@@ -1479,11 +1476,20 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         loadLibrary()
                                         snackbarState.show(getString(R.string.snackbar_library_updated))
                                     },
+                                    selectedFolders = selectedFoldersState.value,
+                                    onAddMusicFolder = {
+                                        folderPickerLauncher.launch(null)
+                                    },
+                                    onRemoveMusicFolder = { uriStr ->
+                                        removeMusicFolder(uriStr)
+                                    },
                                     onSelectMusicFolder = {
                                         folderPickerLauncher.launch(null)
                                     },
                                     onClearMusicFolder = {
                                         preferencesManager.clearSelectedMusicFolder()
+                                        selectedFoldersState.value = emptyList()
+                                        libraryAccessState.value = evaluateLibraryAccess()
                                         loadLibrary()
                                         snackbarState.show(getString(R.string.snackbar_folder_cleared))
                                     },

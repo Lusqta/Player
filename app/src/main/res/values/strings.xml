@@ -21,9 +21,9 @@
     <string name="empty_search_message">Confira a ortografia ou tente outra palavra.</string>
 
     <!-- Permissões & Estados -->
-    <string name="permission_library_title">Precisamos de acesso às suas músicas</string>
-    <string name="permission_library_message">O Aurō lê os arquivos de áudio do aparelho. Nada sai daqui.</string>
-    <string name="permission_action_grant">Permitir</string>
+    <string name="permission_library_title">Escolha sua pasta de músicas</string>
+    <string name="permission_library_message">Selecione uma pasta do dispositivo onde suas músicas estão armazenadas. O Aurō acessa apenas as pastas autorizadas por você.</string>
+    <string name="permission_action_grant">Escolher pasta</string>
     <string name="permission_action_settings">Abrir configurações</string>
     <string name="permission_notification_denied">Ative as notificações para controlar a reprodução.</string>
     <string name="permission_notification_action">Ativar</string>
@@ -66,10 +66,13 @@
     <string name="settings_ignore_shorter_than_sec">%1$d s</string>
     <string name="settings_rescan_library">Atualizar biblioteca</string>
     <string name="settings_rescan_library_desc">Recarrega arquivos de áudio do dispositivo</string>
-    <string name="settings_music_folders">Pasta de músicas</string>
+    <string name="settings_music_folders">Pastas de músicas</string>
     <string name="settings_music_folders_desc">Todas as mídias (toque para escolher pasta)</string>
+    <string name="settings_music_folders_empty">Nenhuma pasta selecionada (toque para escolher)</string>
+    <string name="settings_add_folder">Adicionar pasta de músicas</string>
+    <string name="settings_add_folder_desc">Autorizar outra pasta ou cartão SD</string>
     <string name="settings_music_folder_selected">Acessando apenas: %1$s</string>
-    <string name="settings_music_folder_clear">Remover filtro de pasta</string>
+    <string name="settings_music_folder_clear">Remover pasta</string>
     <string name="settings_pause_headset">Pausar ao desconectar fones</string>
     <string name="settings_pause_headset_desc">Interrompe quando fones Bluetooth ou cabo forem desconectados</string>
     <string name="settings_gapless">Reprodução contínua (Gapless)</string>
@@ -318,8 +321,9 @@
     <string name="snackbar_preset_saved">Preset “%1$s” salvo</string>
     <string name="snackbar_preset_deleted">Preset “%1$s” excluído</string>
     <string name="snackbar_playlist_deleted">Playlist “%1$s” excluída</string>
-    <string name="snackbar_folder_selected">Biblioteca restrita à pasta: %1$s</string>
-    <string name="snackbar_folder_cleared">Filtro removido: acessando todas as mídias</string>
+    <string name="snackbar_folder_selected">Pasta autorizada: %1$s</string>
+    <string name="snackbar_folder_cleared">Todas as pastas removidas da biblioteca</string>
+    <string name="snackbar_folder_removed">Pasta removida da biblioteca</string>
     <string name="empty_folder_message">Nenhum arquivo de áudio encontrado na pasta \"%1$s\". Você pode selecionar outra pasta nas Configurações.</string>
     <string name="settings_licenses_text">• Android Jetpack Compose (Apache 2.0)\n• Oboe C++ Audio Engine (Apache 2.0)\n• Material 3 Icons (Apache 2.0)\n• AndroidX Palette (Apache 2.0)\n• AGSL Runtime Shaders (Google DeepMind/Auro)</string>
 

@@ -2,6 +2,8 @@ package com.lucas.player.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.net.Uri
+import android.provider.DocumentsContract
 
 class PreferencesManager(context: Context) {
 
@@ -203,7 +205,7 @@ class PreferencesManager(context: Context) {
     }
 
     fun getSelectedMusicFolderUri(): String? {
-        return prefs.getString(KEY_SELECTED_FOLDER_URI, null)
+        return prefs.getString(KEY_SELECTED_FOLDER_URI, null) ?: getMusicFolderUris().firstOrNull()
     }
 
     fun setSelectedMusicFolderUri(uri: String?) {
@@ -211,14 +213,47 @@ class PreferencesManager(context: Context) {
             prefs.edit().remove(KEY_SELECTED_FOLDER_URI).apply()
         } else {
             prefs.edit().putString(KEY_SELECTED_FOLDER_URI, uri).apply()
+            addMusicFolderUri(uri)
         }
     }
+
+    // --- Persistência de Múltiplas Pastas SAF (Estilo Poweramp) ---
+
+    fun getMusicFolderUris(): List<String> {
+        val set = prefs.getStringSet(KEY_MUSIC_FOLDER_URIS, null)
+        if (set != null && set.isNotEmpty()) {
+            return set.toList()
+        }
+        val single = prefs.getString(KEY_SELECTED_FOLDER_URI, null)
+        return if (!single.isNullOrBlank()) listOf(single) else emptyList()
+    }
+
+    fun addMusicFolderUri(uri: String) {
+        val trimmed = uri.trim()
+        if (trimmed.isEmpty()) return
+        val current = getMusicFolderUris().toMutableSet()
+        current.add(trimmed)
+        prefs.edit().putStringSet(KEY_MUSIC_FOLDER_URIS, current).apply()
+    }
+
+    fun removeMusicFolderUri(uri: String) {
+        val trimmed = uri.trim()
+        val current = getMusicFolderUris().toMutableSet()
+        current.remove(trimmed)
+        prefs.edit().putStringSet(KEY_MUSIC_FOLDER_URIS, current).apply()
+        if (prefs.getString(KEY_SELECTED_FOLDER_URI, null) == trimmed) {
+            prefs.edit().remove(KEY_SELECTED_FOLDER_URI).apply()
+        }
+    }
+
+    fun formatFolderName(uriString: String): String = Companion.formatFolderName(uriString)
 
     fun clearSelectedMusicFolder() {
         prefs.edit()
             .remove(KEY_SELECTED_FOLDER_PATH)
             .remove(KEY_SELECTED_FOLDER_NAME)
             .remove(KEY_SELECTED_FOLDER_URI)
+            .remove(KEY_MUSIC_FOLDER_URIS)
             .apply()
     }
 
@@ -361,11 +396,33 @@ class PreferencesManager(context: Context) {
         set(value) = prefs.edit().putInt(KEY_SPATIAL_PRO_PRESET, value).apply()
 
     companion object {
+        fun formatFolderName(uriString: String): String {
+            return try {
+                val uri = Uri.parse(uriString)
+                val docId = if (DocumentsContract.isTreeUri(uri)) {
+                    DocumentsContract.getTreeDocumentId(uri)
+                } else {
+                    DocumentsContract.getDocumentId(uri)
+                }
+                val decoded = Uri.decode(docId)
+                val clean = if (decoded.contains(":")) {
+                    decoded.substringAfter(":")
+                } else {
+                    decoded
+                }
+                clean.ifEmpty { "Músicas" }
+            } catch (_: Exception) {
+                val decoded = try { Uri.decode(uriString) } catch (_: Exception) { uriString }
+                decoded.substringAfterLast("/").substringAfterLast(":").ifEmpty { "Músicas" }
+            }
+        }
+
         private const val SEARCH_DELIMITER = "\u001F"
         private const val KEY_PINNED_GROUPS = "pinned_groups"
         private const val KEY_SELECTED_FOLDER_PATH = "selected_folder_path"
         private const val KEY_SELECTED_FOLDER_NAME = "selected_folder_name"
         private const val KEY_SELECTED_FOLDER_URI = "selected_folder_uri"
+        private const val KEY_MUSIC_FOLDER_URIS = "music_folder_uris"
         private const val KEY_RECENT_SEARCHES = "recent_searches"
         private const val KEY_PROMPTED_NOTIFICATION = "prompted_notification"
         private const val KEY_REQUESTED_AUDIO_PERM = "requested_audio_perm"

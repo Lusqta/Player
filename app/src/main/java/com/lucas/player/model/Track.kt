@@ -11,6 +11,7 @@ data class Track(
     val uri: Uri,
     val path: String,
     val folder: String,
+    val lrcUri: String = "",
     val albumArtist: String = "",
     val composer: String = "",
     val genre: String = "",

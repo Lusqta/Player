@@ -70,16 +70,7 @@ object CoverArtLoader {
     private fun extractCoverBitmap(context: Context, uri: Uri, targetSizeDp: Int): Bitmap? {
         val resolver: ContentResolver = context.contentResolver
 
-        // Method A: Modern Android 10+ (API 29+) hardware thumbnail pipeline
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            try {
-                val px = (targetSizeDp * context.resources.displayMetrics.density).toInt().coerceAtLeast(128)
-                val thumb = resolver.loadThumbnail(uri, Size(px, px), null)
-                if (thumb != null) return thumb
-            } catch (_: Exception) {}
-        }
-
-        // Method B: Embedded ID3 APIC / FLAC Picture extraction via MediaMetadataRetriever
+        // Method A: Embedded ID3 APIC / FLAC Picture extraction via MediaMetadataRetriever (Primary for SAF URIs)
         try {
             val mmr = MediaMetadataRetriever()
             mmr.setDataSource(context, uri)
@@ -100,6 +91,15 @@ object CoverArtLoader {
                 return BitmapFactory.decodeByteArray(picture, 0, picture.size, options)
             }
         } catch (_: Exception) {}
+
+        // Method B: ContentResolver thumbnail pipeline (Fallback)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                val px = (targetSizeDp * context.resources.displayMetrics.density).toInt().coerceAtLeast(128)
+                val thumb = resolver.loadThumbnail(uri, Size(px, px), null)
+                if (thumb != null) return thumb
+            } catch (_: Exception) {}
+        }
 
         return null
     }

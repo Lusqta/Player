@@ -53,6 +53,9 @@ fun AuroSettingsScreen(
     preferencesManager: PreferencesManager,
     onBackClick: () -> Unit,
     onRescanLibrary: () -> Unit,
+    selectedFolders: List<String> = emptyList(),
+    onAddMusicFolder: () -> Unit = {},
+    onRemoveMusicFolder: (String) -> Unit = {},
     onSelectMusicFolder: () -> Unit = {},
     onClearMusicFolder: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -73,7 +76,7 @@ fun AuroSettingsScreen(
     var showFileFormat by remember { mutableStateOf(preferencesManager.isShowFileFormatEnabled()) }
 
     var ignoreShorterThanSec by remember { mutableIntStateOf(preferencesManager.getIgnoreShorterThanSeconds()) }
-    var selectedFolderName by remember { mutableStateOf(preferencesManager.getSelectedMusicFolderName()) }
+    val currentFolders = if (selectedFolders.isNotEmpty()) selectedFolders else preferencesManager.getMusicFolderUris()
 
     // Diálogos de Seleção
     var showReplayGainPicker by remember { mutableStateOf(false) }
@@ -102,21 +105,34 @@ fun AuroSettingsScreen(
             item {
                 SettingsSectionHeader(stringResource(R.string.settings_section_library))
                 SettingsCard {
-                    SettingsClickableRow(
-                        title = stringResource(R.string.settings_music_folders),
-                        subtitle = if (!selectedFolderName.isNullOrEmpty()) {
-                            stringResource(R.string.settings_music_folder_selected, selectedFolderName ?: "")
-                        } else {
-                            stringResource(R.string.settings_music_folders_desc)
-                        },
-                        onClick = { onSelectMusicFolder() },
-                        trailingContent = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (!selectedFolderName.isNullOrEmpty()) {
+                    if (currentFolders.isEmpty()) {
+                        SettingsClickableRow(
+                            title = stringResource(R.string.settings_music_folders),
+                            subtitle = stringResource(R.string.settings_music_folders_empty),
+                            onClick = {
+                                onAddMusicFolder()
+                                onSelectMusicFolder()
+                            },
+                            trailingContent = {
+                                Icon(
+                                    imageVector = Icons.Rounded.FolderOpen,
+                                    contentDescription = null,
+                                    tint = AuroColor.TextPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        )
+                    } else {
+                        currentFolders.forEach { uriStr ->
+                            val folderDisplay = preferencesManager.formatFolderName(uriStr)
+                            SettingsClickableRow(
+                                title = folderDisplay,
+                                subtitle = uriStr,
+                                onClick = {},
+                                trailingContent = {
                                     IconButton(
                                         onClick = {
-                                            selectedFolderName = null
-                                            onClearMusicFolder()
+                                            onRemoveMusicFolder(uriStr)
                                         },
                                         modifier = Modifier.size(32.dp)
                                     ) {
@@ -127,17 +143,27 @@ fun AuroSettingsScreen(
                                             modifier = Modifier.size(18.dp)
                                         )
                                     }
-                                    Spacer(modifier = Modifier.width(4.dp))
                                 }
+                            )
+                            HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                        }
+                        SettingsClickableRow(
+                            title = stringResource(R.string.settings_add_folder),
+                            subtitle = stringResource(R.string.settings_add_folder_desc),
+                            onClick = {
+                                onAddMusicFolder()
+                                onSelectMusicFolder()
+                            },
+                            trailingContent = {
                                 Icon(
-                                    imageVector = Icons.Rounded.FolderOpen,
+                                    imageVector = Icons.Rounded.Add,
                                     contentDescription = null,
-                                    tint = if (!selectedFolderName.isNullOrEmpty()) Color.White else AuroColor.TextTertiary,
+                                    tint = AuroColor.TextPrimary,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
-                        }
-                    )
+                        )
+                    }
                     HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
                     Column(
                         modifier = Modifier

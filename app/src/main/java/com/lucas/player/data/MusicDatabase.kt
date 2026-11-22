@@ -35,6 +35,30 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         val isBuiltin: Boolean = false
     )
 
+    data class CachedTrack(
+        val trackId: Long,
+        val uri: String,
+        val treeUri: String,
+        val lrcUri: String = "",
+        val title: String,
+        val artist: String,
+        val album: String,
+        val albumArtist: String = "",
+        val composer: String = "",
+        val genre: String = "",
+        val year: Int = 0,
+        val trackNumber: Int = 0,
+        val discNumber: Int = 1,
+        val durationMs: Long = 0L,
+        val fileSize: Long = 0L,
+        val dateModifiedSec: Long = 0L,
+        val dateAddedSec: Long = 0L,
+        val folder: String = "",
+        val formatTag: String = "",
+        val bitrateKbps: Int = 0,
+        val sampleRateHz: Int = 44100
+    )
+
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             """
@@ -70,6 +94,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
 
         createPresetsTable(db)
         seedBuiltinPresets(db)
+        createCachedTracksTable(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -77,6 +102,39 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             createPresetsTable(db)
             seedBuiltinPresets(db)
         }
+        if (oldVersion < 3) {
+            createCachedTracksTable(db)
+        }
+    }
+
+    private fun createCachedTracksTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_CACHED_TRACKS (
+                $COL_CACHE_TRACK_ID INTEGER PRIMARY KEY,
+                $COL_CACHE_URI TEXT NOT NULL UNIQUE,
+                $COL_CACHE_TREE_URI TEXT NOT NULL,
+                $COL_CACHE_LRC_URI TEXT DEFAULT '',
+                $COL_CACHE_TITLE TEXT,
+                $COL_CACHE_ARTIST TEXT,
+                $COL_CACHE_ALBUM TEXT,
+                $COL_CACHE_ALBUM_ARTIST TEXT,
+                $COL_CACHE_COMPOSER TEXT,
+                $COL_CACHE_GENRE TEXT,
+                $COL_CACHE_YEAR INTEGER,
+                $COL_CACHE_TRACK_NUMBER INTEGER,
+                $COL_CACHE_DISC_NUMBER INTEGER,
+                $COL_CACHE_DURATION_MS INTEGER,
+                $COL_CACHE_FILE_SIZE INTEGER,
+                $COL_CACHE_DATE_MODIFIED INTEGER,
+                $COL_CACHE_DATE_ADDED INTEGER,
+                $COL_CACHE_FOLDER TEXT,
+                $COL_CACHE_FORMAT_TAG TEXT,
+                $COL_CACHE_BITRATE INTEGER,
+                $COL_CACHE_SAMPLE_RATE INTEGER
+            )
+            """.trimIndent()
+        )
     }
 
     private fun createPresetsTable(db: SQLiteDatabase) {
@@ -311,9 +369,170 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         return rows > 0
     }
 
+    // --- Cached Tracks (Incremental SAF Library Cache) ---
+
+    fun getCachedTracks(): List<CachedTrack> {
+        val list = mutableListOf<CachedTrack>()
+        val db = readableDatabase
+        val query = "SELECT * FROM $TABLE_CACHED_TRACKS"
+        db.rawQuery(query, null).use { cursor ->
+            val idCol = cursor.getColumnIndexOrThrow(COL_CACHE_TRACK_ID)
+            val uriCol = cursor.getColumnIndexOrThrow(COL_CACHE_URI)
+            val treeCol = cursor.getColumnIndexOrThrow(COL_CACHE_TREE_URI)
+            val lrcCol = cursor.getColumnIndexOrThrow(COL_CACHE_LRC_URI)
+            val titleCol = cursor.getColumnIndexOrThrow(COL_CACHE_TITLE)
+            val artistCol = cursor.getColumnIndexOrThrow(COL_CACHE_ARTIST)
+            val albumCol = cursor.getColumnIndexOrThrow(COL_CACHE_ALBUM)
+            val aaCol = cursor.getColumnIndexOrThrow(COL_CACHE_ALBUM_ARTIST)
+            val compCol = cursor.getColumnIndexOrThrow(COL_CACHE_COMPOSER)
+            val genreCol = cursor.getColumnIndexOrThrow(COL_CACHE_GENRE)
+            val yearCol = cursor.getColumnIndexOrThrow(COL_CACHE_YEAR)
+            val tnCol = cursor.getColumnIndexOrThrow(COL_CACHE_TRACK_NUMBER)
+            val dnCol = cursor.getColumnIndexOrThrow(COL_CACHE_DISC_NUMBER)
+            val durCol = cursor.getColumnIndexOrThrow(COL_CACHE_DURATION_MS)
+            val sizeCol = cursor.getColumnIndexOrThrow(COL_CACHE_FILE_SIZE)
+            val dmCol = cursor.getColumnIndexOrThrow(COL_CACHE_DATE_MODIFIED)
+            val daCol = cursor.getColumnIndexOrThrow(COL_CACHE_DATE_ADDED)
+            val folderCol = cursor.getColumnIndexOrThrow(COL_CACHE_FOLDER)
+            val fmtCol = cursor.getColumnIndexOrThrow(COL_CACHE_FORMAT_TAG)
+            val brCol = cursor.getColumnIndexOrThrow(COL_CACHE_BITRATE)
+            val srCol = cursor.getColumnIndexOrThrow(COL_CACHE_SAMPLE_RATE)
+
+            while (cursor.moveToNext()) {
+                list.add(
+                    CachedTrack(
+                        trackId = cursor.getLong(idCol),
+                        uri = cursor.getString(uriCol),
+                        treeUri = cursor.getString(treeCol),
+                        lrcUri = cursor.getString(lrcCol) ?: "",
+                        title = cursor.getString(titleCol) ?: "Sem título",
+                        artist = cursor.getString(artistCol) ?: "Artista desconhecido",
+                        album = cursor.getString(albumCol) ?: "Álbum desconhecido",
+                        albumArtist = cursor.getString(aaCol) ?: "",
+                        composer = cursor.getString(compCol) ?: "",
+                        genre = cursor.getString(genreCol) ?: "",
+                        year = cursor.getInt(yearCol),
+                        trackNumber = cursor.getInt(tnCol),
+                        discNumber = cursor.getInt(dnCol),
+                        durationMs = cursor.getLong(durCol),
+                        fileSize = cursor.getLong(sizeCol),
+                        dateModifiedSec = cursor.getLong(dmCol),
+                        dateAddedSec = cursor.getLong(daCol),
+                        folder = cursor.getString(folderCol) ?: "Músicas",
+                        formatTag = cursor.getString(fmtCol) ?: "AUDIO",
+                        bitrateKbps = cursor.getInt(brCol),
+                        sampleRateHz = cursor.getInt(srCol)
+                    )
+                )
+            }
+        }
+        return list
+    }
+
+    fun upsertCachedTracks(tracks: List<CachedTrack>) {
+        if (tracks.isEmpty()) return
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            val stmt = db.compileStatement(
+                """
+                INSERT INTO $TABLE_CACHED_TRACKS (
+                    $COL_CACHE_TRACK_ID, $COL_CACHE_URI, $COL_CACHE_TREE_URI, $COL_CACHE_LRC_URI,
+                    $COL_CACHE_TITLE, $COL_CACHE_ARTIST, $COL_CACHE_ALBUM, $COL_CACHE_ALBUM_ARTIST,
+                    $COL_CACHE_COMPOSER, $COL_CACHE_GENRE, $COL_CACHE_YEAR, $COL_CACHE_TRACK_NUMBER,
+                    $COL_CACHE_DISC_NUMBER, $COL_CACHE_DURATION_MS, $COL_CACHE_FILE_SIZE,
+                    $COL_CACHE_DATE_MODIFIED, $COL_CACHE_DATE_ADDED, $COL_CACHE_FOLDER,
+                    $COL_CACHE_FORMAT_TAG, $COL_CACHE_BITRATE, $COL_CACHE_SAMPLE_RATE
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT($COL_CACHE_URI) DO UPDATE SET
+                    $COL_CACHE_TRACK_ID = excluded.$COL_CACHE_TRACK_ID,
+                    $COL_CACHE_TREE_URI = excluded.$COL_CACHE_TREE_URI,
+                    $COL_CACHE_LRC_URI = excluded.$COL_CACHE_LRC_URI,
+                    $COL_CACHE_TITLE = excluded.$COL_CACHE_TITLE,
+                    $COL_CACHE_ARTIST = excluded.$COL_CACHE_ARTIST,
+                    $COL_CACHE_ALBUM = excluded.$COL_CACHE_ALBUM,
+                    $COL_CACHE_ALBUM_ARTIST = excluded.$COL_CACHE_ALBUM_ARTIST,
+                    $COL_CACHE_COMPOSER = excluded.$COL_CACHE_COMPOSER,
+                    $COL_CACHE_GENRE = excluded.$COL_CACHE_GENRE,
+                    $COL_CACHE_YEAR = excluded.$COL_CACHE_YEAR,
+                    $COL_CACHE_TRACK_NUMBER = excluded.$COL_CACHE_TRACK_NUMBER,
+                    $COL_CACHE_DISC_NUMBER = excluded.$COL_CACHE_DISC_NUMBER,
+                    $COL_CACHE_DURATION_MS = excluded.$COL_CACHE_DURATION_MS,
+                    $COL_CACHE_FILE_SIZE = excluded.$COL_CACHE_FILE_SIZE,
+                    $COL_CACHE_DATE_MODIFIED = excluded.$COL_CACHE_DATE_MODIFIED,
+                    $COL_CACHE_DATE_ADDED = excluded.$COL_CACHE_DATE_ADDED,
+                    $COL_CACHE_FOLDER = excluded.$COL_CACHE_FOLDER,
+                    $COL_CACHE_FORMAT_TAG = excluded.$COL_CACHE_FORMAT_TAG,
+                    $COL_CACHE_BITRATE = excluded.$COL_CACHE_BITRATE,
+                    $COL_CACHE_SAMPLE_RATE = excluded.$COL_CACHE_SAMPLE_RATE
+                """.trimIndent()
+            )
+            for (t in tracks) {
+                stmt.clearBindings()
+                stmt.bindLong(1, t.trackId)
+                stmt.bindString(2, t.uri)
+                stmt.bindString(3, t.treeUri)
+                stmt.bindString(4, t.lrcUri)
+                stmt.bindString(5, t.title)
+                stmt.bindString(6, t.artist)
+                stmt.bindString(7, t.album)
+                stmt.bindString(8, t.albumArtist)
+                stmt.bindString(9, t.composer)
+                stmt.bindString(10, t.genre)
+                stmt.bindLong(11, t.year.toLong())
+                stmt.bindLong(12, t.trackNumber.toLong())
+                stmt.bindLong(13, t.discNumber.toLong())
+                stmt.bindLong(14, t.durationMs)
+                stmt.bindLong(15, t.fileSize)
+                stmt.bindLong(16, t.dateModifiedSec)
+                stmt.bindLong(17, t.dateAddedSec)
+                stmt.bindString(18, t.folder)
+                stmt.bindString(19, t.formatTag)
+                stmt.bindLong(20, t.bitrateKbps.toLong())
+                stmt.bindLong(21, t.sampleRateHz.toLong())
+                stmt.executeInsert()
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    fun deleteCachedTracksNotIn(validUris: Set<String>) {
+        val db = writableDatabase
+        if (validUris.isEmpty()) {
+            db.delete(TABLE_CACHED_TRACKS, null, null)
+            return
+        }
+        val cachedUris = mutableListOf<String>()
+        db.rawQuery("SELECT $COL_CACHE_URI FROM $TABLE_CACHED_TRACKS", null).use { cursor ->
+            val uriCol = cursor.getColumnIndexOrThrow(COL_CACHE_URI)
+            while (cursor.moveToNext()) {
+                cachedUris.add(cursor.getString(uriCol))
+            }
+        }
+        val toDelete = cachedUris.filter { it !in validUris }
+        if (toDelete.isNotEmpty()) {
+            db.beginTransaction()
+            try {
+                toDelete.chunked(500).forEach { chunk ->
+                    val placeholders = chunk.joinToString(",") { "?" }
+                    db.delete(TABLE_CACHED_TRACKS, "$COL_CACHE_URI IN ($placeholders)", chunk.toTypedArray())
+                }
+                db.setTransactionSuccessful()
+            } finally {
+                db.endTransaction()
+            }
+        }
+    }
+
+    fun clearCachedTracks() {
+        writableDatabase.delete(TABLE_CACHED_TRACKS, null, null)
+    }
+
     companion object {
         const val DATABASE_NAME = "poweramp_library.db"
-        const val DATABASE_VERSION = 2
+        const val DATABASE_VERSION = 3
 
         const val TABLE_STATS = "track_stats"
         const val COL_TRACK_ID = "track_id"
@@ -339,5 +558,28 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         const val COL_PRESET_TREBLE = "treble"
         const val COL_PRESET_PREAMP = "preamp"
         const val COL_PRESET_BUILTIN = "is_builtin"
+
+        const val TABLE_CACHED_TRACKS = "cached_tracks"
+        const val COL_CACHE_TRACK_ID = "track_id"
+        const val COL_CACHE_URI = "uri"
+        const val COL_CACHE_TREE_URI = "tree_uri"
+        const val COL_CACHE_LRC_URI = "lrc_uri"
+        const val COL_CACHE_TITLE = "title"
+        const val COL_CACHE_ARTIST = "artist"
+        const val COL_CACHE_ALBUM = "album"
+        const val COL_CACHE_ALBUM_ARTIST = "album_artist"
+        const val COL_CACHE_COMPOSER = "composer"
+        const val COL_CACHE_GENRE = "genre"
+        const val COL_CACHE_YEAR = "year"
+        const val COL_CACHE_TRACK_NUMBER = "track_number"
+        const val COL_CACHE_DISC_NUMBER = "disc_number"
+        const val COL_CACHE_DURATION_MS = "duration_ms"
+        const val COL_CACHE_FILE_SIZE = "file_size"
+        const val COL_CACHE_DATE_MODIFIED = "date_modified_sec"
+        const val COL_CACHE_DATE_ADDED = "date_added_sec"
+        const val COL_CACHE_FOLDER = "folder"
+        const val COL_CACHE_FORMAT_TAG = "format_tag"
+        const val COL_CACHE_BITRATE = "bitrate_kbps"
+        const val COL_CACHE_SAMPLE_RATE = "sample_rate_hz"
     }
 }
