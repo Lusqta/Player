@@ -81,7 +81,6 @@ fun AuroLibraryRootScreen(
     val view = LocalView.current
     var showMenu by remember { mutableStateOf(false) }
     val bottomInset = LocalAuroBottomInset.current
-    val accent = LocalAuroAccent.current.a.value
 
     val categories = remember {
         listOf(

@@ -178,45 +178,12 @@ class PreferencesManager(context: Context) {
         return getPinnedGroups().contains(groupKey)
     }
 
-    fun isReduceTransparencyEnabled(): Boolean {
-        return prefs.getBoolean(KEY_REDUCE_TRANSPARENCY, false)
-    }
-
-    fun setReduceTransparencyEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_REDUCE_TRANSPARENCY, enabled).apply()
-    }
-
-    fun getAccentColorMode(): Int {
-        // 0 = Capa Adaptativa (padrão), 1 = Azul Apple (#0A84FF)
-        return prefs.getInt(KEY_ACCENT_COLOR_MODE, 0)
-    }
-
-    fun setAccentColorMode(mode: Int) {
-        prefs.edit().putInt(KEY_ACCENT_COLOR_MODE, mode).apply()
-    }
-
     fun isPauseOnHeadsetDisconnectEnabled(): Boolean {
         return prefs.getBoolean(KEY_PAUSE_ON_HEADSET_DISCONNECT, true)
     }
 
     fun setPauseOnHeadsetDisconnectEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_PAUSE_ON_HEADSET_DISCONNECT, enabled).apply()
-    }
-
-    fun isLightReactionTiltEnabled(): Boolean {
-        return prefs.getBoolean(KEY_TILT_ENABLED, true)
-    }
-
-    fun setLightReactionTiltEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_TILT_ENABLED, enabled).apply()
-    }
-
-    fun getReflectionSoftness(): Float {
-        return prefs.getFloat(KEY_REFLECTION_SOFTNESS, 0.6f)
-    }
-
-    fun setReflectionSoftness(softness: Float) {
-        prefs.edit().putFloat(KEY_REFLECTION_SOFTNESS, softness.coerceIn(0f, 1f)).apply()
     }
 
     fun getReduceMotionMode(): Int {
@@ -352,8 +319,6 @@ class PreferencesManager(context: Context) {
     companion object {
         private const val SEARCH_DELIMITER = "\u001F"
         private const val KEY_PINNED_GROUPS = "pinned_groups"
-        private const val KEY_REDUCE_TRANSPARENCY = "reduce_transparency"
-        private const val KEY_ACCENT_COLOR_MODE = "accent_color_mode"
         private const val KEY_RECENT_SEARCHES = "recent_searches"
         private const val KEY_PROMPTED_NOTIFICATION = "prompted_notification"
         private const val KEY_REQUESTED_AUDIO_PERM = "requested_audio_perm"
@@ -376,8 +341,6 @@ class PreferencesManager(context: Context) {
         private const val KEY_RG_PREAMP_WITH = "replaygain_preamp_with"
         private const val KEY_RG_PREAMP_WITHOUT = "replaygain_preamp_without"
         private const val KEY_PAUSE_ON_HEADSET_DISCONNECT = "pause_on_headset_disconnect"
-        private const val KEY_TILT_ENABLED = "tilt_enabled"
-        private const val KEY_REFLECTION_SOFTNESS = "reflection_softness"
         private const val KEY_REDUCE_MOTION_MODE = "reduce_motion_mode"
         private const val KEY_SHOW_FILE_FORMAT = "show_file_format"
         private const val KEY_IGNORE_SHORTER_THAN_SEC = "ignore_shorter_than_sec"

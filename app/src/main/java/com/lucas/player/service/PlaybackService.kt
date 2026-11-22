@@ -33,6 +33,7 @@ import com.lucas.player.queue.QueueManager
 import com.lucas.player.queue.QueueSection
 import com.lucas.player.queue.RepeatMode
 import com.lucas.player.queue.ShuffleMode
+import androidx.core.content.ContextCompat
 import androidx.palette.graphics.Palette
 
 class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
@@ -211,7 +212,7 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
         createNotificationChannel()
 
         val filter = IntentFilter(AudioManager.ACTION_AUDIO_BECOMING_NOISY)
-        registerReceiver(noisyReceiver, filter)
+        ContextCompat.registerReceiver(this, noisyReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

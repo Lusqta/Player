@@ -77,7 +77,6 @@ dependencies {
     // AndroidX essencial
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-ktx:1.9.2")
-    implementation("androidx.recyclerview:recyclerview:1.3.2")
 
     // Jetpack Compose & Material 3
     val composeBom = platform("androidx.compose:compose-bom:2024.09.00")

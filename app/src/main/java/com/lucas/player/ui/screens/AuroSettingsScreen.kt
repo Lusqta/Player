@@ -37,7 +37,6 @@ import com.lucas.player.ui.theme.AuroGlassKind
 import com.lucas.player.ui.theme.AuroRadius
 import com.lucas.player.ui.theme.AuroSpace
 import com.lucas.player.ui.theme.LiquidGlassSurface
-import com.lucas.player.ui.theme.LocalAuroAccent
 import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlin.math.roundToInt
 
@@ -58,7 +57,6 @@ fun AuroSettingsScreen(
     onSettingsChanged: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val accent = LocalAuroAccent.current.a.value
 
     // Estados Reativos de Preferências
     var pauseOnDisconnect by remember { mutableStateOf(preferencesManager.isPauseOnHeadsetDisconnectEnabled()) }
@@ -69,11 +67,8 @@ fun AuroSettingsScreen(
     var rgPreampWithout by remember { mutableFloatStateOf(preferencesManager.getReplayGainPreampWithoutRg()) }
     var resumePlayback by remember { mutableStateOf(preferencesManager.isResumePlaybackEnabled()) }
 
-    var tiltEnabled by remember { mutableStateOf(preferencesManager.isLightReactionTiltEnabled()) }
-    var reflectionSoftness by remember { mutableFloatStateOf(preferencesManager.getReflectionSoftness()) }
     var reduceMotionMode by remember { mutableIntStateOf(preferencesManager.getReduceMotionMode()) }
     var showFileFormat by remember { mutableStateOf(preferencesManager.isShowFileFormatEnabled()) }
-    var reduceTransparency by remember { mutableStateOf(preferencesManager.isReduceTransparencyEnabled()) }
 
     var ignoreShorterThanSec by remember { mutableIntStateOf(preferencesManager.getIgnoreShorterThanSeconds()) }
 

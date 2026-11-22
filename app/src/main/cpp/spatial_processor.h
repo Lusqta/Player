@@ -56,12 +56,6 @@ public:
 
     void setProParams(float subCutoffHz, float midGainDb, float sideWidth,
                       float surroundAmbience, float speakerAngle, float elevationNorm = 0.0f) {
-        mProSubCutoffHz.store(std::clamp(subCutoffHz, 60.0f, 250.0f), std::memory_order_relaxed);
-        mProMidGainDb.store(std::clamp(midGainDb, -6.0f, 6.0f), std::memory_order_relaxed);
-        mProSideWidth.store(std::clamp(sideWidth, 0.5f, 2.2f), std::memory_order_relaxed);
-        mProSurround.store(std::clamp(surroundAmbience, 0.0f, 1.0f), std::memory_order_relaxed);
-        mProAngle.store(std::clamp(speakerAngle, 0.0f, 1.0f), std::memory_order_relaxed);
-        mProElevation.store(std::clamp(elevationNorm, -1.0f, 1.0f), std::memory_order_relaxed);
         mSteamPro.setParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle, elevationNorm);
     }
 
@@ -313,13 +307,6 @@ private:
     std::atomic<int> mMode{MODE_OFF};
     std::atomic<int> mPreset{PRESET_MUSIC};
     std::atomic<float> mStandardIntensity{0.75f};
-
-    std::atomic<float> mProSubCutoffHz{115.0f};
-    std::atomic<float> mProMidGainDb{0.0f};
-    std::atomic<float> mProSideWidth{1.35f};
-    std::atomic<float> mProSurround{0.35f};
-    std::atomic<float> mProAngle{0.35f};
-    std::atomic<float> mProElevation{0.0f};
 
     // Filtros Linkwitz-Riley LR4 fixos em 110Hz para Dolby Standard
     BiquadCoeffs mStdLpCoeffs, mStdHpCoeffs;

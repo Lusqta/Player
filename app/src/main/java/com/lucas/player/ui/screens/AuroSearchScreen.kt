@@ -66,7 +66,6 @@ import com.lucas.player.ui.theme.AuroSpace
 import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.LiquidGlassSurface
 import com.lucas.player.ui.theme.LocalAuroBottomInset
-import com.lucas.player.ui.theme.LocalAuroSoft
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -170,14 +169,6 @@ fun AuroSearchScreen(
     }
 
     val hasAnyResults = matchedTracks.isNotEmpty() || matchedAlbums.isNotEmpty() || matchedArtists.isNotEmpty()
-
-    val searchInteractionSource = remember { MutableInteractionSource() }
-    val isSearchFocused by searchInteractionSource.collectIsFocusedAsState()
-    val specMultiplier by animateFloatAsState(
-        targetValue = if (isSearchFocused) 1.4f else 1.0f,
-        animationSpec = spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow),
-        label = "search_spec_spring"
-    )
     val focusRequester = remember { FocusRequester() }
 
     Column(
@@ -238,7 +229,6 @@ fun AuroSearchScreen(
                         textStyle = AuroType.Body.copy(color = AuroColor.TextPrimary),
                         cursorBrush = SolidColor(Color.White),
                         singleLine = true,
-                        interactionSource = searchInteractionSource,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(
                             onSearch = {

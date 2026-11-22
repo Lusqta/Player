@@ -69,8 +69,6 @@ public:
     void setSpatialPreset(int preset, float intensity);
     void setSpatialProParams(float subCutoffHz, float midGainDb, float sideWidth, float surroundAmbience, float speakerAngle, float elevation = 0.0f);
 
-    static std::vector<float> scanWaveform(int fd, int numPoints = 100);
-
 private:
     void decodeLoop();
     void wakeDecoderThread();

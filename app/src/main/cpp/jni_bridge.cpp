@@ -315,22 +315,6 @@ Java_com_lucas_player_AudioEngine_nativeIsMono(JNIEnv* /*env*/, jobject /*thiz*/
     }
 }
 
-JNIEXPORT jfloatArray JNICALL
-Java_com_lucas_player_AudioEngine_nativeScanWaveform(JNIEnv* env, jobject /*thiz*/, jint fd, jint numPoints) {
-    try {
-        std::vector<float> peaks = AudioEngine::scanWaveform(fd, numPoints);
-        if (peaks.empty()) return nullptr;
-
-        jfloatArray result = env->NewFloatArray(static_cast<jsize>(peaks.size()));
-        if (!result) return nullptr;
-
-        env->SetFloatArrayRegion(result, 0, static_cast<jsize>(peaks.size()), peaks.data());
-        return result;
-    } catch (...) {
-        return nullptr;
-    }
-}
-
 JNIEXPORT void JNICALL
 Java_com_lucas_player_AudioEngine_nativeSetSpatialMode(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jint mode) {
     try {

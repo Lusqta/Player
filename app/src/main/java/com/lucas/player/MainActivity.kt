@@ -374,8 +374,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             val miniPlayerCover = rememberTrackCover(currentTrack, 120)
 
             var currentAccent by remember { mutableStateOf(AuroAccent.Neutral) }
-            LaunchedEffect(currentCover, preferencesManager.getAccentColorMode()) {
-                currentAccent = CoverGlow.from(currentCover, preferencesManager.getAccentColorMode())
+            LaunchedEffect(currentCover) {
+                currentAccent = CoverGlow.from(currentCover)
             }
 
             LaunchedEffect(currentScreen) {
@@ -456,10 +456,6 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 AuroTheme(
                     accent = currentAccent,
                     playing = isPlaying,
-                    tilt = preferencesManager.isLightReactionTiltEnabled(),
-                    soft = preferencesManager.getReflectionSoftness(),
-                    reduceTransparency = preferencesManager.isReduceTransparencyEnabled(),
-                    accentColorMode = preferencesManager.getAccentColorMode(),
                     reduceMotionOverride = when (preferencesManager.getReduceMotionMode()) {
                         1 -> true
                         2 -> false
@@ -949,9 +945,6 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             }
 
                             is NavScreen.NowPlaying -> {
-                                val currentIndex = playbackService?.queueManager?.currentQueueIndex ?: 0
-                                val totalQueue = playbackService?.queueManager?.queueSize ?: 0
-                                val upcoming = playbackService?.queueManager?.getUpcomingTracks(2) ?: emptyList()
                                 AuroNowPlayingScreen(
                                     track = currentTrack,
                                     isPlaying = isPlaying,
@@ -960,14 +953,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     coverBitmap = currentCover,
                                     shuffleMode = shuffleMode,
                                     repeatMode = repeatMode,
-                                    currentTrackIndex = currentIndex,
-                                    queueSize = totalQueue,
-                                    categoryTitle = currentCategoryState.value.title,
-                                    upcomingTracks = upcoming,
                                     priorityTracks = priorityQueueState.value,
                                     regularTracks = regularQueueState.value,
                                     currentTrackId = currentTrack?.id ?: -1L,
-                                    spatialMode = spatialModeState.intValue,
                                     onQueueTrackClick = { clickedTrack, idx, isPriority ->
                                         if (isPriority) {
                                             playbackService?.skipToPriorityIndex(idx)
@@ -993,8 +981,6 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         playbackService?.seekTo(target)
                                         progressMsState.longValue = target
                                     },
-                                    onSeekJumpForward = { playbackService?.seekJumpForward() },
-                                    onSeekJumpBackward = { playbackService?.seekJumpBackward() },
                                     onBeginFastForward = { playbackService?.beginFastForward() },
                                     onEndFastForward = { playbackService?.endFastForward() },
                                     onBeginRewind = { playbackService?.beginRewind() },
@@ -1012,11 +998,6 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     },
                                     onCollapse = { navController.navigateUp() },
                                     onOpenEqualizer = { navController.navigateTo(NavScreen.Equalizer) },
-                                    onOpenLyrics = { showLyricsSheetState.value = true },
-                                    onOpenQueue = {
-                                        selectCategory(LibraryCategory.QUEUE)
-                                        navController.navigateTo(NavScreen.CategoryList(LibraryCategory.QUEUE))
-                                    },
                                     onOpenTrackInfo = {
                                         trackInfoDialogState.value = currentTrack
                                     },

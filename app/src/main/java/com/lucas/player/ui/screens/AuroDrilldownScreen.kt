@@ -77,7 +77,6 @@ fun AuroDrilldownScreen(
     showFileFormat: Boolean = true
 ) {
     val view = LocalView.current
-    val accent = LocalAuroAccent.current.a.value
     val bottomInset = LocalAuroBottomInset.current
     val coroutineScope = rememberCoroutineScope()
     val totalDurationMs = remember(tracks) { tracks.sumOf { it.durationMs } }

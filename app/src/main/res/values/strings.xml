@@ -83,11 +83,6 @@
     <string name="settings_rg_preamp_without">Pré-amplificação sem RG</string>
     <string name="settings_resume_playback">Retomar de onde parou</string>
     <string name="settings_resume_playback_desc">Lembrar fila e posição ao abrir o app</string>
-    <string name="settings_tilt_light">Luz reage ao movimento</string>
-    <string name="settings_tilt_light_desc">Reflexos de vidro acompanham inclinação do aparelho</string>
-    <string name="settings_reflection_softness">Suavidade do reflexo</string>
-    <string name="settings_reflection_softness_desc">Nitidez das bordas iluminadas (0 = agudo, 1 = suave)</string>
-    <string name="settings_reflection_preview">Exemplo de Vidro Aurō</string>
     <string name="settings_reduce_motion">Reduzir animações</string>
     <string name="settings_reduce_motion_system">Seguir sistema</string>
     <string name="settings_reduce_motion_always">Sempre reduzir</string>
@@ -249,13 +244,6 @@
     <string name="library_pins_title">Fixados</string>
     <string name="action_pin">Fixar na Biblioteca</string>
     <string name="action_unpin">Desafixar</string>
-    <string name="settings_reduce_transparency">Reduzir Transparência</string>
-    <string name="settings_reduce_transparency_desc">Substitui vidros translúcidos por superfície sólida</string>
-    <string name="settings_accent_color_mode">Cor de Destaque</string>
-    <string name="settings_accent_adaptive">Adaptativa da Capa</string>
-    <string name="settings_transparency_label">Aparência do Vidro</string>
-    <string name="settings_transparency_crystal">Cristal</string>
-    <string name="settings_transparency_frosted">Fosco</string>
     <string name="volume_label">Volume</string>
     <string name="now_playing_mode_artwork">Capa</string>
     <string name="now_playing_mode_lyrics">Letras</string>

@@ -11,7 +11,6 @@ import android.os.Handler
 import android.os.Looper
 import android.util.LruCache
 import android.util.Size
-import android.widget.ImageView
 import com.lucas.player.model.Track
 import java.util.concurrent.Executors
 
@@ -42,7 +41,6 @@ object CoverArtLoader {
         context: Context,
         track: Track,
         targetSizeDp: Int = 300,
-        targetView: ImageView? = null,
         onLoaded: ((Bitmap?) -> Unit)? = null
     ) {
         val trackId = track.id
@@ -51,13 +49,9 @@ object CoverArtLoader {
         // 1. Check Memory Cache
         val cached = memoryCache.get(cacheKey)
         if (cached != null) {
-            targetView?.setImageBitmap(cached)
             onLoaded?.invoke(cached)
             return
         }
-
-        // Tag view to avoid mismatched bitmaps during fast RecyclerView scrolling
-        targetView?.tag = cacheKey
 
         // 2. Load asynchronously in thread pool
         val appContext = context.applicationContext
@@ -68,10 +62,7 @@ object CoverArtLoader {
             }
 
             mainHandler.post {
-                if (targetView == null || targetView.tag == cacheKey) {
-                    targetView?.setImageBitmap(bitmap)
-                    onLoaded?.invoke(bitmap)
-                }
+                onLoaded?.invoke(bitmap)
             }
         }
     }

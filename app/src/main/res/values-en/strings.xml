@@ -83,11 +83,6 @@
     <string name="settings_rg_preamp_without">Preamp without RG</string>
     <string name="settings_resume_playback">Resume playback</string>
     <string name="settings_resume_playback_desc">Remember queue and position on launch</string>
-    <string name="settings_tilt_light">Light reacts to motion</string>
-    <string name="settings_tilt_light_desc">Glass reflections follow device tilt</string>
-    <string name="settings_reflection_softness">Reflection softness</string>
-    <string name="settings_reflection_softness_desc">Edge reflection blur (0 = sharp, 1 = soft)</string>
-    <string name="settings_reflection_preview">Aurō Glass Preview</string>
     <string name="settings_reduce_motion">Reduce animations</string>
     <string name="settings_reduce_motion_system">Follow system</string>
     <string name="settings_reduce_motion_always">Always reduce</string>
@@ -249,13 +244,6 @@
     <string name="library_pins_title">Pinned</string>
     <string name="action_pin">Pin to Library</string>
     <string name="action_unpin">Unpin</string>
-    <string name="settings_reduce_transparency">Reduce Transparency</string>
-    <string name="settings_reduce_transparency_desc">Replace translucent glass surfaces with solid background</string>
-    <string name="settings_accent_color_mode">Accent Color</string>
-    <string name="settings_accent_adaptive">Adaptive from Artwork</string>
-    <string name="settings_transparency_label">Glass Appearance</string>
-    <string name="settings_transparency_crystal">Crystal</string>
-    <string name="settings_transparency_frosted">Frosted</string>
     <string name="volume_label">Volume</string>
     <string name="now_playing_mode_artwork">Artwork</string>
     <string name="now_playing_mode_lyrics">Lyrics</string>
