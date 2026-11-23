@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.lucas.player.R
 import com.lucas.player.model.LibraryCategory
 import com.lucas.player.model.Track
+import com.lucas.player.model.formatArtistsDisplay
 import com.lucas.player.model.getTitleRes
 import com.lucas.player.ui.GroupItem
 import com.lucas.player.ui.components.*
@@ -243,7 +244,7 @@ fun AuroLibraryRootScreen(
                                         Box(
                                             modifier = Modifier
                                                 .size(120.dp)
-                                                .clip(RoundedCornerShape(AuroRadius.card))
+                                                .clip(AuroSquircle)
                                                 .background(AuroColor.SurfaceGrouped),
                                             contentAlignment = Alignment.Center
                                         ) {
@@ -258,7 +259,7 @@ fun AuroLibraryRootScreen(
                                                 AuroCoverPlaceholder(
                                                     modifier = Modifier.fillMaxSize(),
                                                     glass = false,
-                                                    shape = RoundedCornerShape(AuroRadius.card)
+                                                    shape = AuroSquircle
                                                 )
                                             }
                                         }
@@ -392,7 +393,7 @@ fun AuroLibraryRootScreen(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .aspectRatio(1f)
-                                            .clip(RoundedCornerShape(AuroRadius.card))
+                                            .clip(AuroSquircle)
                                             .background(AuroColor.SurfaceGrouped),
                                         contentAlignment = Alignment.Center
                                     ) {
@@ -407,7 +408,7 @@ fun AuroLibraryRootScreen(
                                             AuroCoverPlaceholder(
                                                 modifier = Modifier.fillMaxSize(),
                                                 glass = false,
-                                                shape = RoundedCornerShape(AuroRadius.card)
+                                                shape = AuroSquircle
                                             )
                                         }
                                     }
@@ -426,7 +427,7 @@ fun AuroLibraryRootScreen(
                                     )
 
                                     Text(
-                                        text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                                        text = formatArtistsDisplay(track.artist, stringResource(R.string.unknown_artist)),
                                         style = AuroType.Subtitle.copy(
                                             fontSize = 13.sp,
                                             lineHeight = 16.sp

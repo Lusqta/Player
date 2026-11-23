@@ -291,24 +291,6 @@
     <string name="eq_balance_label">Balanço</string>
     <string name="eq_balance_center">Centro</string>
 
-    <!-- Áudio Espacial DSP -->
-    <string name="spatial_header">Áudio espacial</string>
-    <string name="spatial_mode_off">Desativado</string>
-    <string name="spatial_mode_standard">Dolby Padrão</string>
-    <string name="spatial_mode_pro">Espacial Pro</string>
-    <string name="spatial_preset_music">Música</string>
-    <string name="spatial_preset_cinema">Cinema</string>
-    <string name="spatial_preset_stage">Palco</string>
-    <string name="spatial_intensity_label">Intensidade</string>
-    <string name="spatial_sub_cutoff_label">Corte Sub-Grave</string>
-    <string name="spatial_mid_gain_label">Foco Vocal (Mid)</string>
-    <string name="spatial_side_width_label">Largura de Palco</string>
-    <string name="spatial_surround_label">Acústica da Sala</string>
-    <string name="spatial_angle_label">Ângulo Binaural</string>
-    <string name="spatial_elevation_label">Altura 3D (Elevação)</string>
-    <string name="spatial_reset_pro">Resetar Padrão</string>
-    <string name="spatial_off_desc">Processamento binaural desativado (saída estéreo pura)</string>
-
     <!-- Snackbars & Avisos (Fase 5.3) -->
     <string name="snackbar_queue_cleared">Fila limpa</string>
     <string name="snackbar_queue_shuffled">Fila aleatória</string>
@@ -380,7 +362,6 @@
 
     <!-- Menu Principal Title Case -->
     <string name="menu_queue">Fila de Reprodução</string>
-    <string name="menu_equalizer_spatial">Equalizador &amp; Áudio Espacial</string>
     <string name="menu_sleep_timer">Temporizador</string>
     <string name="menu_about">Sobre</string>
 </resources>

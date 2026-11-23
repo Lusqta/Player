@@ -1,7 +1,7 @@
 #include "audio_output.h"
 
-AudioOutput::AudioOutput(SpscRingBuffer* ringBuffer, SpatialProcessor* spatialProcessor)
-    : ringBuffer_(ringBuffer), spatialProcessor_(spatialProcessor) {}
+AudioOutput::AudioOutput(SpscRingBuffer* ringBuffer)
+    : ringBuffer_(ringBuffer) {}
 
 AudioOutput::~AudioOutput() {
     closeStream();
@@ -32,9 +32,6 @@ bool AudioOutput::openStream(int32_t sampleRate) {
 
     currentSampleRate_ = sampleRate;
     equalizer_.setSampleRate(sampleRate);
-    if (spatialProcessor_) {
-        spatialProcessor_->setSampleRate(sampleRate);
-    }
     return true;
 }
 
@@ -149,10 +146,6 @@ oboe::DataCallbackResult AudioOutput::onAudioReady(
 
     // Process biquad equalizer DSP before volume and balance scaling
     equalizer_.process(out, static_cast<size_t>(numFrames));
-
-    if (spatialProcessor_) {
-        spatialProcessor_->process(out, static_cast<int>(numFrames), 2);
-    }
 
     const bool mono = mono_.load(std::memory_order_relaxed);
     const float bal = balance_.load(std::memory_order_relaxed);

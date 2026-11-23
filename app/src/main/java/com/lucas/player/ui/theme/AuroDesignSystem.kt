@@ -49,12 +49,15 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.palette.graphics.Palette
+import com.lucas.player.R
 import com.lucas.player.ui.components.AuroHaptics
 import kotlin.math.PI
 import kotlin.math.cos
@@ -100,8 +103,27 @@ object AuroColor {
     val Track = ScrubberTrack                           // Alias
 }
 
+// ───────────────────────────── Tipografia ─────────────────────────────
+
+val PlusJakartaFontFamily = FontFamily(
+    Font(R.font.plus_jakarta_sans_regular, FontWeight.Normal),
+    Font(R.font.plus_jakarta_sans_medium, FontWeight.Medium),
+    Font(R.font.plus_jakarta_sans_semibold, FontWeight.SemiBold),
+    Font(R.font.plus_jakarta_sans_bold, FontWeight.Bold)
+)
+
+val ManropeFontFamily = FontFamily(
+    Font(R.font.manrope_regular, FontWeight.Normal),
+    Font(R.font.manrope_medium, FontWeight.Medium),
+    Font(R.font.manrope_semibold, FontWeight.SemiBold),
+    Font(R.font.manrope_bold, FontWeight.Bold)
+)
+
+val AuroFontFamily: FontFamily = PlusJakartaFontFamily // Troque para ManropeFontFamily para comparar
+
 object AuroType {
     val GreetingTitle = TextStyle(
+        fontFamily = AuroFontFamily,
         fontSize = 28.sp,
         lineHeight = 34.sp,
         fontWeight = FontWeight.SemiBold,
@@ -109,6 +131,7 @@ object AuroType {
         color = AuroColor.TextPrimary
     )
     val HeroName = TextStyle(
+        fontFamily = AuroFontFamily,
         fontSize = 32.sp,
         lineHeight = 38.sp,
         fontWeight = FontWeight.Bold,
@@ -116,6 +139,7 @@ object AuroType {
         color = AuroColor.TextPrimary
     )
     val NowPlayingTitle = TextStyle(
+        fontFamily = AuroFontFamily,
         fontSize = 24.sp,
         lineHeight = 30.sp,
         fontWeight = FontWeight.Bold,
@@ -123,12 +147,14 @@ object AuroType {
         color = AuroColor.TextPrimary
     )
     val SectionTitle = TextStyle(
+        fontFamily = AuroFontFamily,
         fontSize = 20.sp,
         lineHeight = 26.sp,
         fontWeight = FontWeight.SemiBold,
         color = AuroColor.TextPrimary
     )
     val LyricsActive = TextStyle(
+        fontFamily = AuroFontFamily,
         fontSize = 18.sp,
         lineHeight = 24.sp,
         fontWeight = FontWeight.Medium,
@@ -136,6 +162,7 @@ object AuroType {
         color = AuroColor.TextPrimary
     )
     val LyricsInactive = TextStyle(
+        fontFamily = AuroFontFamily,
         fontSize = 17.sp,
         lineHeight = 23.sp,
         fontWeight = FontWeight.Normal,
@@ -143,24 +170,28 @@ object AuroType {
         color = AuroColor.LyricsInactive
     )
     val CardTitle = TextStyle(
+        fontFamily = AuroFontFamily,
         fontSize = 15.sp,
         lineHeight = 19.sp,
         fontWeight = FontWeight.SemiBold,
         color = AuroColor.TextPrimary
     )
     val TrackTitle = TextStyle(
+        fontFamily = AuroFontFamily,
         fontSize = 13.5.sp,
         lineHeight = 18.sp,
         fontWeight = FontWeight.Normal,
         color = AuroColor.TextPrimary
     )
     val Subtitle = TextStyle(
+        fontFamily = AuroFontFamily,
         fontSize = 13.sp,
         lineHeight = 17.sp,
         fontWeight = FontWeight.Normal,
         color = AuroColor.TextSecondary
     )
     val MicroLabel = TextStyle(
+        fontFamily = AuroFontFamily,
         fontSize = 11.sp,
         lineHeight = 14.sp,
         fontWeight = FontWeight.Medium,
@@ -175,6 +206,7 @@ object AuroType {
     val Display = HeroName
     val Title = SectionTitle
     val NavLabel = TextStyle(
+        fontFamily = AuroFontFamily,
         fontSize = 10.sp,
         lineHeight = 12.sp,
         fontWeight = FontWeight.Normal,
@@ -182,6 +214,7 @@ object AuroType {
     )
     val SectionHeader = MicroLabel.copy(letterSpacing = 1.sp)
     val FastScroller = TextStyle(
+        fontFamily = AuroFontFamily,
         fontSize = 8.5.sp,
         lineHeight = 10.sp,
         fontWeight = FontWeight.Normal,
@@ -207,8 +240,8 @@ object AuroSpace {
     val Large = 32.dp
     val TouchTarget = 48.dp
 
-    val ScreenMargin = 16.dp
-    val EdgeMargin = 16.dp
+    val ScreenMargin = 24.dp
+    val EdgeMargin = 24.dp
 }
 
 object AuroHeight {
@@ -270,20 +303,20 @@ object AuroMotion {
 data class AuroAccent(
     val a: Color,
     val b: Color,
-    val mesh1: Color = Color(0xFF6B181A),
-    val mesh2: Color = Color(0xFF241126),
-    val mesh3: Color = Color(0xFF2A1015),
-    val mesh4: Color = Color(0xFF120A14)
+    val mesh1: Color = Color(0xFF28282C),
+    val mesh2: Color = Color(0xFF16161A),
+    val mesh3: Color = Color(0xFF202024),
+    val mesh4: Color = Color(0xFF101012)
 ) {
     companion object {
         val WarmRed = Color(0xFF9A1D1D)
         val Neutral = AuroAccent(
             a = Color(0xFF0A84FF),
             b = Color(0xFF0071E3),
-            mesh1 = Color(0xFF6B181A),
-            mesh2 = Color(0xFF241126),
-            mesh3 = Color(0xFF2A1015),
-            mesh4 = Color(0xFF120A14)
+            mesh1 = Color(0xFF28282C),
+            mesh2 = Color(0xFF16161A),
+            mesh3 = Color(0xFF202024),
+            mesh4 = Color(0xFF101012)
         )
     }
 }
@@ -311,10 +344,13 @@ object GlowTone {
         val g = ((argb shr 8) and 0xFF) / 255f
         val b = (argb and 0xFF) / 255f
         val hsl = rgbToHsl(r, g, b)
-        val h = hsl[0]
+        if (hsl[1] < 0.10f) {
+            val l = hsl[2].coerceIn(0.11f, 0.20f)
+            return Color(hslToArgb(0f, 0f, l))
+        }
         val s = hsl[1].coerceIn(0.45f, 0.75f)
         val l = hsl[2].coerceIn(0.16f, 0.30f)
-        return Color(hslToArgb(h, s, l))
+        return Color(hslToArgb(hsl[0], s, l))
     }
 
     fun rgbToHsl(r: Float, g: Float, b: Float): FloatArray {
@@ -385,8 +421,13 @@ object CoverGlow {
             var m2 = GlowTone.fitMeshColor(p.darkVibrantSwatch?.rgb ?: p.dominantSwatch?.rgb ?: 0xFF241126.toInt())
             if (m2 == m1) {
                 val hsl = GlowTone.rgbToHsl(m1.red, m1.green, m1.blue)
-                val hShifted = (hsl[0] + 35f / 360f) % 1f
-                m2 = Color(GlowTone.hslToArgb(hShifted, hsl[1], hsl[2]))
+                if (hsl[1] >= 0.10f) {
+                    val hShifted = (hsl[0] + 35f / 360f) % 1f
+                    m2 = Color(GlowTone.hslToArgb(hShifted, hsl[1], hsl[2]))
+                } else {
+                    val lShifted = (hsl[2] - 0.05f).coerceAtLeast(0.07f)
+                    m2 = Color(GlowTone.hslToArgb(0f, 0f, lShifted))
+                }
             }
             val m3 = GlowTone.fitMeshColor(p.lightVibrantSwatch?.rgb ?: p.mutedSwatch?.rgb ?: 0xFF2A1015.toInt())
             val m4 = GlowTone.fitMeshColor(seed?.rgb ?: 0xFF120A14.toInt())

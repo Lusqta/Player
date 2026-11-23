@@ -652,7 +652,7 @@ fun AuroPowerampMenuSheet(
             )
             AuroSheetItem(
                 icon = Icons.Outlined.GraphicEq,
-                title = stringResource(R.string.menu_equalizer_spatial),
+                title = stringResource(R.string.tab_equalizer),
                 onClick = {
                     onDismiss()
                     onOpenEqualizer()

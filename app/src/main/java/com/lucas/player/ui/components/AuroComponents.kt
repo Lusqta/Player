@@ -43,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
@@ -89,10 +90,54 @@ fun formatTimeMs(ms: Long): String {
     }
 }
 
-fun formatDisplayArtist(raw: String, fallback: String): String {
-    val cleaned = raw.trim()
-    if (cleaned.isEmpty() || cleaned.equals("<unknown>", ignoreCase = true)) return fallback
-    return cleaned.split(";").map { it.trim() }.filter { it.isNotEmpty() }.joinToString(", ")
+fun splitArtists(raw: String): List<String> = com.lucas.player.model.splitArtists(raw)
+
+fun formatArtistsDisplay(raw: String, fallback: String = ""): String = com.lucas.player.model.formatArtistsDisplay(raw, fallback)
+
+fun formatDisplayArtist(raw: String, fallback: String = ""): String = formatArtistsDisplay(raw, fallback)
+
+fun isJunkAudio(track: Track, minSecFloor: Int = 30): Boolean = com.lucas.player.model.isJunkAudio(track, minSecFloor)
+
+@Composable
+fun ArtistMonogram(
+    name: String,
+    modifier: Modifier = Modifier,
+    shape: Shape = AuroSquircle
+) {
+    val initials = remember(name) {
+        name.trim()
+            .split(Regex("\\s+"))
+            .take(2)
+            .mapNotNull { it.firstOrNull()?.uppercaseChar() }
+            .joinToString("")
+            .ifEmpty { "?" }
+    }
+
+    val (color1, color2) = remember(name) {
+        val hash = name.lowercase().hashCode()
+        val h = (abs(hash) % 360) / 360f
+        val s = 0.42f
+        val l1 = 0.24f
+        val l2 = 0.12f
+        val c1 = Color(GlowTone.hslToArgb(h, s, l1))
+        val c2 = Color(GlowTone.hslToArgb(h, s, l2))
+        c1 to c2
+    }
+
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .background(Brush.linearGradient(listOf(color1, color2))),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = initials,
+            style = AuroType.CardTitle.copy(
+                color = Color.White.copy(alpha = 0.88f),
+                fontWeight = FontWeight.SemiBold
+            )
+        )
+    }
 }
 
 fun isValidHighlightName(raw: String): Boolean {
@@ -338,7 +383,7 @@ fun EditorialMiniPlayer(
         modifier = modifier
             .fillMaxWidth()
             .height(52.dp)
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = AuroSpace.ScreenMargin)
             .clip(CircleShape)
             .background(AuroColor.SurfaceCard)
             .border(0.5.dp, Color.White.copy(alpha = 0.08f), CircleShape)
@@ -435,7 +480,7 @@ fun EditorialMiniPlayer(
                 )
                 Spacer(modifier = Modifier.height(1.dp))
                 Text(
-                    text = formatDisplayArtist(track.artist, stringResource(R.string.unknown_artist)),
+                    text = formatArtistsDisplay(track.artist, stringResource(R.string.unknown_artist)),
                     style = AuroType.Subtitle,
                     color = AuroColor.TextSecondary,
                     maxLines = 1,
@@ -930,7 +975,7 @@ fun AuroTrackRow(
             Spacer(modifier = Modifier.height(1.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                val displayArtist = formatDisplayArtist(track.artist, stringResource(R.string.unknown_artist))
+                val displayArtist = formatArtistsDisplay(track.artist, stringResource(R.string.unknown_artist))
                 val subtitleText = if (track.album.isNotBlank() && !track.album.equals("<unknown>", ignoreCase = true) && !track.album.equals("Álbum desconhecido", ignoreCase = true)) {
                     "$displayArtist — ${track.album}"
                 } else {

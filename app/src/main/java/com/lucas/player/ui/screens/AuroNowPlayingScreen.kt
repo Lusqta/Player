@@ -199,21 +199,20 @@ fun AuroNowPlayingScreen(
                             alpha = playerAlpha
                             scaleX = 1f - 0.04f * progress
                             scaleY = 1f - 0.04f * progress
-                        },
-                    verticalArrangement = Arrangement.SpaceBetween
+                        }
                 ) {
-                    // Top bar limpa acima da capa (corrige seta v cortada e disputando com a capa)
+                    // Top bar do chevron
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .statusBarsPadding()
                             .height(44.dp)
-                            .padding(horizontal = 8.dp),
+                            .padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(48.dp)
+                                .size(44.dp)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null
@@ -226,18 +225,21 @@ fun AuroNowPlayingScreen(
                             Icon(
                                 imageVector = Icons.Rounded.KeyboardArrowDown,
                                 contentDescription = stringResource(R.string.cd_collapse),
-                                tint = Color.White.copy(alpha = 0.85f),
-                                modifier = Modifier.size(26.dp)
+                                tint = Color.White.copy(alpha = 0.90f),
+                                modifier = Modifier.size(28.dp)
                             )
                         }
                     }
 
+                    Spacer(modifier = Modifier.height(6.dp))
+
                     // Capa quadrada com margem lateral
                     Box(
                         modifier = Modifier
-                            .padding(horizontal = 20.dp)
+                            .padding(horizontal = AuroSpace.ScreenMargin)
                             .fillMaxWidth()
                             .aspectRatio(1f)
+                            .heightIn(max = screenHeight * 0.46f)
                             .graphicsLayer {
                                 scaleX = coverScale
                                 scaleY = coverScale
@@ -284,217 +286,219 @@ fun AuroNowPlayingScreen(
                         }
                     }
 
-                    // Bloco inferior de controles (acima da pílula Letras ^)
-                    Column(
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Título / Artista + ♡ e •••
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f)
-                            .padding(horizontal = AuroSpace.ScreenMargin)
-                            .padding(bottom = collapsedPillHeight + collapsedBottomGap + 14.dp),
-                        verticalArrangement = Arrangement.SpaceEvenly
+                            .padding(horizontal = AuroSpace.ScreenMargin),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Título / Artista + ♡ e •••
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = track.title,
-                                    style = AuroType.NowPlayingTitle,
-                                    color = Color.White,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = formatDisplayArtist(track.artist, stringResource(R.string.unknown_artist)),
-                                    style = AuroType.Subtitle.copy(fontSize = 16.sp),
-                                    color = Color.White.copy(alpha = 0.55f),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                val isFavorite = track.rating > 0
-                                Box(
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = null
-                                        ) {
-                                            AuroHaptics.click(view)
-                                            onRatingChanged(if (isFavorite) 0 else 5)
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                                        contentDescription = stringResource(if (isFavorite) R.string.cd_unfavorite else R.string.cd_favorite),
-                                        tint = if (isFavorite) Color.White else Color.White.copy(alpha = 0.72f),
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-
-                                Box(
-                                    modifier = Modifier
-                                        .size(48.dp)
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = null
-                                        ) {
-                                            AuroHaptics.click(view)
-                                            showOptionsMenu = true
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.MoreHoriz,
-                                        contentDescription = stringResource(R.string.cd_more_options),
-                                        tint = Color.White.copy(alpha = 0.65f),
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        // Transporte: Shuffle · Prev · Play (58dp) · Next · Repeat
-                        val playCornerRadius by animateDpAsState(
-                            targetValue = if (isPlaying) 20.dp else 32.dp,
-                            animationSpec = AuroMotion.spec(reduceMotion, AuroMotion.spatialFast()),
-                            label = "playMorphRadius"
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val isShuffleActive = shuffleMode != ShuffleMode.OFF
-                            IconButton(
-                                onClick = { AuroHaptics.click(view); onToggleShuffle() },
-                                modifier = Modifier.size(48.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Shuffle,
-                                    contentDescription = stringResource(R.string.cd_shuffle),
-                                    tint = if (isShuffleActive) Color.White else Color.White.copy(alpha = 0.45f),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onPress = {
-                                                var isHold = false
-                                                val job = coroutineScope.launch {
-                                                    delay(350L)
-                                                    isHold = true
-                                                    AuroHaptics.sliderTick(view)
-                                                    onBeginRewind()
-                                                }
-                                                try {
-                                                    val released = tryAwaitRelease()
-                                                    job.cancel()
-                                                    if (!isHold && released) {
-                                                        AuroHaptics.click(view)
-                                                        onPrevious()
-                                                    }
-                                                } finally {
-                                                    job.cancel()
-                                                    if (isHold) onEndRewind()
-                                                }
-                                            }
-                                        )
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.SkipPrevious,
-                                    contentDescription = stringResource(R.string.cd_previous),
-                                    tint = Color.White,
-                                    modifier = Modifier.size(30.dp)
-                                )
-                            }
-
-                            TranslucentPlayButton(
-                                isPlaying = isPlaying,
-                                size = 64.dp,
-                                cornerRadius = playCornerRadius,
-                                onClick = onPlayPause
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = track.title,
+                                style = AuroType.NowPlayingTitle,
+                                color = Color.White,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = formatArtistsDisplay(track.artist, stringResource(R.string.unknown_artist)),
+                                style = AuroType.Subtitle.copy(fontSize = 16.sp),
+                                color = Color.White.copy(alpha = 0.55f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
 
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            val isFavorite = track.rating > 0
                             Box(
                                 modifier = Modifier
                                     .size(48.dp)
-                                    .pointerInput(Unit) {
-                                        detectTapGestures(
-                                            onPress = {
-                                                var isHold = false
-                                                val job = coroutineScope.launch {
-                                                    delay(350L)
-                                                    isHold = true
-                                                    AuroHaptics.sliderTick(view)
-                                                    onBeginFastForward()
-                                                }
-                                                try {
-                                                    val released = tryAwaitRelease()
-                                                    job.cancel()
-                                                    if (!isHold && released) {
-                                                        AuroHaptics.click(view)
-                                                        onNext()
-                                                    }
-                                                } finally {
-                                                    job.cancel()
-                                                    if (isHold) onEndFastForward()
-                                                }
-                                            }
-                                        )
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        AuroHaptics.click(view)
+                                        onRatingChanged(if (isFavorite) 0 else 5)
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.SkipNext,
-                                    contentDescription = stringResource(R.string.cd_next),
-                                    tint = Color.White,
-                                    modifier = Modifier.size(30.dp)
+                                    imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                                    contentDescription = stringResource(if (isFavorite) R.string.cd_unfavorite else R.string.cd_favorite),
+                                    tint = if (isFavorite) Color.White else Color.White.copy(alpha = 0.72f),
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
 
-                            val isRepeatActive = repeatMode != RepeatMode.OFF
-                            IconButton(
-                                onClick = { AuroHaptics.click(view); onToggleRepeat() },
-                                modifier = Modifier.size(48.dp)
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        AuroHaptics.click(view)
+                                        showOptionsMenu = true
+                                    },
+                                contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = if (repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                                    contentDescription = stringResource(R.string.cd_repeat),
-                                    tint = if (isRepeatActive) Color.White else Color.White.copy(alpha = 0.45f),
-                                    modifier = Modifier.size(20.dp)
+                                    imageVector = Icons.Rounded.MoreHoriz,
+                                    contentDescription = stringResource(R.string.cd_more_options),
+                                    tint = Color.White.copy(alpha = 0.65f),
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
                         }
-
-                        // Scrubber fino branco
-                        EditorialScrubber(
-                            progressMs = progressMs,
-                            durationMs = durationMs,
-                            isPlaying = isPlaying,
-                            onSeek = { ms ->
-                                onSeek(if (durationMs > 0) ms.toFloat() / durationMs.toFloat() else 0f)
-                            },
-                            showTimestampsOnlyWhenDragging = true,
-                            modifier = Modifier.fillMaxWidth()
-                        )
                     }
+
+                    Spacer(modifier = Modifier.height(28.dp))
+
+                    // Controles de Transporte: Shuffle · Prev · Play · Next · Repeat
+                    val playCornerRadius by animateDpAsState(
+                        targetValue = if (isPlaying) 20.dp else 32.dp,
+                        animationSpec = AuroMotion.spec(reduceMotion, AuroMotion.spatialFast()),
+                        label = "playMorphRadius"
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = AuroSpace.ScreenMargin),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val isShuffleActive = shuffleMode != ShuffleMode.OFF
+                        IconButton(
+                            onClick = { AuroHaptics.click(view); onToggleShuffle() },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Shuffle,
+                                contentDescription = stringResource(R.string.cd_shuffle),
+                                tint = if (isShuffleActive) Color.White else Color.White.copy(alpha = 0.45f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onPress = {
+                                            var isHold = false
+                                            val job = coroutineScope.launch {
+                                                delay(350L)
+                                                isHold = true
+                                                AuroHaptics.sliderTick(view)
+                                                onBeginRewind()
+                                            }
+                                            try {
+                                                val released = tryAwaitRelease()
+                                                job.cancel()
+                                                if (!isHold && released) {
+                                                    AuroHaptics.click(view)
+                                                    onPrevious()
+                                                }
+                                            } finally {
+                                                job.cancel()
+                                                if (isHold) onEndRewind()
+                                            }
+                                        }
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.SkipPrevious,
+                                contentDescription = stringResource(R.string.cd_previous),
+                                tint = Color.White,
+                                modifier = Modifier.size(30.dp)
+                            )
+                        }
+
+                        TranslucentPlayButton(
+                            isPlaying = isPlaying,
+                            size = 64.dp,
+                            cornerRadius = playCornerRadius,
+                            onClick = onPlayPause
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onPress = {
+                                            var isHold = false
+                                            val job = coroutineScope.launch {
+                                                delay(350L)
+                                                isHold = true
+                                                AuroHaptics.sliderTick(view)
+                                                onBeginFastForward()
+                                            }
+                                            try {
+                                                val released = tryAwaitRelease()
+                                                job.cancel()
+                                                if (!isHold && released) {
+                                                    AuroHaptics.click(view)
+                                                    onNext()
+                                                }
+                                            } finally {
+                                                job.cancel()
+                                                if (isHold) onEndFastForward()
+                                            }
+                                        }
+                                    )
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.SkipNext,
+                                contentDescription = stringResource(R.string.cd_next),
+                                tint = Color.White,
+                                modifier = Modifier.size(30.dp)
+                            )
+                        }
+
+                        val isRepeatActive = repeatMode != RepeatMode.OFF
+                        IconButton(
+                            onClick = { AuroHaptics.click(view); onToggleRepeat() },
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                                contentDescription = stringResource(R.string.cd_repeat),
+                                tint = if (isRepeatActive) Color.White else Color.White.copy(alpha = 0.45f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // Scrubber fino branco
+                    EditorialScrubber(
+                        progressMs = progressMs,
+                        durationMs = durationMs,
+                        isPlaying = isPlaying,
+                        onSeek = { ms ->
+                            onSeek(if (durationMs > 0) ms.toFloat() / durationMs.toFloat() else 0f)
+                        },
+                        showTimestampsOnlyWhenDragging = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = AuroSpace.ScreenMargin)
+                    )
                 }
             }
 
@@ -542,7 +546,7 @@ fun AuroNowPlayingScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = formatDisplayArtist(track.artist, stringResource(R.string.unknown_artist)),
+                                text = formatArtistsDisplay(track.artist, stringResource(R.string.unknown_artist)),
                                 style = AuroType.Subtitle.copy(fontSize = 13.sp),
                                 color = Color.White.copy(alpha = 0.58f),
                                 maxLines = 1,
@@ -641,6 +645,7 @@ fun AuroNowPlayingScreen(
                             Text(
                                 text = stringResource(R.string.lyrics_label),
                                 style = TextStyle(
+                                    fontFamily = AuroFontFamily,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.SemiBold
                                 ),
@@ -703,7 +708,7 @@ fun AuroNowPlayingScreen(
                 QuickMenuItem(Icons.AutoMirrored.Outlined.QueueMusic, stringResource(R.string.menu_queue)) {
                     showOptionsMenu = false; showQueueSheet = true
                 }
-                QuickMenuItem(Icons.Rounded.GraphicEq, stringResource(R.string.menu_equalizer_spatial)) {
+                QuickMenuItem(Icons.Rounded.GraphicEq, stringResource(R.string.tab_equalizer)) {
                     showOptionsMenu = false; onOpenEqualizer()
                 }
                 QuickMenuItem(Icons.AutoMirrored.Outlined.PlaylistAdd, stringResource(R.string.selection_add_playlist)) {

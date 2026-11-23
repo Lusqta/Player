@@ -168,7 +168,7 @@ fun AuroSettingsScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -253,7 +253,7 @@ fun AuroSettingsScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -321,7 +321,7 @@ fun AuroSettingsScreen(
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -358,7 +358,7 @@ fun AuroSettingsScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp)
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -610,8 +610,8 @@ private fun SettingsCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(20.dp))
+            .padding(horizontal = AuroSpace.ScreenMargin)
+            .clip(RoundedCornerShape(24.dp))
             .background(AuroColor.SurfaceCard),
         content = content
     )
@@ -625,7 +625,7 @@ private fun SettingsSectionHeader(title: String) {
             color = AuroColor.TextTertiary,
             fontWeight = FontWeight.SemiBold
         ),
-        modifier = Modifier.padding(start = 28.dp, top = 20.dp, bottom = 8.dp)
+        modifier = Modifier.padding(start = AuroSpace.ScreenMargin, top = 20.dp, bottom = 8.dp)
     )
 }
 
@@ -641,7 +641,7 @@ private fun SettingsSwitchRow(
             .fillMaxWidth()
             .defaultMinSize(minHeight = 56.dp)
             .clickable { onCheckedChange(!checked) }
-            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -677,7 +677,7 @@ private fun SettingsClickableRow(
             .fillMaxWidth()
             .defaultMinSize(minHeight = 56.dp)
             .then(clickMod)
-            .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

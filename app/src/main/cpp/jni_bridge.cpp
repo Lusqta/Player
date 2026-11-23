@@ -315,30 +315,4 @@ Java_com_lucas_player_AudioEngine_nativeIsMono(JNIEnv* /*env*/, jobject /*thiz*/
     }
 }
 
-JNIEXPORT void JNICALL
-Java_com_lucas_player_AudioEngine_nativeSetSpatialMode(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jint mode) {
-    try {
-        auto* engine = getEngine(handle);
-        if (engine) engine->setSpatialMode(mode);
-    } catch (...) {}
-}
-
-JNIEXPORT void JNICALL
-Java_com_lucas_player_AudioEngine_nativeSetSpatialPreset(JNIEnv* /*env*/, jobject /*thiz*/, jlong handle, jint preset, jfloat intensity) {
-    try {
-        auto* engine = getEngine(handle);
-        if (engine) engine->setSpatialPreset(preset, intensity);
-    } catch (...) {}
-}
-
-JNIEXPORT void JNICALL
-Java_com_lucas_player_AudioEngine_nativeSetSpatialProParams(
-        JNIEnv* /*env*/, jobject /*thiz*/, jlong handle,
-        jfloat subCutoffHz, jfloat midGainDb, jfloat sideWidth, jfloat surroundAmbience, jfloat speakerAngle, jfloat elevation) {
-    try {
-        auto* engine = getEngine(handle);
-        if (engine) engine->setSpatialProParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle, elevation);
-    } catch (...) {}
-}
-
 } // extern "C"

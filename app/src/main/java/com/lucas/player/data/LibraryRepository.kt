@@ -179,15 +179,29 @@ class LibraryRepository() {
 
     fun getArtists(): List<Artist> {
         val all = getAllTracks()
-        return all.groupBy { it.artist }
-            .map { (artistName, artistTracks) ->
-                Artist(artistName, artistTracks.size)
+        val artistTrackCount = mutableMapOf<String, Int>()
+        val casingMap = mutableMapOf<String, MutableMap<String, Int>>()
+
+        for (track in all) {
+            val names = splitArtists(track.artist)
+            for (name in names) {
+                val key = name.lowercase()
+                artistTrackCount[key] = (artistTrackCount[key] ?: 0) + 1
+                val cases = casingMap.getOrPut(key) { mutableMapOf() }
+                cases[name] = (cases[name] ?: 0) + 1
             }
-            .sortedBy { it.name.lowercase() }
+        }
+
+        return artistTrackCount.map { (key, count) ->
+            val bestName = casingMap[key]?.maxByOrNull { it.value }?.key ?: key
+            Artist(bestName, count)
+        }.sortedBy { it.name.lowercase() }
     }
 
     fun getTracksForArtist(artistName: String, sortMode: SortMode = SortMode.ALBUM_ASC): List<Track> {
-        val filtered = getAllTracks().filter { it.artist.equals(artistName, ignoreCase = true) }
+        val filtered = getAllTracks().filter { track ->
+            splitArtists(track.artist).any { it.equals(artistName, ignoreCase = true) }
+        }
         return applySorting(filtered, sortMode)
     }
 

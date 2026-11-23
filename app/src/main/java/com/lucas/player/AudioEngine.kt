@@ -188,28 +188,6 @@ class AudioEngine {
         return nativeIsMono(nativeHandle)
     }
 
-    fun setSpatialMode(mode: Int) {
-        if (nativeHandle == 0L) return
-        nativeSetSpatialMode(nativeHandle, mode)
-    }
-
-    fun setSpatialPreset(preset: Int, intensity: Float) {
-        if (nativeHandle == 0L) return
-        nativeSetSpatialPreset(nativeHandle, preset, intensity)
-    }
-
-    fun setSpatialProParams(
-        subCutoffHz: Float,
-        midGainDb: Float,
-        sideWidth: Float,
-        surroundAmbience: Float,
-        speakerAngle: Float,
-        elevation: Float = 0f
-    ) {
-        if (nativeHandle == 0L) return
-        nativeSetSpatialProParams(nativeHandle, subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle, elevation)
-    }
-
     fun release() {
         if (nativeHandle != 0L) {
             nativeDestroy(nativeHandle)
@@ -223,7 +201,6 @@ class AudioEngine {
 
     companion object {
         init {
-            System.loadLibrary("phonon")
             System.loadLibrary("audio_engine")
         }
     }
@@ -261,15 +238,4 @@ class AudioEngine {
     private external fun nativeGetBalance(handle: Long): Float
     private external fun nativeSetMono(handle: Long, mono: Boolean)
     private external fun nativeIsMono(handle: Long): Boolean
-    private external fun nativeSetSpatialMode(handle: Long, mode: Int)
-    private external fun nativeSetSpatialPreset(handle: Long, preset: Int, intensity: Float)
-    private external fun nativeSetSpatialProParams(
-        handle: Long,
-        subCutoffHz: Float,
-        midGainDb: Float,
-        sideWidth: Float,
-        surroundAmbience: Float,
-        speakerAngle: Float,
-        elevation: Float
-    )
 }

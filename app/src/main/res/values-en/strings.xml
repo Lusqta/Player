@@ -290,24 +290,6 @@
     <string name="eq_balance_label">Balance</string>
     <string name="eq_balance_center">Center</string>
 
-    <!-- Spatial Audio DSP -->
-    <string name="spatial_header">Spatial audio</string>
-    <string name="spatial_mode_off">Off</string>
-    <string name="spatial_mode_standard">Dolby Standard</string>
-    <string name="spatial_mode_pro">Spatial Pro</string>
-    <string name="spatial_preset_music">Music</string>
-    <string name="spatial_preset_cinema">Cinema</string>
-    <string name="spatial_preset_stage">Stage</string>
-    <string name="spatial_intensity_label">Intensity</string>
-    <string name="spatial_sub_cutoff_label">Sub-Bass Cutoff</string>
-    <string name="spatial_mid_gain_label">Vocal Focus (Mid)</string>
-    <string name="spatial_side_width_label">Stage Width</string>
-    <string name="spatial_surround_label">Room Acoustics</string>
-    <string name="spatial_angle_label">Binaural Angle</string>
-    <string name="spatial_elevation_label">3D Height (Elevation)</string>
-    <string name="spatial_reset_pro">Reset to Default</string>
-    <string name="spatial_off_desc">Binaural processing disabled (pure stereo output)</string>
-
     <!-- Snackbars & Feedback (Phase 5.3) -->
     <string name="snackbar_queue_cleared">Queue cleared</string>
     <string name="snackbar_queue_shuffled">Queue shuffled</string>
@@ -379,7 +361,6 @@
 
     <!-- Menu Principal Title Case -->
     <string name="menu_queue">Playback Queue</string>
-    <string name="menu_equalizer_spatial">Equalizer &amp; Spatial Audio</string>
     <string name="menu_sleep_timer">Sleep Timer</string>
     <string name="menu_about">About</string>
 </resources>

@@ -4,7 +4,7 @@
 
 AudioEngine::AudioEngine()
     : ringBuffer_(131072),
-      audioOutput_(std::make_unique<AudioOutput>(&ringBuffer_, &mSpatialProcessor)) {
+      audioOutput_(std::make_unique<AudioOutput>(&ringBuffer_)) {
     isRunning_.store(true, std::memory_order_relaxed);
     decodeThread_ = std::thread(&AudioEngine::decodeLoop, this);
 }
@@ -56,7 +56,6 @@ bool AudioEngine::openFile(int fd) {
     decoder_ = std::move(newDecoder);
 
     const int32_t sampleRate = decoder_->getSampleRate();
-    mSpatialProcessor.setSampleRate(sampleRate);
     if (!audioOutput_->openStream(sampleRate)) {
         decoder_.reset();
         sampleRate_.store(0, std::memory_order_release);
@@ -316,16 +315,4 @@ void AudioEngine::setMono(bool mono) {
 
 bool AudioEngine::isMono() const {
     return audioOutput_ ? audioOutput_->isMono() : false;
-}
-
-void AudioEngine::setSpatialMode(int mode) {
-    mSpatialProcessor.setMode(mode);
-}
-
-void AudioEngine::setSpatialPreset(int preset, float intensity) {
-    mSpatialProcessor.setStandardPreset(preset, intensity);
-}
-
-void AudioEngine::setSpatialProParams(float subCutoffHz, float midGainDb, float sideWidth, float surroundAmbience, float speakerAngle, float elevation) {
-    mSpatialProcessor.setProParams(subCutoffHz, midGainDb, sideWidth, surroundAmbience, speakerAngle, elevation);
 }

@@ -44,6 +44,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
 import com.lucas.player.model.Track
+import com.lucas.player.model.formatArtistsDisplay
+import com.lucas.player.model.isJunkAudio
+import com.lucas.player.model.splitArtists
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.*
 
@@ -115,21 +118,47 @@ fun AuroHomeScreen(
                 modifier = Modifier.fillMaxSize()
             )
         } else {
-            val artists = remember(allTracks) {
-                allTracks.asSequence()
-                    .map { it.artist }
-                    .filter { isValidHighlightName(it) }
-                    .distinct()
-                    .take(12)
-                    .toList()
+            val cleanTracks = remember(allTracks) { allTracks.filterNot { isJunkAudio(it) } }
+
+            val artistEntries = remember(cleanTracks) {
+                val map = mutableMapOf<String, MutableList<Track>>()
+                val casingMap = mutableMapOf<String, String>()
+
+                for (track in cleanTracks) {
+                    val artistsList = splitArtists(track.artist)
+                    for (artist in artistsList) {
+                        val key = artist.lowercase().trim()
+                        if (key.isEmpty() || !isValidHighlightName(artist)) continue
+                        map.getOrPut(key) { mutableListOf() }.add(track)
+                        if (!casingMap.containsKey(key)) {
+                            casingMap[key] = artist.trim()
+                        }
+                    }
+                }
+
+                map.map { (key, tracks) ->
+                    val displayName = casingMap[key] ?: key
+                    val totalPlays = tracks.sumOf { it.playCount }
+                    val bestTrack = tracks.maxByOrNull { it.playCount } ?: tracks.firstOrNull()
+                    Triple(displayName, bestTrack, totalPlays)
+                }
+                .sortedByDescending { it.third }
+                .take(12)
+                .map { Pair(it.first, it.second) }
             }
 
-            val topAlbums = remember(mostPlayed) {
-                mostPlayed.filter { isValidHighlightName(it.album) }
-                    .groupBy { it.album }
+            val topAlbums = remember(cleanTracks, mostPlayed) {
+                val sourceTracks = if (mostPlayed.isNotEmpty()) {
+                    val cleanMostPlayed = mostPlayed.filterNot { isJunkAudio(it) }
+                    if (cleanMostPlayed.isNotEmpty()) cleanMostPlayed else cleanTracks
+                } else {
+                    cleanTracks
+                }
+                sourceTracks.filter { isValidHighlightName(it.album) }
+                    .groupBy { it.album.trim() }
                     .values
-                    .sortedByDescending { it.size }
-                    .map { it.first() }
+                    .sortedByDescending { group -> group.sumOf { it.playCount } }
+                    .map { group -> group.maxByOrNull { it.playCount } ?: group.first() }
                     .take(10)
             }
 
@@ -173,7 +202,7 @@ fun AuroHomeScreen(
                                 baseColor = Color(0xFF2A1210),
                                 spotAColor = Color(0xFFD2703A), spotACx = 0.30f, spotACy = 0.80f, spotARadius = 0.75f, spotAAlpha = 0.95f,
                                 spotBColor = Color(0xFF7A2A22), spotBCx = 0.95f, spotBCy = 0.10f, spotBRadius = 0.60f, spotBAlpha = 0.80f,
-                                onClick = { onShuffleAll(allTracks) }
+                                onClick = { onShuffleAll(cleanTracks.ifEmpty { allTracks }) }
                             )
                         }
                         item {
@@ -184,7 +213,9 @@ fun AuroHomeScreen(
                                 spotAColor = Color(0xFF6F4BF0), spotACx = 0.50f, spotACy = 0.45f, spotARadius = 0.70f, spotAAlpha = 0.95f,
                                 spotBColor = Color(0xFF3A2A90), spotBCx = 0.10f, spotBCy = 0.95f, spotBRadius = 0.55f, spotBAlpha = 0.80f,
                                 onClick = {
-                                    if (mostPlayed.isNotEmpty()) onPlayAll(mostPlayed)
+                                    val cleanMost = mostPlayed.filterNot { isJunkAudio(it) }
+                                    if (cleanMost.isNotEmpty()) onPlayAll(cleanMost)
+                                    else if (cleanTracks.isNotEmpty()) onPlayAll(cleanTracks)
                                     else onPlayAll(allTracks)
                                 }
                             )
@@ -197,9 +228,9 @@ fun AuroHomeScreen(
                                 spotAColor = Color(0xFFD04565), spotACx = 0.25f, spotACy = 0.85f, spotARadius = 0.75f, spotAAlpha = 0.95f,
                                 spotBColor = Color(0xFF6A1A34), spotBCx = 0.90f, spotBCy = 0.15f, spotBRadius = 0.55f, spotBAlpha = 0.80f,
                                 onClick = {
-                                    val favs = allTracks.filter { it.rating > 0 }
+                                    val favs = cleanTracks.filter { it.rating > 0 }
                                     if (favs.isNotEmpty()) onPlayAll(favs)
-                                    else onShuffleAll(allTracks)
+                                    else onShuffleAll(cleanTracks.ifEmpty { allTracks })
                                 }
                             )
                         }
@@ -211,7 +242,9 @@ fun AuroHomeScreen(
                                 spotAColor = Color(0xFF2F7FA0), spotACx = 0.80f, spotACy = 0.85f, spotARadius = 0.75f, spotAAlpha = 0.95f,
                                 spotBColor = Color(0xFF1B3F5C), spotBCx = 0.10f, spotBCy = 0.15f, spotBRadius = 0.55f, spotBAlpha = 0.80f,
                                 onClick = {
-                                    if (recentlyPlayed.isNotEmpty()) onPlayAll(recentlyPlayed)
+                                    val cleanRecent = recentlyPlayed.filterNot { isJunkAudio(it) }
+                                    if (cleanRecent.isNotEmpty()) onPlayAll(cleanRecent)
+                                    else if (cleanTracks.isNotEmpty()) onPlayAll(cleanTracks)
                                     else onPlayAll(allTracks)
                                 }
                             )
@@ -236,7 +269,7 @@ fun AuroHomeScreen(
                                     WideAlbumCard(
                                         coverTrack = t,
                                         album = t.album,
-                                        artist = formatDisplayArtist(t.artist, stringResource(R.string.unknown_artist)),
+                                        artist = formatArtistsDisplay(t.artist, stringResource(R.string.unknown_artist)),
                                         onClick = { onAlbumClick(t.album) },
                                         onPlay = { onAlbumPlay(t.album) }
                                     )
@@ -247,7 +280,7 @@ fun AuroHomeScreen(
                 }
 
                 // Seção: Artistas (Tile 72dp com AuroSquircle, item 80dp largura)
-                if (artists.isNotEmpty()) {
+                if (artistEntries.isNotEmpty()) {
                     item(key = "artists_row") {
                         Column(modifier = Modifier.fillMaxWidth().padding(top = 32.dp)) {
                             EditorialSectionHeader(
@@ -261,10 +294,7 @@ fun AuroHomeScreen(
                                 contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
                                 horizontalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
-                                items(artists) { artistName ->
-                                    val artistTrack = remember(artistName) {
-                                        allTracks.firstOrNull { it.artist == artistName }
-                                    }
+                                items(artistEntries, key = { it.first }) { (artistName, artistTrack) ->
                                     val coverBitmap = rememberTrackCover(artistTrack, 120)
 
                                     Column(
@@ -292,18 +322,18 @@ fun AuroHomeScreen(
                                                     modifier = Modifier.fillMaxSize()
                                                 )
                                             } else {
-                                                Icon(
-                                                    imageVector = Icons.Rounded.Person,
-                                                    contentDescription = null,
-                                                    tint = Color.White.copy(alpha = 0.40f),
-                                                    modifier = Modifier.size(32.dp)
+                                                ArtistMonogram(
+                                                    name = artistName,
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    shape = AuroSquircle
                                                 )
                                             }
                                         }
                                         Spacer(modifier = Modifier.height(6.dp))
                                         Text(
-                                            text = formatDisplayArtist(artistName, stringResource(R.string.unknown_artist)),
+                                            text = artistName,
                                             style = TextStyle(
+                                                fontFamily = AuroFontFamily,
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.SemiBold,
                                                 color = Color.White.copy(alpha = 0.90f)
@@ -484,6 +514,7 @@ private fun QuickMixCard(
             Text(
                 text = title,
                 style = TextStyle(
+                    fontFamily = AuroFontFamily,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White
@@ -581,6 +612,7 @@ private fun WideAlbumCard(
             Text(
                 text = album,
                 style = TextStyle(
+                    fontFamily = AuroFontFamily,
                     fontSize = 15.sp,
                     lineHeight = 19.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -593,6 +625,7 @@ private fun WideAlbumCard(
             Text(
                 text = artist,
                 style = TextStyle(
+                    fontFamily = AuroFontFamily,
                     fontSize = 12.sp,
                     lineHeight = 16.sp,
                     fontWeight = FontWeight.Normal,
@@ -649,6 +682,7 @@ private fun PlaylistCard(
         Text(
             text = title,
             style = TextStyle(
+                fontFamily = AuroFontFamily,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White
@@ -660,6 +694,7 @@ private fun PlaylistCard(
         Text(
             text = subtitle,
             style = TextStyle(
+                fontFamily = AuroFontFamily,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Normal,
                 color = Color.White.copy(alpha = 0.50f)
@@ -677,6 +712,7 @@ private fun PlaylistCard(
 @Composable
 private fun NewPlaylistCard(onClick: () -> Unit) {
     val view = LocalView.current
+    val strokeWidth = 1.dp
     Column(
         modifier = Modifier
             .width(112.dp)
@@ -687,13 +723,21 @@ private fun NewPlaylistCard(onClick: () -> Unit) {
             modifier = Modifier
                 .size(112.dp)
                 .clip(AuroSquircle)
+                .background(AuroColor.SurfaceCard, AuroSquircle)
                 .drawBehind {
+                    val strokePx = strokeWidth.toPx()
+                    val halfStroke = strokePx / 2f
                     drawRoundRect(
-                        color = Color.White.copy(alpha = 0.22f),
+                        color = Color.White.copy(alpha = 0.35f),
+                        topLeft = Offset(halfStroke, halfStroke),
+                        size = androidx.compose.ui.geometry.Size(
+                            size.width - strokePx,
+                            size.height - strokePx
+                        ),
                         cornerRadius = CornerRadius(size.width * 0.26f),
                         style = Stroke(
-                            width = 1.dp.toPx(),
-                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f))
+                            width = strokePx,
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f), 0f)
                         )
                     )
                 },
@@ -710,6 +754,7 @@ private fun NewPlaylistCard(onClick: () -> Unit) {
         Text(
             text = stringResource(R.string.create_playlist),
             style = TextStyle(
+                fontFamily = AuroFontFamily,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White

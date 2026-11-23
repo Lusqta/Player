@@ -1,180 +1,145 @@
 # Aurō Player for Android
 
-Um reprodutor de música offline de alta fidelidade para Android, combinando um motor de áudio nativo de baixa latência (C++ Oboe / AudioTrack), arquitetura de navegação inspirada no Poweramp e o **Aurō Design System v3** (vidro preto perceptual com iluminação paralela reativa à gravidade e ao giroscópio do aparelho).
+Reprodutor de música offline de alta fidelidade para Android, equipado com motor de áudio nativo em C++ (Google Oboe), biblioteca privada via pastas autorizadas (Storage Access Framework), equalizador biquad de 10 bandas e interface minimalista **Editorial Dark OLED**.
 
 ![Android](https://img.shields.io/badge/Android-API%2026%2B%20(AGSL%2033%2B)-black?logo=android)
-![Kotlin](https://img.shields.io/badge/Kotlin-2.0-purple?logo=kotlin)
-![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202024-blue?logo=jetpackcompose)
-![License](https://img.shields.io/badge/License-Open%20Source%20(MIT)-success)
-[![Download APK](https://img.shields.io/badge/⬇️%20Download-v1.1.1-00C853?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Lusqta/Player/releases/download/v1.1.1/AuroPlayer-v1.1.1.apk)
+![Kotlin](https://img.shields.io/badge/Kotlin-1.9.24-purple?logo=kotlin)
+![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202024.09.00-blue?logo=jetpackcompose)
+![C++](https://img.shields.io/badge/C%2B%2B-17%20%7C%20Oboe%201.9.3-00599C?logo=cplusplus)
+![License](https://img.shields.io/badge/License-MIT-success)
+[![Download APK](https://img.shields.io/badge/⬇️%20Download-v1.1.1-00C853?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Lusqta/Player/releases/latest)
 [![Releases](https://img.shields.io/badge/📦%20Ver-Releases-blue?style=for-the-badge&logo=github)](https://github.com/Lusqta/Player/releases)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/Lusqta/Player/build-apk.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/Lusqta/Player/actions)
 
 ---
 
-## 📲 Download do APK (v1.1.1)
+## 📲 Download do APK
 
-Para baixar e instalar o **Aurō Player** no seu Android:
+Baixe a versão mais recente diretamente da página de lançamentos:
 
-* 👉 **[⬇️ CLIQUE AQUI PARA BAIXAR: `AuroPlayer-v1.1.1.apk`](https://github.com/Lusqta/Player/releases/download/v1.1.1/AuroPlayer-v1.1.1.apk)**
-* 🔄 **[⬇️ Baixar Sempre a Última Versão (`AuroPlayer-latest.apk`)](https://github.com/Lusqta/Player/releases/latest/download/AuroPlayer-latest.apk)**
+* 🚀 **[⬇️ Baixar Última Versão (`AuroPlayer-latest.apk`)](https://github.com/Lusqta/Player/releases/latest)**
 * 📦 **[Página com Todas as Releases](https://github.com/Lusqta/Player/releases)**
 
-> 💡 **Como instalar:**
-> 1. Toque no link acima para baixar o `AuroPlayer-v1.1.1.apk`.
-> 2. Ao terminar o download no celular, toque na notificação para abrir.
-> 3. Se solicitado, permita a instalação de apps desta fonte nas configurações.
-> 4. Toque em **Instalar** (ou **Atualizar**)! No app, vá em **Menu (⋮) → Sobre** para confirmar a versão `v1.1.1`.
+> **Como instalar:**
+> 1. Baixe o APK em seu celular pelo link acima.
+> 2. Toque no arquivo baixado na central de notificações.
+> 3. Caso solicitado pelo sistema, autorize a instalação a partir do navegador ou gerenciador de arquivos.
+> 4. Toque em **Instalar** (ou **Atualizar**).
 
 ---
 
-## 🎨 Guia de UI/UX & Frontend (Para Designers & Desenvolvedores)
+## ✦ Principais Recursos
 
-Se você vai desenvolver a **estética visual, telas, animações e experiência (UI/UX)** do app, a camada de interface está organizada e isolada para você focar exclusivamente em design e Compose:
+### 1. Motor de Áudio Nativo de Alta Performance (C++ & Oboe)
+* **Baixa latência e zero alocações:** Callback de áudio em tempo real executando no thread de áudio prioritário sem alocação dinâmica de memória (`malloc`/`new`), sem locks e sem chamadas JNI.
+* **SPSC Ring Buffer Lock-Free:** Fila de blocos estéreo com sincronização atômica (`std::atomic`) entre a thread de decodificação e o thread de saída do Oboe.
+* **Formatos Nativos:**
+  * **WAV / PCM:** Decodificador `dr_wav` com suporte a 8, 16, 24 e 32 bits ponto flutuante.
+  * **FLAC:** Decodificador `dr_flac` sem perdas para arquivos de alta resolução.
+  * **MP3:** Decodificador `dr_mp3` integrado.
+  * **AAC, M4A, ALAC, OGG, Opus:** Decodificador de hardware via `AMediaCodec` / Android NDK Media.
 
-### 📂 Onde fica o Frontend no projeto?
-Todo o frontend está localizado em `app/src/main/java/com/lucas/player/ui/`:
-* 📱 **Telas (`ui/screens/`)**:
-  * `AuroNowPlayingScreen.kt` — Tela principal de reprodução expandida com capa, controles gestuais e cards de Vidro.
-  * `AuroLibraryScreen.kt` — Tela raiz da biblioteca musical, atalhos rápidos e barra de busca integrada.
-  * `AuroCategoryListScreen.kt` — Listagem de faixas, álbuns, artistas, pastas e gêneros.
-  * `AuroDrilldownScreen.kt` — Visão interna de um álbum ou pasta específica.
-  * `AuroQueueScreen.kt` — Gestão da fila de reprodução (Fila prioritária + Fila principal).
-  * `AuroEqualizerScreen.kt` — Equalizador gráfico de 10 bandas + Controles de Áudio Espacial e Sala FDN.
-  * `AuroSearchScreen.kt` — Busca instantânea de faixas com teclado ativo.
-* 🧩 **Componentes Reutilizáveis (`ui/components/`)**:
-  * `AuroDock.kt` — Dock flutuante inferior combinando o mini player e a barra de navegação rápida.
-  * `AuroComponents.kt` — Sliders, barras de progresso (`AuroProgressBar`), linhas de faixas (`AuroTrackRow`).
-  * `AuroOverlays.kt` — Modais e menus de contexto (adicionar à fila, info técnica, temporizador de sono).
-  * `AuroFeedback.kt` — Notificações de vidro e feedback tátil/háptico.
-* 💎 **Design System & Shaders (`ui/theme/`)**:
-  * `AuroDesignSystem.kt` — Tokens de cores (`AuroColor`), tipografia (`AuroType`), espaçamentos (`AuroSpace`), curvas de mola/animação (`AuroMotion`) e o componente de vidro preto com shader AGSL (`AuroGlass`).
+### 2. Processamento Digital de Sinal (DSP)
+* **Equalizador Paramétrico de 10 Bandas:** Filtros biquad IIR nas frequências ISO (31 Hz, 62 Hz, 125 Hz, 250 Hz, 500 Hz, 1 kHz, 2 kHz, 4 kHz, 8 kHz e 16 kHz), com amplitude de ±12.0 dB e presets salvos no banco local SQLite.
+* **Controles de Tom & Pré-amplificação:** Pré-amp geral, ajuste dedicado de Graves (Shelf 100 Hz) e Agudos (Shelf 10 kHz).
+* **Balanço Estéreo & Modo Mono:** Ajuste fino de atenuação de canais e soma mono para acessibilidade ou audição com fone único.
+* **Crossfade & ReplayGain:** Transição suave configurável entre faixas e nivelamento automático de volume com suporte a ganho de faixa e álbum.
 
-### 📌 Documentos de Referência de Design
-* 📖 [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) — O guia completo de identidade visual v3, contraste, cores Oklab e iluminação física.
-* 📋 [`PLANO_UIUX_AGENTE.md`](PLANO_UIUX_AGENTE.md) — Roteiro de fases e boas práticas de implementação.
-* 🧠 [`AI_CONTEXT.md`](AI_CONTEXT.md) — Dossiê técnico completo sobre a arquitetura e fluxo de dados.
+### 3. Biblioteca Musical Privada via Storage Access Framework (SAF)
+* **Acesso Restrito:** O app não requisita leitura global de arquivos (`READ_EXTERNAL_STORAGE`); acessa exclusivamente os diretórios autorizados pelo usuário.
+* **Indexação com Cache SQLite:** Varredura rápida de metadados, contagem de reproduções, histórico e favoritos.
+* **Múltiplos Artistas:** Suporte nativo à separação por `;` com exibição combinada e agrupamento individual nas telas de artistas.
+* **Filtros e Limpeza:** Ignora mensagens de voz de mensageiros (áudios curtos ou pastas como WhatsApp) nos destaques da tela inicial.
+* **Letras Sincronizadas (.LRC):** Carregamento de arquivos `.lrc` na mesma pasta da faixa ou embutidos nos metadados ID3, com acompanhamento em tempo real.
 
----
-
-## ✦ Visão Geral do Aurō Design System v3
-
-O visual do aplicativo adota o princípio de **mundo vazio e luz do ouvinte**:
-1. **Preto Absoluto (`#000000`)**: O fundo de todas as telas, cards e diálogos é estritamente preto puro. Sem cinzas de superfície (`#121212`) e sem caixas de sombra difusa.
-2. **Luz do Ouvinte Única e Paralela**: A luz não é desenhada como círculo ou gradiente no fundo — ela aparece exclusivamente como reflexo especular nas bordas dos objetos de vidro voltadas para ela. A direção é paralela em todos os objetos e vem de baixo `(dx = 0, dy = 1)`.
-3. **Sensor de Inclinação (`AuroTilt` & `TiltSmoother`)**:
-   - Conectado ao sensor de gravidade (`TYPE_GRAVITY`, com fallback para `TYPE_ACCELEROMETER`).
-   - Suavizado por mola amortecida ($\omega = 7\text{ rad/s}, \zeta = 0{,}8$): a luz acompanha o movimento físico do celular como líquido, sem tremores e sem recompilar a UI desnecessariamente (leituras em fase de desenho via `State`/lambda).
-   - Flutuações lentas de onda e respiração de $\pm 4^\circ$ enquanto a música toca.
-4. **Vidro Preto Perceptual (`AuroGlass`)**:
-   - Implementado com **AGSL `RuntimeShader`** no Android 13+ (API 33+).
-   - O corpo do objeto é preto (`uBody = 0f`). A luz se concentra nas arestas com dois lóbulos (estreito e largo, `soft = 0.6f`), contorno com presença contínua (6% a 26%), dispersão cromática ($\pm 2^\circ$ por canal) e dither anti-banding.
-   - Fallback gracioso para Android 12- com aro sutil de 10% de opacidade sobre o preto.
-5. **Cores da Capa (`CoverGlow` & `GlowTone`)**:
-   - Extrai automaticamente a cor vibrante da capa do álbum com `androidx.palette`.
-   - Gera o par harmônico de brilho `Accent A` (reflexo principal e barra de progresso) e `Accent B` (halo interno secundário).
-   - Transição suave de 900ms no espaço de cores Oklab entre faixas.
+### 4. Interface Editorial Dark OLED
+* **Preto Absoluto OLED (`#000000`):** Economia de bateria e contraste puro sem superfícies cinzas artificiais.
+* **Tipografia Editorial:** Famílias tipográficas **Plus Jakarta Sans** (títulos, métricas e controles) e **Manrope** (subtítulos e metadados).
+* **Ambient Mesh Glow:** Fundo atmosférico sutil de 2 cores derivado das tonalidades da capa do álbum via `androidx.palette` (com suporte a shaders AGSL no Android 13+).
+* **Monogramas Determinísticos:** Fallback elegante de gradiente escuro e iniciais tipográficas para artistas sem capa.
+* **Controles Gestuais:** Scrubber de áudio fluido, mini player flutuante integrado e fila reordenável por arrasto.
 
 ---
 
-## ✦ Arquitetura do Projeto
+## 📂 Estrutura do Projeto
 
 ```
-app/src/main/java/com/lucas/player/
-├── MainActivity.kt                 # Ponto de entrada, ciclo de vida, permissões e injeção do AuroTheme
-├── audio/
-│   ├── AudioEngine.kt              # Interface JNI para o motor nativo em C++
-│   ├── EqualizerEngine.kt          # Equalizador paramétrico de 10 bandas + Pré-amplificador + Tone (Bass/Treble)
-│   └── cpp/                        # Código nativo C++ (Oboe, AudioTrack, filtros biquad, balance)
-├── data/
-│   ├── LibraryRepository.kt        # Varredura do MediaStore local, pastas, gêneros e metadados
-│   ├── MusicDatabase.kt            # Banco SQLite local (estatísticas, contadores de reprodução, presets de EQ)
-│   ├── PreferencesManager.kt       # Persistência de preferências e configurações de áudio
-│   ├── CoverArtLoader.kt           # Carregador assíncrono de capas de álbum com cache LRU
-│   └── LyricsManager.kt            # Suporte e sincronização de letras LRC / embutidas
-├── model/
-│   ├── Track.kt                    # Entidade principal de faixa (id, título, artista, duração, bitrate, codec)
-│   ├── LibraryCategory.kt          # Categorias: ALL_SONGS, FOLDERS, ALBUMS, ARTISTS, PLAYLISTS, QUEUE, etc.
-│   ├── SortMode.kt                 # Modos de ordenação (A-Z, data, artista, ano, duração)
-│   └── UserPlaylist.kt             # Playlists criadas pelo usuário
-├── queue/
-│   ├── QueueManager.kt             # Gestão de fila dupla (Fila Prioritária "A Seguir" + Fila Principal)
-│   ├── ShuffleMode.kt              # Modos aleatórios (OFF, ALL_TRACKS, CATEGORY)
-│   └── RepeatMode.kt               # Modos de repetição (OFF, ONE, ALL, CATEGORY)
-├── service/
-│   └── PlaybackService.kt          # Serviço de execução em primeiro plano (MediaSession, Notificação, Sleep Timer)
-└── ui/
-    ├── navigation/
-    │   ├── NavScreen.kt            # Definição selada de telas do app
-    │   └── PlayerNavController.kt  # Pilha de navegação hierárquica estilo Poweramp com BackHandler
-    ├── theme/
-    │   └── AuroDesignSystem.kt     # Tokens oficiais, AuroLight, AuroTilt, AuroTheme, AuroGlass e AGSL
-    ├── components/
-    │   └── AuroComponents.kt       # AuroProgressBar, AuroMiniPlayer, AuroNavbar, AuroTrackRow, etc.
-    └── screens/
-        ├── AuroScreens.kt          # Now Playing, LibraryRoot, CategoryList, Drilldown, Equalizer, Search, Queue
-        └── AuroOverlays.kt         # Diálogos: Menu Contextual, Engine Info, Temporizador, Letras, Presets
+player/
+├── .github/
+│   └── workflows/
+│       └── build-apk.yml           # CI/CD para compilação automática de release APK
+├── archived_spatial_audio/         # Arquivamento isolado do antigo módulo de áudio espacial
+├── app/
+│   ├── build.gradle.kts            # Configurações de compilação, NDK e dependências
+│   └── src/
+│       ├── main/
+│       │   ├── cpp/
+│       │   │   ├── CMakeLists.txt              # Configuração do build nativo C++
+│       │   │   ├── audio_engine.h / .cpp       # Orquestrador do motor de áudio e threads
+│       │   │   ├── audio_output.h / .cpp       # Callback Oboe real-time e DSP
+│       │   │   ├── biquad_equalizer.h          # Equalizador 10 bandas, pré-amp e tons
+│       │   │   ├── decoder.h                   # Interface base para decodificadores
+│       │   │   ├── ring_buffer.h               # SPSC Ring Buffer lock-free
+│       │   │   ├── jni_bridge.cpp              # Pontes JNI C++ ↔ Kotlin
+│       │   │   └── decoders/                   # Decodificadores WAV, FLAC, MP3 e AMedia
+│       │   ├── java/com/lucas/player/
+│       │   │   ├── MainActivity.kt             # Ponto de entrada e navegação
+│       │   │   ├── AudioEngine.kt              # Wrapper JNI
+│       │   │   ├── data/                       # LibraryRepository, CoverArtLoader, SQLite, LRC
+│       │   │   ├── model/                      # Track, LibraryCategory, ArtistUtils
+│       │   │   ├── queue/                      # QueueManager e histórico
+│       │   │   ├── service/                    # PlaybackService e MediaSession
+│       │   │   └── ui/
+│       │   │       ├── components/             # AuroComponents, AuroOverlay, AuroFeedback
+│       │   │       ├── screens/                # Home, NowPlaying, Drilldown, Equalizer, etc.
+│       │   │       └── theme/                  # AuroDesignSystem (Cores, Tipos, AuroSquircle)
+│       │   └── res/
+│       │       ├── font/                       # Fontes TTF (Plus Jakarta Sans e Manrope)
+│       │       ├── values/ e values-en/        # Strings multilíngues (pt-BR e en-US)
+│       │       └── drawable/                   # Ícones de sistema e notificação
+│       └── test/                               # Testes unitários JUnit (QueueManager, AuroTilt)
+├── gradle/
+├── build.gradle.kts
+├── settings.gradle.kts
+└── README.md
 ```
 
 ---
 
-## ✦ Telas e Funcionalidades
-
-### 1. Now Playing (`AuroNowPlayingScreen`)
-- Capa com raio de 22dp e gestos de arrasto (swipe down para recolher, swipe lateral para trocar de faixa).
-- Título da faixa e artista alinhados à esquerda.
-- Dois botões redondos de vidro preto de 40dp à direita: **`★`** (favoritar/classificar) e **`⋮`** (menu de contexto e info).
-- Barra de progresso de 3dp com thumb de 10dp, tempo decorrido à esquerda e restante/total à direita.
-- Controles de reprodução: anterior (56dp), play/pause (76dp) e próximo (56dp) em círculos de vidro preto com reflexo direcional; botões de shuffle e repeat simples.
-- Cards largos de vidro preto: **`[ Fila ]`** e **`[ Letras ]`**.
-- Pré-visualização da fila com a identificação da lista (ex: `VOX (7)`) e próximas faixas diretamente sobre o preto com divisores de 1dp Hairline.
-
-### 2. Navegação Hierárquica da Biblioteca
-- **Raiz da Biblioteca**: Lista de categorias principais (Todas as Músicas, Pastas, Álbuns, Artistas, Gêneros, Listas de Reprodução, Fila, Anos, Compositores, Mais Tocadas, etc.).
-- **Navegação com Breadcrumbs**: Cabeçalho de migalhas de pão (`AuroBreadcrumbHeader`) com navegação de retorno fluida.
-- **Drilldown**: Pastas -> Subpastas / Faixas; Álbuns -> Lista de Faixas do Álbum; Artistas -> Álbuns -> Faixas.
-- **Fast Scroller Alfabético**: Barra lateral A-Z com bolha flutuante em vidro preto para busca rápida em listas com mais de 15 itens.
-
-### 3. Fila de Reprodução Dupla (`QueueManager`)
-- **Fila Prioritária ("A Seguir")**: Faixas adicionadas manualmente com "Tocar a seguir" são reproduzidas com prioridade máxima.
-- **Fila Principal**: Mantém a ordem original da lista ou álbum que estava tocando.
-- Funções para embaralhar, limpar fila prioritária e reordenar.
-
-### 4. Motor de Áudio & Equalizador
-- Equalizador gráfico/paramétrico de 10 bandas (31Hz a 16kHz) com ganho de -12dB a +12dB.
-- Controles dedicados de **Tone** (Graves e Agudos) e **Pré-amplificador (Preamp)**.
-- Alternância Mono/Estéreo e controle de balanço L/R.
-- Gerenciamento de presets (salvar, carregar, redefinir para Flat, excluir customizados).
-
-### 5. Mini Player & Navbar Inferior
-- Mini player persistente em vidro preto de 72dp localizado sobre a luz do ouvinte na parte inferior.
-- Barra de navegação inferior permanente com botões rápidos: **Equalizador**, **Biblioteca**, **Busca** e **Menu**.
-
----
-
-## ✦ Como Compilar e Executar
+## 🛠️ Como Compilar o Projeto
 
 ### Pré-requisitos
-- Android Studio Ladybug / Koala ou JDK 17+.
-- Android SDK 34 (mínimo API 26; AGSL ativo em API 33+).
-- NDK (Side by Side) e CMake para compilação C++.
+* **Java Development Kit (JDK):** Versão 17 (ex.: Eclipse Temurin 17).
+* **Android SDK:** Compile SDK 35, Build Tools 34.0.0+.
+* **Android NDK:** Versão `26.3.11579264` (configurada em `app/build.gradle.kts`).
+* **CMake:** Versão `3.22.1`.
 
-### Comandos Gradle
-```powershell
-# Compilar apenas os fontes Kotlin
-.\gradlew.bat compileDebugKotlin
+### Passos no Terminal
 
-# Montar o APK de depuração
-.\gradlew.bat assembleDebug
-```
+1. **Clonar o repositório:**
+   ```bash
+   git clone https://github.com/Lusqta/Player.git
+   cd Player
+   ```
 
-O arquivo gerado estará localizado em:
-`app/build/outputs/apk/debug/app-debug.apk`
+2. **Executar os testes unitários:**
+   ```bash
+   ./gradlew testDebugUnitTest
+   ```
+
+3. **Compilar o APK de desenvolvimento (Debug):**
+   ```bash
+   ./gradlew assembleDebug
+   ```
+   O APK gerado estará em `app/build/outputs/apk/debug/app-debug.apk` (ou `AuroPlayer-v1.1.1.apk` na raiz).
+
+4. **Compilar o APK otimizado de produção (Release):**
+   ```bash
+   ./gradlew assembleRelease
+   ```
 
 ---
 
-## ✦ Especificações de Design Adicionais
-Consulte o diretório [`files/`](files/) para a especificação original completa:
-- [`DESIGN_SYSTEM.md`](files/DESIGN_SYSTEM.md): Especificação textual do Aurō Design System v3.
-- [`AuroDesignSystem.kt`](files/AuroDesignSystem.kt): Implementação de referência pura.
-- [`especimen_design_system.png`](files/especimen_design_system.png): Imagem do espécime visual e variantes de capa.
+## 📄 Licença
+
+Este projeto é software livre licenciado sob os termos da licença [MIT](LICENSE).

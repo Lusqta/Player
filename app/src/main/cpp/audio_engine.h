@@ -11,7 +11,6 @@
 #include "ring_buffer.h"
 #include "audio_output.h"
 #include "biquad_equalizer.h"
-#include "spatial_processor.h"
 
 enum class PlaybackState {
     Stopped = 0,
@@ -65,16 +64,10 @@ public:
     void setMono(bool mono);
     bool isMono() const;
 
-    void setSpatialMode(int mode);
-    void setSpatialPreset(int preset, float intensity);
-    void setSpatialProParams(float subCutoffHz, float midGainDb, float sideWidth, float surroundAmbience, float speakerAngle, float elevation = 0.0f);
-
 private:
     void decodeLoop();
     void wakeDecoderThread();
     void stopInternal();
-
-    SpatialProcessor mSpatialProcessor;
 
     SpscRingBuffer ringBuffer_;
     std::unique_ptr<AudioOutput> audioOutput_;

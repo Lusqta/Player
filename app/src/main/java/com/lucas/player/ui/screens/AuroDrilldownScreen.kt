@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -93,34 +94,50 @@ fun AuroDrilldownScreen(
             .fillMaxSize()
             .background(AuroColor.Canvas)
     ) {
-        val heroBgHeight = maxHeight * 0.58f
+        val density = LocalDensity.current
+        val minTopPx = with(density) { 96.dp.roundToPx() }
+        val fastScrollerTopDp by remember(listState, minTopPx) {
+            derivedStateOf {
+                val heroInfo = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "hero_header" }
+                if (heroInfo != null) {
+                    val heroBottom = heroInfo.offset + heroInfo.size
+                    with(density) { maxOf(heroBottom, minTopPx).toDp() + 8.dp }
+                } else {
+                    96.dp
+                }
+            }
+        }
 
-        // Fundo animado de 2 cores borradas da capa do próprio grupo atrás do Hero (igual à tela Joji)
-        AnimatedDualColorBackground(
-            color1 = groupAccent.mesh1,
-            color2 = groupAccent.mesh2,
-            isPlaying = false,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(heroBgHeight)
-        )
-
-        // Gradiente vertical para fundir o hero suavemente com o preto absoluto OLED
+        // Fundo animado de 2 cores borradas da capa do próprio grupo atrás do Hero (520dp fixos)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(heroBgHeight)
-                .background(
-                    Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.0f to Color.Transparent,
-                            0.52f to Color.Transparent,
-                            0.85f to AuroColor.Canvas.copy(alpha = 0.85f),
-                            1.0f to AuroColor.Canvas
+                .height(520.dp)
+        ) {
+            AnimatedDualColorBackground(
+                color1 = groupAccent.mesh1,
+                color2 = groupAccent.mesh2,
+                isPlaying = false,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            // Gradiente vertical para dissolver suavemente no preto absoluto OLED
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(168.dp)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                AuroColor.Canvas.copy(alpha = 0.78f),
+                                AuroColor.Canvas
+                            )
                         )
                     )
-                )
-        )
+            )
+        }
 
         if (tracks.isEmpty()) {
             AuroEmptyState(
@@ -146,17 +163,17 @@ fun AuroDrilldownScreen(
                             .padding(top = 52.dp, bottom = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Hero quadrado (aspectRatio 1f, padding lateral 20.dp)
+                        // Hero quadrado (aspectRatio 1f, padding lateral AuroSpace.ScreenMargin)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 20.dp)
+                                .padding(horizontal = AuroSpace.ScreenMargin)
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .aspectRatio(1f)
-                                    .clip(RoundedCornerShape(28.dp))
+                                    .clip(AuroSquircle)
                                     .background(AuroColor.SurfaceCard)
                             ) {
                                 if (heroCover != null) {
@@ -166,11 +183,17 @@ fun AuroDrilldownScreen(
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize()
                                     )
+                                } else if (category == LibraryCategory.ARTISTS || category == LibraryCategory.ALBUM_ARTISTS) {
+                                    ArtistMonogram(
+                                        name = groupTitle,
+                                        modifier = Modifier.fillMaxSize(),
+                                        shape = AuroSquircle
+                                    )
                                 } else {
                                     AuroCoverPlaceholder(
                                         modifier = Modifier.fillMaxSize(),
                                         glass = false,
-                                        shape = RoundedCornerShape(28.dp)
+                                        shape = AuroSquircle
                                     )
                                 }
 
@@ -190,7 +213,7 @@ fun AuroDrilldownScreen(
 
                         // Nome Hero (HeroName = 32sp Bold) centralizado
                         val displayGroupTitle = if (category == LibraryCategory.ARTISTS || category == LibraryCategory.ALBUM_ARTISTS) {
-                            formatDisplayArtist(groupTitle, stringResource(R.string.unknown_artist))
+                            formatArtistsDisplay(groupTitle, stringResource(R.string.unknown_artist))
                         } else {
                             groupTitle
                         }
@@ -308,8 +331,8 @@ fun AuroDrilldownScreen(
                 }
             }
 
-            // FastScroller translúcido na margem direita (abaixo do Hero, apenas se houver 20+ faixas)
-            if (tracks.size >= 20) {
+            // FastScroller translúcido na margem direita (dinâmico abaixo do Hero, apenas se houver 20+ faixas)
+            if (tracks.size >= 20 && (maxHeight - fastScrollerTopDp - bottomInset > 180.dp)) {
                 AuroAlphabetFastScroller(
                     onLetterSelected = { letter ->
                         val targetIndex = tracks.indexOfFirst { matchesFirstLetter(it.title, letter) }
@@ -320,8 +343,8 @@ fun AuroDrilldownScreen(
                         }
                     },
                     modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(top = maxHeight * 0.52f, bottom = bottomInset + 30.dp, end = 2.dp)
+                        .align(Alignment.TopEnd)
+                        .padding(top = fastScrollerTopDp, bottom = bottomInset + 30.dp, end = 2.dp)
                 )
             }
         }
