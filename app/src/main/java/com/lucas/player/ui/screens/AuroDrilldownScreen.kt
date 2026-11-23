@@ -14,9 +14,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicOff
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -75,7 +78,11 @@ fun AuroDrilldownScreen(
     isSelectionMode: Boolean = false,
     selectedTrackIds: Set<Long> = emptySet(),
     onToggleSelectTrack: (Track) -> Unit = {},
-    showFileFormat: Boolean = true
+    showFileFormat: Boolean = true,
+    playlistCoverPath: String? = null,
+    onAddTracksToPlaylist: (() -> Unit)? = null,
+    onEditPlaylist: (() -> Unit)? = null,
+    onDeletePlaylist: (() -> Unit)? = null
 ) {
     val view = LocalView.current
     val bottomInset = LocalAuroBottomInset.current
@@ -83,7 +90,11 @@ fun AuroDrilldownScreen(
     val totalDurationMs = remember(tracks) { tracks.sumOf { it.durationMs } }
 
     val firstTrack = tracks.firstOrNull()
-    val heroCover = rememberTrackCover(firstTrack, 400)
+    val heroCover = if (category == LibraryCategory.PLAYLISTS) {
+        rememberPlaylistCover(playlistCoverPath, firstTrack, 400)
+    } else {
+        rememberTrackCover(firstTrack, 400)
+    }
     var groupAccent by remember { mutableStateOf(AuroAccent.Neutral) }
     LaunchedEffect(heroCover) {
         groupAccent = CoverGlow.from(heroCover)
@@ -139,7 +150,7 @@ fun AuroDrilldownScreen(
             )
         }
 
-        if (tracks.isEmpty()) {
+        if (tracks.isEmpty() && category != LibraryCategory.PLAYLISTS) {
             AuroEmptyState(
                 icon = Icons.Rounded.MusicOff,
                 title = stringResource(R.string.empty_library_title),
@@ -183,7 +194,7 @@ fun AuroDrilldownScreen(
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize()
                                     )
-                                } else if (category == LibraryCategory.ARTISTS || category == LibraryCategory.ALBUM_ARTISTS) {
+                                } else if (category == LibraryCategory.ARTISTS || category == LibraryCategory.ALBUM_ARTISTS || category == LibraryCategory.PLAYLISTS) {
                                     ArtistMonogram(
                                         name = groupTitle,
                                         modifier = Modifier.fillMaxSize(),
@@ -197,15 +208,17 @@ fun AuroDrilldownScreen(
                                     )
                                 }
 
-                                TranslucentPlayButton(
-                                    isPlaying = false,
-                                    size = 56.dp,
-                                    containerColor = Color(0xBD121215),
-                                    onClick = onPlayAll,
-                                    modifier = Modifier
-                                        .align(Alignment.BottomEnd)
-                                        .padding(14.dp)
-                                )
+                                if (tracks.isNotEmpty()) {
+                                    TranslucentPlayButton(
+                                        isPlaying = false,
+                                        size = 56.dp,
+                                        containerColor = Color(0xBD121215),
+                                        onClick = onPlayAll,
+                                        modifier = Modifier
+                                            .align(Alignment.BottomEnd)
+                                            .padding(14.dp)
+                                    )
+                                }
                             }
                         }
 
@@ -240,8 +253,13 @@ fun AuroDrilldownScreen(
                             LibraryCategory.PLAYLISTS -> stringResource(R.string.group_subtitle_playlist)
                             else -> stringResource(category.getTitleRes())
                         }
+                        val countDurationText = if (tracks.isEmpty()) {
+                            "0 faixas"
+                        } else {
+                            "${pluralStringResource(R.plurals.tracks_count, tracks.size, tracks.size)}  ·  ${formatTimeMs(totalDurationMs)}"
+                        }
                         Text(
-                            text = "$singularLabel  ·  ${pluralStringResource(R.plurals.tracks_count, tracks.size, tracks.size)}  ·  ${formatTimeMs(totalDurationMs)}",
+                            text = "$singularLabel  ·  $countDurationText",
                             style = AuroType.Subtitle.copy(
                                 fontSize = 13.sp,
                                 color = Color.White.copy(alpha = 0.55f),
@@ -251,14 +269,47 @@ fun AuroDrilldownScreen(
                             modifier = Modifier.padding(horizontal = AuroSpace.ScreenMargin)
                         )
 
-                        Spacer(modifier = Modifier.height(28.dp))
+                        if (tracks.isEmpty()) {
+                            Spacer(modifier = Modifier.height(28.dp))
+                            Box(
+                                modifier = Modifier
+                                    .height(48.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White)
+                                    .clickable {
+                                        AuroHaptics.click(view)
+                                        onAddTracksToPlaylist?.invoke()
+                                    }
+                                    .padding(horizontal = 24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.playlist_add_tracks),
+                                    style = AuroType.Body.copy(
+                                        color = Color.Black,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.height(28.dp))
 
-                        // Cabeçalho da seção com ação de Aleatório
-                        EditorialSectionHeader(
-                            title = stringResource(R.string.top_songs),
-                            actionLabel = stringResource(R.string.shuffle_all),
-                            onAction = onShuffleAll
-                        )
+                            // Cabeçalho da seção com ação de Aleatório e Adicionar (se playlist)
+                            EditorialSectionHeader(
+                                title = stringResource(R.string.top_songs),
+                                actionLabel = stringResource(R.string.shuffle_all),
+                                onAction = onShuffleAll,
+                                secondaryActionLabel = if (category == LibraryCategory.PLAYLISTS && onAddTracksToPlaylist != null) {
+                                    stringResource(R.string.playlist_add_short)
+                                } else null,
+                                onSecondaryAction = if (category == LibraryCategory.PLAYLISTS) {
+                                    {
+                                        AuroHaptics.click(view)
+                                        onAddTracksToPlaylist?.invoke()
+                                    }
+                                } else null
+                            )
+                        }
                     }
                 }
 
@@ -315,19 +366,86 @@ fun AuroDrilldownScreen(
                     )
                 }
 
-                IconButton(
-                    onClick = {
-                        AuroHaptics.click(view)
-                        onTogglePin()
-                    },
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isPinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
-                        contentDescription = stringResource(if (isPinned) R.string.action_unpin else R.string.action_pin),
-                        tint = if (isPinned) Color.White else Color.White.copy(alpha = 0.55f),
-                        modifier = Modifier.size(22.dp)
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = {
+                            AuroHaptics.click(view)
+                            onTogglePin()
+                        },
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isPinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
+                            contentDescription = stringResource(if (isPinned) R.string.action_unpin else R.string.action_pin),
+                            tint = if (isPinned) Color.White else Color.White.copy(alpha = 0.55f),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    if (category == LibraryCategory.PLAYLISTS) {
+                        var showMenu by remember { mutableStateOf(false) }
+                        Box {
+                            IconButton(
+                                onClick = {
+                                    AuroHaptics.click(view)
+                                    showMenu = true
+                                },
+                                modifier = Modifier.size(44.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.MoreVert,
+                                    contentDescription = stringResource(R.string.cd_more_options),
+                                    tint = AuroColor.TextPrimary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false },
+                                modifier = Modifier.background(AuroColor.SurfaceGrouped)
+                            ) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = stringResource(R.string.playlist_add_tracks),
+                                            style = AuroType.Body,
+                                            color = AuroColor.TextPrimary
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        onAddTracksToPlaylist?.invoke()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = stringResource(R.string.playlist_edit_action),
+                                            style = AuroType.Body,
+                                            color = AuroColor.TextPrimary
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        onEditPlaylist?.invoke()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = stringResource(R.string.playlist_delete_action),
+                                            style = AuroType.Body,
+                                            color = AuroColor.Danger
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        onDeletePlaylist?.invoke()
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 

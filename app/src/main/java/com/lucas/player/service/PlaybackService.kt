@@ -267,6 +267,7 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
                                 if (audioEngine.play()) {
                                     success = true
                                     wasPlaying = true
+                                    libraryRepo.recordPlaybackHistory(effectiveTrack.id)
                                     val crossfadeMs = preferencesManager.getCrossfadeDurationMs()
                                     val fadeInTime = if (crossfadeMs > 0) (crossfadeMs / 2).coerceIn(150, 1500).toLong() else 120L
                                     fadeIn(fadeInTime)
@@ -457,6 +458,14 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
         }
     }
 
+    fun skipToUpcoming(section: QueueSection, upcomingIndex: Int) {
+        val track = queueManager.skipToUpcoming(section, upcomingIndex)
+        if (track != null) {
+            notifyQueue()
+            playTrack(track)
+        }
+    }
+
     fun playPrevious() {
         if (audioEngine.getPositionMs() > 3000) {
             seekTo(0)
@@ -628,6 +637,10 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
 
     // --- Priority Queue Methods ---
 
+    fun getUpcomingPriorityTracks(): List<Track> = queueManager.getUpcomingPriorityTracks()
+
+    fun getUpcomingRegularTracks(): List<Track> = queueManager.getUpcomingRegularTracks()
+
     fun enqueueNext(track: Track) {
         queueManager.enqueueNext(track)
         notifyQueue()
@@ -638,9 +651,50 @@ class PlaybackService : Service(), AudioManager.OnAudioFocusChangeListener {
         notifyQueue()
     }
 
+    fun clearManualQueueKeepingCurrent() {
+        queueManager.clearManualQueueKeepingCurrent()
+        notifyQueue()
+    }
+
     fun clearPriorityQueue() {
         queueManager.clearPriorityQueue()
         notifyQueue()
+    }
+
+    fun moveUpcomingQueueItem(section: QueueSection, from: Int, to: Int): Boolean {
+        val moved = queueManager.moveUpcomingItem(section, from, to)
+        if (moved) {
+            if (section == QueueSection.QUEUE) {
+                saveCurrentState()
+            }
+            notifyQueue()
+        }
+        return moved
+    }
+
+    fun removeUpcomingQueueItem(section: QueueSection, index: Int): Track? {
+        val removed = queueManager.removeUpcomingItem(section, index)
+        if (removed != null) {
+            if (section == QueueSection.QUEUE) {
+                saveCurrentState()
+            }
+            notifyQueue()
+        }
+        return removed
+    }
+
+    fun insertUpcomingQueueItem(section: QueueSection, index: Int, track: Track) {
+        queueManager.insertUpcomingItem(section, index, track)
+        if (section == QueueSection.QUEUE) {
+            saveCurrentState()
+        }
+        notifyQueue()
+    }
+
+    fun getPlaybackHistory(limit: Int = 100): List<Pair<Long, Track>> = libraryRepo.getPlaybackHistory(limit)
+
+    fun clearPlaybackHistory() {
+        libraryRepo.clearPlaybackHistory()
     }
 
     fun moveQueueItem(section: QueueSection, from: Int, to: Int): Boolean {

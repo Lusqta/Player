@@ -227,7 +227,7 @@ fun AuroLibraryRootScreen(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 items(pinnedItems, key = { it.title }) { item ->
-                                    val coverBitmap = rememberTrackCover(coverTrackFinder(item), 150)
+                                    val coverBitmap = rememberPlaylistCover(item.coverPath, coverTrackFinder(item), 150)
 
                                     Column(
                                         modifier = Modifier
@@ -254,6 +254,12 @@ fun AuroLibraryRootScreen(
                                                     contentDescription = item.title,
                                                     contentScale = ContentScale.Crop,
                                                     modifier = Modifier.fillMaxSize()
+                                                )
+                                            } else if (item.coverPath.isNotBlank()) {
+                                                ArtistMonogram(
+                                                    name = item.title,
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    shape = AuroSquircle
                                                 )
                                             } else {
                                                 AuroCoverPlaceholder(

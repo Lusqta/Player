@@ -364,4 +364,30 @@
     <string name="menu_queue">Fila de Reprodução</string>
     <string name="menu_sleep_timer">Temporizador</string>
     <string name="menu_about">Sobre</string>
+
+    <!-- Gestão Completa de Playlists -->
+    <string name="playlist_add_tracks">Adicionar músicas</string>
+    <string name="playlist_add_short">Adicionar</string>
+    <string name="playlist_edit_title">Editar playlist</string>
+    <string name="playlist_edit_action">Editar nome e capa</string>
+    <string name="playlist_change_cover">Alterar capa</string>
+    <string name="playlist_remove_cover">Remover capa</string>
+    <string name="playlist_delete_action">Excluir playlist</string>
+    <string name="playlist_delete_confirm">Excluir esta playlist? Suas músicas não serão apagadas do aparelho.</string>
+    <string name="playlist_deleted">Playlist excluída</string>
+    <string name="playlist_remove_track">Remover da playlist</string>
+    <string name="playlist_already_added">Na playlist</string>
+    <string name="playlist_add_tracks_title">Adicionar músicas</string>
+
+    <!-- Fila Estilo Apple Music & Histórico Contínuo -->
+    <string name="lyrics_tab_label">Letras</string>
+    <string name="queue_tab_label">Fila</string>
+    <string name="queue_mode_up_next">A seguir</string>
+    <string name="queue_mode_history">Histórico</string>
+    <string name="queue_section_continuing">Continuando</string>
+    <string name="queue_item_removed">Removida da fila</string>
+    <string name="queue_manual_cleared">Fila limpa</string>
+    <string name="history_clear">Limpar histórico</string>
+    <string name="history_empty">Nenhuma música tocada ainda</string>
+    <string name="history_added_next">Adicionada a seguir</string>
 </resources>

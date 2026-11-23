@@ -50,7 +50,13 @@ import com.lucas.player.model.splitArtists
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.*
 
-data class HomePlaylist(val name: String, val countText: String, val coverTrack: Track?)
+data class HomePlaylist(
+    val id: Long = 0L,
+    val name: String,
+    val countText: String,
+    val coverTrack: Track?,
+    val coverPath: String = ""
+)
 
 /**
  * ABA INÍCIO (Editorial Dark OLED - Minimalista & Atmosférico)
@@ -434,6 +440,7 @@ fun AuroHomeScreen(
                                 items(playlists, key = { it.name }) { pl ->
                                     PlaylistCard(
                                         coverTrack = pl.coverTrack,
+                                        coverPath = pl.coverPath,
                                         title = pl.name,
                                         subtitle = pl.countText,
                                         onClick = { onPlaylistClick(pl.name) }
@@ -644,12 +651,13 @@ private fun WideAlbumCard(
 @Composable
 private fun PlaylistCard(
     coverTrack: Track?,
+    coverPath: String = "",
     title: String,
     subtitle: String,
     onClick: () -> Unit
 ) {
     val view = LocalView.current
-    val bitmap = rememberTrackCover(coverTrack, 240)
+    val bitmap = rememberPlaylistCover(coverPath, coverTrack, 240)
     Column(
         modifier = Modifier
             .width(112.dp)
@@ -671,9 +679,9 @@ private fun PlaylistCard(
                     modifier = Modifier.fillMaxSize()
                 )
             } else {
-                AuroCoverPlaceholder(
+                ArtistMonogram(
+                    name = title,
                     modifier = Modifier.fillMaxSize(),
-                    glass = false,
                     shape = AuroSquircle
                 )
             }

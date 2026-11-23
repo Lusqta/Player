@@ -70,7 +70,8 @@ data class UserPlaylist(
     val id: Long,
     val name: String,
     val trackCount: Int,
-    val createdMs: Long
+    val createdMs: Long,
+    val coverPath: String = ""
 )
 
 enum class LibraryCategory(val title: String, val description: String) {

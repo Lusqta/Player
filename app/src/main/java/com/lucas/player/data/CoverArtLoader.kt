@@ -12,6 +12,8 @@ import android.os.Looper
 import android.util.LruCache
 import android.util.Size
 import com.lucas.player.model.Track
+import java.io.File
+import java.io.FileOutputStream
 import java.util.concurrent.Executors
 
 /**
@@ -63,6 +65,129 @@ object CoverArtLoader {
 
             mainHandler.post {
                 onLoaded?.invoke(bitmap)
+            }
+        }
+    }
+
+    fun getCachedPlaylistCover(coverPath: String?): Bitmap? {
+        if (coverPath.isNullOrBlank()) return null
+        val file = File(coverPath)
+        if (!file.exists()) return null
+        val cacheKey = "pl_${coverPath}_${file.lastModified()}"
+        return memoryCache.get(cacheKey)
+    }
+
+    fun loadPlaylistCover(
+        coverPath: String?,
+        targetSizePx: Int = 600,
+        onLoaded: (Bitmap?) -> Unit
+    ) {
+        if (coverPath.isNullOrBlank()) {
+            onLoaded(null)
+            return
+        }
+        val file = File(coverPath)
+        if (!file.exists()) {
+            onLoaded(null)
+            return
+        }
+        val cacheKey = "pl_${coverPath}_${file.lastModified()}"
+        val cached = memoryCache.get(cacheKey)
+        if (cached != null) {
+            onLoaded(cached)
+            return
+        }
+
+        executor.execute {
+            val bitmap = try {
+                val options = BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                }
+                BitmapFactory.decodeFile(coverPath, options)
+                options.inSampleSize = calculateInSampleSize(options, targetSizePx, targetSizePx)
+                options.inJustDecodeBounds = false
+                options.inPreferredConfig = Bitmap.Config.RGB_565
+                BitmapFactory.decodeFile(coverPath, options)
+            } catch (_: Exception) {
+                null
+            }
+
+            if (bitmap != null) {
+                memoryCache.put(cacheKey, bitmap)
+            }
+
+            mainHandler.post {
+                onLoaded(bitmap)
+            }
+        }
+    }
+
+    fun savePlaylistCover(context: Context, playlistId: Long, sourceUri: Uri): String? {
+        return try {
+            val dir = File(context.filesDir, "playlist_covers")
+            if (!dir.exists()) {
+                dir.mkdirs()
+            }
+            val targetFile = File(dir, "pl_${playlistId}.jpg")
+
+            val resolver = context.contentResolver
+
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            resolver.openInputStream(sourceUri)?.use { input ->
+                BitmapFactory.decodeStream(input, null, options)
+            }
+
+            options.inSampleSize = calculateInSampleSize(options, 600, 600)
+            options.inJustDecodeBounds = false
+            options.inPreferredConfig = Bitmap.Config.RGB_565
+
+            val decodedBitmap = resolver.openInputStream(sourceUri)?.use { input ->
+                BitmapFactory.decodeStream(input, null, options)
+            } ?: return null
+
+            val w = decodedBitmap.width
+            val h = decodedBitmap.height
+            val size = minOf(w, h)
+            val x = (w - size) / 2
+            val y = (h - size) / 2
+            val squareBitmap = if (w == h) decodedBitmap else Bitmap.createBitmap(decodedBitmap, x, y, size, size)
+
+            val finalBitmap = if (squareBitmap.width > 600) {
+                Bitmap.createScaledBitmap(squareBitmap, 600, 600, true)
+            } else {
+                squareBitmap
+            }
+
+            FileOutputStream(targetFile).use { out ->
+                finalBitmap.compress(Bitmap.CompressFormat.JPEG, 88, out)
+            }
+
+            deletePlaylistCoverCache(targetFile.absolutePath)
+
+            targetFile.absolutePath
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun deletePlaylistCover(coverPath: String?) {
+        if (coverPath.isNullOrBlank()) return
+        try {
+            val file = File(coverPath)
+            if (file.exists()) {
+                file.delete()
+            }
+            deletePlaylistCoverCache(coverPath)
+        } catch (_: Exception) {}
+    }
+
+    private fun deletePlaylistCoverCache(coverPath: String) {
+        val snapshot = memoryCache.snapshot()
+        for (key in snapshot.keys) {
+            if (key.startsWith("pl_${coverPath}")) {
+                memoryCache.remove(key)
             }
         }
     }

@@ -207,4 +207,113 @@ class QueueManagerTest {
         assertFalse(queueManager.moveItem("Fila", from = 0, to = 99))
         assertFalse(queueManager.moveItem("Inexistente", from = 0, to = 1))
     }
+
+    @Test
+    fun testEnqueueNext_whenPlayingFromPriorityQueue_insertsAtPosition1() {
+        queueManager.setQueue(sampleTracks, startIndex = 0)
+        val p1 = createTrack(101L, "Prioritária 1")
+        val p2 = createTrack(102L, "Prioritária 2")
+        queueManager.enqueueEnd(p1)
+        queueManager.enqueueEnd(p2)
+
+        // Toca a primeira da prioridade
+        val nextTrack = queueManager.next()
+        assertEquals("Prioritária 1", nextTrack?.title)
+        assertTrue(queueManager.isPlayingFromPriorityQueue)
+
+        // Adiciona "A Seguir" enquanto toca prioritária: deve entrar no índice 1 (logo após a tocando agora)
+        val p3 = createTrack(103L, "Prioritária 3")
+        queueManager.enqueueNext(p3)
+
+        val pq = queueManager.getPriorityQueue()
+        assertEquals(3, pq.size)
+        assertEquals("Prioritária 1", pq[0].title)
+        assertEquals("Prioritária 3", pq[1].title)
+        assertEquals("Prioritária 2", pq[2].title)
+
+        // Upcoming priority deve descartar o item [0] que está tocando
+        val upcomingPriority = queueManager.getUpcomingPriorityTracks()
+        assertEquals(2, upcomingPriority.size)
+        assertEquals("Prioritária 3", upcomingPriority[0].title)
+        assertEquals("Prioritária 2", upcomingPriority[1].title)
+    }
+
+    @Test
+    fun testClearManualQueueKeepingCurrent_preservesPlayingTrack() {
+        queueManager.setQueue(sampleTracks, startIndex = 0)
+        val p1 = createTrack(101L, "Prioritária 1")
+        val p2 = createTrack(102L, "Prioritária 2")
+        val p3 = createTrack(103L, "Prioritária 3")
+        queueManager.enqueueEnd(p1)
+        queueManager.enqueueEnd(p2)
+        queueManager.enqueueEnd(p3)
+
+        // Toca da prioridade
+        queueManager.next()
+        assertTrue(queueManager.isPlayingFromPriorityQueue)
+        assertEquals("Prioritária 1", queueManager.currentTrack?.title)
+
+        // Limpa a fila manual mantendo a atual
+        queueManager.clearManualQueueKeepingCurrent()
+
+        assertTrue(queueManager.isPlayingFromPriorityQueue)
+        assertEquals(1, queueManager.getPriorityQueue().size)
+        assertEquals("Prioritária 1", queueManager.currentTrack?.title)
+        assertTrue(queueManager.getUpcomingPriorityTracks().isEmpty())
+    }
+
+    @Test
+    fun testUpcomingRegularTracks_returnsStrictlyUpcoming() {
+        queueManager.setQueue(sampleTracks, startIndex = 1) // Tocando Faixa 2
+        val upcoming = queueManager.getUpcomingRegularTracks()
+        assertEquals(3, upcoming.size)
+        assertEquals("Faixa 3", upcoming[0].title)
+        assertEquals("Faixa 4", upcoming[1].title)
+        assertEquals("Faixa 5", upcoming[2].title)
+    }
+
+    @Test
+    fun testMoveUpcomingItem_regularQueue() {
+        queueManager.setQueue(sampleTracks, startIndex = 1) // Tocando Faixa 2 (índice 1)
+        // Upcoming: [Faixa 3, Faixa 4, Faixa 5] (índices 0, 1, 2)
+        // Move upcoming 0 (Faixa 3) para posição 2 (após Faixa 5)
+        val moved = queueManager.moveUpcomingItem(QueueSection.QUEUE, fromUpcoming = 0, toUpcoming = 2)
+        assertTrue(moved)
+
+        val upcoming = queueManager.getUpcomingRegularTracks()
+        assertEquals("Faixa 4", upcoming[0].title)
+        assertEquals("Faixa 5", upcoming[1].title)
+        assertEquals("Faixa 3", upcoming[2].title)
+
+        // Faixa atual não foi alterada
+        assertEquals("Faixa 2", queueManager.currentTrack?.title)
+    }
+
+    @Test
+    fun testRemoveUpcomingItem_andUndoInsert() {
+        queueManager.setQueue(sampleTracks, startIndex = 0) // Tocando Faixa 1
+        // Upcoming: [Faixa 2, Faixa 3, Faixa 4, Faixa 5]
+
+        // Remove upcoming índice 1 (Faixa 3)
+        val removed = queueManager.removeUpcomingItem(QueueSection.QUEUE, upcomingIndex = 1)
+        assertEquals("Faixa 3", removed?.title)
+
+        val upcomingAfterRemove = queueManager.getUpcomingRegularTracks()
+        assertEquals(3, upcomingAfterRemove.size)
+        assertEquals("Faixa 2", upcomingAfterRemove[0].title)
+        assertEquals("Faixa 4", upcomingAfterRemove[1].title)
+        assertEquals("Faixa 5", upcomingAfterRemove[2].title)
+
+        // Desfazer: reinserir no índice 1
+        if (removed != null) {
+            queueManager.insertUpcomingItem(QueueSection.QUEUE, upcomingIndex = 1, track = removed)
+        }
+
+        val restoredUpcoming = queueManager.getUpcomingRegularTracks()
+        assertEquals(4, restoredUpcoming.size)
+        assertEquals("Faixa 2", restoredUpcoming[0].title)
+        assertEquals("Faixa 3", restoredUpcoming[1].title)
+        assertEquals("Faixa 4", restoredUpcoming[2].title)
+        assertEquals("Faixa 5", restoredUpcoming[3].title)
+    }
 }

@@ -51,6 +51,17 @@ class PlayerNavController(initialScreen: NavScreen = NavScreen.Home) {
     }
 
     /**
+     * Substitui a tela do topo da pilha de navegação.
+     */
+    fun replaceCurrent(screen: NavScreen) {
+        if (backStack.isNotEmpty()) {
+            backStack[backStack.size - 1] = screen
+        } else {
+            backStack.add(screen)
+        }
+    }
+
+    /**
      * Volta um nível na hierarquia de navegação.
      * @return true se desempilhou, false se estava na raiz.
      */

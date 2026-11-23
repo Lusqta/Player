@@ -22,7 +22,8 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         val id: Long,
         val name: String,
         val createdMs: Long,
-        val trackCount: Int = 0
+        val trackCount: Int = 0,
+        val coverPath: String = ""
     )
 
     data class EqPreset(
@@ -76,7 +77,8 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             CREATE TABLE $TABLE_PLAYLISTS (
                 $COL_PL_ID INTEGER PRIMARY KEY AUTOINCREMENT,
                 $COL_PL_NAME TEXT NOT NULL,
-                $COL_PL_CREATED INTEGER NOT NULL
+                $COL_PL_CREATED INTEGER NOT NULL,
+                $COL_PL_COVER_PATH TEXT DEFAULT ''
             )
             """.trimIndent()
         )
@@ -95,6 +97,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         createPresetsTable(db)
         seedBuiltinPresets(db)
         createCachedTracksTable(db)
+        createPlaybackHistoryTable(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -109,6 +112,26 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             db.execSQL("DROP TABLE IF EXISTS $TABLE_CACHED_TRACKS")
             createCachedTracksTable(db)
         }
+        if (oldVersion < 5) {
+            try {
+                db.execSQL("ALTER TABLE $TABLE_PLAYLISTS ADD COLUMN $COL_PL_COVER_PATH TEXT DEFAULT ''")
+            } catch (_: Exception) {}
+        }
+        if (oldVersion < 6) {
+            createPlaybackHistoryTable(db)
+        }
+    }
+
+    private fun createPlaybackHistoryTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_PLAYBACK_HISTORY (
+                $COL_HISTORY_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COL_HISTORY_TRACK_ID INTEGER NOT NULL,
+                $COL_HISTORY_PLAYED_AT INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
     }
 
     private fun createCachedTracksTable(db: SQLiteDatabase) {
@@ -250,7 +273,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         val list = mutableListOf<Playlist>()
         val db = readableDatabase
         val query = """
-            SELECT p.$COL_PL_ID, p.$COL_PL_NAME, p.$COL_PL_CREATED, COUNT(i.$COL_ITEM_TRACK_ID) AS track_count
+            SELECT p.$COL_PL_ID, p.$COL_PL_NAME, p.$COL_PL_CREATED, p.$COL_PL_COVER_PATH, COUNT(i.$COL_ITEM_TRACK_ID) AS track_count
             FROM $TABLE_PLAYLISTS p
             LEFT JOIN $TABLE_PLAYLIST_ITEMS i ON p.$COL_PL_ID = i.$COL_ITEM_PL_ID
             GROUP BY p.$COL_PL_ID
@@ -261,15 +284,18 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             val idCol = cursor.getColumnIndexOrThrow(COL_PL_ID)
             val nameCol = cursor.getColumnIndexOrThrow(COL_PL_NAME)
             val crCol = cursor.getColumnIndexOrThrow(COL_PL_CREATED)
+            val coverCol = cursor.getColumnIndex(COL_PL_COVER_PATH)
             val cntCol = cursor.getColumnIndexOrThrow("track_count")
 
             while (cursor.moveToNext()) {
+                val cover = if (coverCol != -1) cursor.getString(coverCol) ?: "" else ""
                 list.add(
                     Playlist(
                         id = cursor.getLong(idCol),
                         name = cursor.getString(nameCol),
                         createdMs = cursor.getLong(crCol),
-                        trackCount = cursor.getInt(cntCol)
+                        trackCount = cursor.getInt(cntCol),
+                        coverPath = cover
                     )
                 )
             }
@@ -277,22 +303,61 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         return list
     }
 
-    fun addTrackToPlaylist(playlistId: Long, trackId: Long) {
+    fun renamePlaylist(playlistId: Long, newName: String) {
         val db = writableDatabase
-        val countQuery = "SELECT COUNT(*) FROM $TABLE_PLAYLIST_ITEMS WHERE $COL_ITEM_PL_ID = ?"
-        var nextOrder = 0
-        db.rawQuery(countQuery, arrayOf(playlistId.toString())).use {
-            if (it.moveToNext()) {
-                nextOrder = it.getInt(0)
-            }
-        }
-
         val values = ContentValues().apply {
-            put(COL_ITEM_PL_ID, playlistId)
-            put(COL_ITEM_TRACK_ID, trackId)
-            put(COL_ITEM_ORDER, nextOrder)
+            put(COL_PL_NAME, newName.trim())
         }
-        db.insertWithOnConflict(TABLE_PLAYLIST_ITEMS, null, values, SQLiteDatabase.CONFLICT_REPLACE)
+        db.update(TABLE_PLAYLISTS, values, "$COL_PL_ID = ?", arrayOf(playlistId.toString()))
+    }
+
+    fun updatePlaylistCover(playlistId: Long, coverPath: String) {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put(COL_PL_COVER_PATH, coverPath)
+        }
+        db.update(TABLE_PLAYLISTS, values, "$COL_PL_ID = ?", arrayOf(playlistId.toString()))
+    }
+
+    fun addTracksToPlaylist(playlistId: Long, trackIds: List<Long>) {
+        if (trackIds.isEmpty()) return
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            val existingIds = mutableSetOf<Long>()
+            var maxOrder = -1
+            val query = "SELECT $COL_ITEM_TRACK_ID, $COL_ITEM_ORDER FROM $TABLE_PLAYLIST_ITEMS WHERE $COL_ITEM_PL_ID = ? ORDER BY $COL_ITEM_ORDER ASC"
+            db.rawQuery(query, arrayOf(playlistId.toString())).use { cursor ->
+                val trCol = cursor.getColumnIndexOrThrow(COL_ITEM_TRACK_ID)
+                val ordCol = cursor.getColumnIndexOrThrow(COL_ITEM_ORDER)
+                while (cursor.moveToNext()) {
+                    existingIds.add(cursor.getLong(trCol))
+                    val order = cursor.getInt(ordCol)
+                    if (order > maxOrder) maxOrder = order
+                }
+            }
+            var nextOrder = maxOrder + 1
+            for (trackId in trackIds) {
+                if (!existingIds.contains(trackId)) {
+                    val values = ContentValues().apply {
+                        put(COL_ITEM_PL_ID, playlistId)
+                        put(COL_ITEM_TRACK_ID, trackId)
+                        put(COL_ITEM_ORDER, nextOrder++)
+                    }
+                    db.insert(TABLE_PLAYLIST_ITEMS, null, values)
+                    existingIds.add(trackId)
+                }
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            try {
+                db.endTransaction()
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun addTrackToPlaylist(playlistId: Long, trackId: Long) {
+        addTracksToPlaylist(playlistId, listOf(trackId))
     }
 
     fun getTracksForPlaylist(playlistId: Long): List<Long> {
@@ -532,9 +597,80 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         } catch (_: Exception) {}
     }
 
+    // --- Playback History Management ---
+
+    fun recordPlaybackHistory(trackId: Long) {
+        val now = System.currentTimeMillis()
+        val db = writableDatabase
+        var isDuplicate = false
+        try {
+            db.rawQuery(
+                "SELECT $COL_HISTORY_TRACK_ID, $COL_HISTORY_PLAYED_AT FROM $TABLE_PLAYBACK_HISTORY ORDER BY $COL_HISTORY_ID DESC LIMIT 1",
+                null
+            ).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val lastTrackId = cursor.getLong(0)
+                    val lastPlayedAt = cursor.getLong(1)
+                    if (lastTrackId == trackId && (now - lastPlayedAt) < 5000L) {
+                        isDuplicate = true
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        if (!isDuplicate) {
+            val values = ContentValues().apply {
+                put(COL_HISTORY_TRACK_ID, trackId)
+                put(COL_HISTORY_PLAYED_AT, now)
+            }
+            db.insert(TABLE_PLAYBACK_HISTORY, null, values)
+            try {
+                db.execSQL(
+                    """
+                    DELETE FROM $TABLE_PLAYBACK_HISTORY
+                    WHERE $COL_HISTORY_ID NOT IN (
+                        SELECT $COL_HISTORY_ID FROM $TABLE_PLAYBACK_HISTORY
+                        ORDER BY $COL_HISTORY_ID DESC
+                        LIMIT 200
+                    )
+                    """.trimIndent()
+                )
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun getPlaybackHistory(limit: Int = 100): List<Pair<Long, Long>> {
+        val list = mutableListOf<Pair<Long, Long>>()
+        val db = readableDatabase
+        try {
+            db.rawQuery(
+                "SELECT $COL_HISTORY_ID, $COL_HISTORY_TRACK_ID FROM $TABLE_PLAYBACK_HISTORY ORDER BY $COL_HISTORY_ID DESC LIMIT ?",
+                arrayOf(limit.coerceAtLeast(1).toString())
+            ).use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(COL_HISTORY_ID)
+                val trackIdCol = cursor.getColumnIndexOrThrow(COL_HISTORY_TRACK_ID)
+                while (cursor.moveToNext()) {
+                    list.add(cursor.getLong(idCol) to cursor.getLong(trackIdCol))
+                }
+            }
+        } catch (_: Exception) {}
+        return list
+    }
+
+    fun clearPlaybackHistory() {
+        try {
+            writableDatabase.delete(TABLE_PLAYBACK_HISTORY, null, null)
+        } catch (_: Exception) {}
+    }
+
     companion object {
         const val DATABASE_NAME = "poweramp_library.db"
-        const val DATABASE_VERSION = 4
+        const val DATABASE_VERSION = 6
+
+        const val TABLE_PLAYBACK_HISTORY = "playback_history"
+        const val COL_HISTORY_ID = "id"
+        const val COL_HISTORY_TRACK_ID = "track_id"
+        const val COL_HISTORY_PLAYED_AT = "played_at_ms"
 
         const val TABLE_STATS = "track_stats"
         const val COL_TRACK_ID = "track_id"
@@ -546,6 +682,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         const val COL_PL_ID = "id"
         const val COL_PL_NAME = "name"
         const val COL_PL_CREATED = "created_ms"
+        const val COL_PL_COVER_PATH = "cover_path"
 
         const val TABLE_PLAYLIST_ITEMS = "playlist_items"
         const val COL_ITEM_PL_ID = "playlist_id"

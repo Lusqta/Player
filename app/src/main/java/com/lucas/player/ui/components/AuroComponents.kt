@@ -165,6 +165,29 @@ fun rememberTrackCover(track: Track?, size: Int = 300): Bitmap? {
     return bitmap
 }
 
+@Composable
+fun rememberPlaylistCover(coverPath: String?, fallbackTrack: Track?, size: Int = 300): Bitmap? {
+    val fallbackCover = rememberTrackCover(fallbackTrack, size)
+    if (coverPath.isNullOrBlank()) {
+        return fallbackCover
+    }
+    var bitmap by remember(coverPath, size) {
+        mutableStateOf(CoverArtLoader.getCachedPlaylistCover(coverPath))
+    }
+    LaunchedEffect(coverPath, size) {
+        if (!coverPath.isNullOrBlank()) {
+            if (bitmap == null) {
+                CoverArtLoader.loadPlaylistCover(coverPath, size) { bmp ->
+                    bitmap = bmp
+                }
+            }
+        } else {
+            bitmap = null
+        }
+    }
+    return bitmap ?: fallbackCover
+}
+
 /**
  * EDITORIAL FLOATING NAVBAR (Editorial Dark OLED)
  * Pílula flutuante (altura 56dp, CircleShape, margem lateral 24dp).
@@ -526,7 +549,9 @@ fun EditorialSectionHeader(
     title: String,
     modifier: Modifier = Modifier,
     actionLabel: String? = stringResource(R.string.view_all),
-    onAction: (() -> Unit)? = null
+    onAction: (() -> Unit)? = null,
+    secondaryActionLabel: String? = null,
+    onSecondaryAction: (() -> Unit)? = null
 ) {
     Row(
         modifier = modifier
@@ -540,23 +565,47 @@ fun EditorialSectionHeader(
             style = AuroType.SectionTitle,
             color = AuroColor.TextPrimary
         )
-        if (actionLabel != null && onAction != null) {
-            Box(
-                modifier = Modifier
-                    .height(24.dp)
-                    .clip(CircleShape)
-                    .background(AuroColor.PillMuted)
-                    .clickable(onClick = onAction)
-                    .padding(horizontal = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = actionLabel,
-                    style = AuroType.MicroLabel.copy(
-                        fontSize = 11.sp,
-                        color = Color.White.copy(alpha = 0.75f)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (secondaryActionLabel != null && onSecondaryAction != null) {
+                Box(
+                    modifier = Modifier
+                        .height(24.dp)
+                        .clip(CircleShape)
+                        .background(AuroColor.PillMuted)
+                        .clickable(onClick = onSecondaryAction)
+                        .padding(horizontal = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = secondaryActionLabel,
+                        style = AuroType.MicroLabel.copy(
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.75f)
+                        )
                     )
-                )
+                }
+            }
+            if (actionLabel != null && onAction != null) {
+                Box(
+                    modifier = Modifier
+                        .height(24.dp)
+                        .clip(CircleShape)
+                        .background(AuroColor.PillMuted)
+                        .clickable(onClick = onAction)
+                        .padding(horizontal = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = actionLabel,
+                        style = AuroType.MicroLabel.copy(
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.75f)
+                        )
+                    )
+                }
             }
         }
     }

@@ -363,4 +363,30 @@
     <string name="menu_queue">Playback Queue</string>
     <string name="menu_sleep_timer">Sleep Timer</string>
     <string name="menu_about">About</string>
+
+    <!-- Playlist Management -->
+    <string name="playlist_add_tracks">Add songs</string>
+    <string name="playlist_add_short">Add</string>
+    <string name="playlist_edit_title">Edit playlist</string>
+    <string name="playlist_edit_action">Edit name &amp; cover</string>
+    <string name="playlist_change_cover">Change cover</string>
+    <string name="playlist_remove_cover">Remove cover</string>
+    <string name="playlist_delete_action">Delete playlist</string>
+    <string name="playlist_delete_confirm">Delete this playlist? Your audio files won\'t be deleted.</string>
+    <string name="playlist_deleted">Playlist deleted</string>
+    <string name="playlist_remove_track">Remove from playlist</string>
+    <string name="playlist_already_added">In playlist</string>
+    <string name="playlist_add_tracks_title">Add songs</string>
+
+    <!-- Apple Music Style Queue & Continuous History -->
+    <string name="lyrics_tab_label">Lyrics</string>
+    <string name="queue_tab_label">Queue</string>
+    <string name="queue_mode_up_next">Up Next</string>
+    <string name="queue_mode_history">History</string>
+    <string name="queue_section_continuing">Continuing</string>
+    <string name="queue_item_removed">Removed from queue</string>
+    <string name="queue_manual_cleared">Queue cleared</string>
+    <string name="history_clear">Clear history</string>
+    <string name="history_empty">No listening history yet</string>
+    <string name="history_added_next">Added to play next</string>
 </resources>

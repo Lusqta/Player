@@ -307,12 +307,20 @@ class LibraryRepository() {
     fun getUserPlaylists(): List<UserPlaylist> {
         val db = getOrCreateDb() ?: return emptyList()
         return db.getPlaylists().map {
-            UserPlaylist(it.id, it.name, it.trackCount, it.createdMs)
+            UserPlaylist(it.id, it.name, it.trackCount, it.createdMs, it.coverPath)
         }
     }
 
     fun createPlaylist(name: String): Long {
         return getOrCreateDb()?.createPlaylist(name) ?: -1L
+    }
+
+    fun renamePlaylist(playlistId: Long, newName: String) {
+        getOrCreateDb()?.renamePlaylist(playlistId, newName)
+    }
+
+    fun updatePlaylistCover(playlistId: Long, coverPath: String) {
+        getOrCreateDb()?.updatePlaylistCover(playlistId, coverPath)
     }
 
     fun getTracksForUserPlaylist(playlistId: Long): List<Track> {
@@ -326,12 +334,42 @@ class LibraryRepository() {
         getOrCreateDb()?.addTrackToPlaylist(playlistId, trackId)
     }
 
+    fun addTracksToPlaylist(playlistId: Long, trackIds: List<Long>) {
+        getOrCreateDb()?.addTracksToPlaylist(playlistId, trackIds)
+    }
+
     fun removeTrackFromUserPlaylist(playlistId: Long, trackId: Long) {
         getOrCreateDb()?.removeTrackFromPlaylist(playlistId, trackId)
     }
 
     fun deletePlaylist(playlistId: Long) {
-        getOrCreateDb()?.deletePlaylist(playlistId)
+        val db = getOrCreateDb() ?: return
+        val pl = db.getPlaylists().firstOrNull { it.id == playlistId }
+        if (pl != null && pl.coverPath.isNotBlank()) {
+            CoverArtLoader.deletePlaylistCover(pl.coverPath)
+        }
+        db.deletePlaylist(playlistId)
+    }
+
+    // --- Histórico Contínuo ---
+
+    fun recordPlaybackHistory(trackId: Long) {
+        getOrCreateDb()?.recordPlaybackHistory(trackId)
+    }
+
+    fun getPlaybackHistory(limit: Int = 100): List<Pair<Long, Track>> {
+        val db = getOrCreateDb() ?: return emptyList()
+        val historyRows = db.getPlaybackHistory(limit)
+        if (historyRows.isEmpty()) return emptyList()
+        val trackMap = getAllTracks().associateBy { it.id }
+        return historyRows.mapNotNull { (rowId, trackId) ->
+            val track = trackMap[trackId] ?: return@mapNotNull null
+            rowId to track
+        }
+    }
+
+    fun clearPlaybackHistory() {
+        getOrCreateDb()?.clearPlaybackHistory()
     }
 
     // --- Ordenação Dinâmica ---

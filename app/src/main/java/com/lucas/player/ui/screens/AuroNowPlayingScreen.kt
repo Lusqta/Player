@@ -12,10 +12,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
@@ -39,6 +42,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -46,12 +50,15 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.lucas.player.R
 import com.lucas.player.data.LyricsManager
 import com.lucas.player.model.Track
+import com.lucas.player.queue.QueueSection
 import com.lucas.player.queue.RepeatMode
 import com.lucas.player.queue.ShuffleMode
 import com.lucas.player.ui.components.*
@@ -61,6 +68,17 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.roundToInt
+
+enum class PlayerSheetTab {
+    LYRICS,
+    QUEUE
+}
+
+enum class QueueViewMode {
+    UP_NEXT,
+    HISTORY
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,10 +92,18 @@ fun AuroNowPlayingScreen(
     repeatMode: RepeatMode,
     priorityTracks: List<Track> = emptyList(),
     regularTracks: List<Track> = emptyList(),
+    playbackHistory: List<Pair<Long, Track>> = emptyList(),
     currentTrackId: Long = track?.id ?: -1L,
     onQueueTrackClick: (Track, Int, Boolean) -> Unit = { _, _, _ -> },
     onRemoveQueueTrack: (Track) -> Unit = {},
     onClearQueue: () -> Unit = {},
+    onClearManualQueue: () -> Unit = onClearQueue,
+    onClearHistory: () -> Unit = {},
+    onMoveUpcomingItem: (section: QueueSection, from: Int, to: Int) -> Unit = { _, _, _ -> },
+    onRemoveUpcomingItem: (section: QueueSection, index: Int) -> Track? = { _, _ -> null },
+    onInsertUpcomingItem: (section: QueueSection, index: Int, track: Track) -> Unit = { _, _, _ -> },
+    onPlayTrack: (Track) -> Unit = { _ -> },
+    onEnqueueNext: (Track) -> Unit = {},
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
@@ -119,8 +145,10 @@ fun AuroNowPlayingScreen(
     val coroutineScope = rememberCoroutineScope()
 
     val expandProgress = remember { Animatable(0f) }
+    var activeSheetTab by remember { mutableStateOf(PlayerSheetTab.LYRICS) }
+    var queueViewMode by remember { mutableStateOf(QueueViewMode.UP_NEXT) }
+    val snackbarState = rememberAuroSnackbarState()
     var showOptionsMenu by remember { mutableStateOf(false) }
-    var showQueueSheet by remember { mutableStateOf(false) }
 
     var lyricsData by remember(track.id) { mutableStateOf<LyricsManager.Lyrics?>(null) }
     LaunchedEffect(track.id) {
@@ -604,79 +632,233 @@ fun AuroNowPlayingScreen(
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Cabeçalho da aba (toque ou arrasto contínuo expande/recolhe)
-                    Box(
+                    // Cabeçalho da aba dividida (60dp, 2 metades: Letras | Fila)
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(collapsedPillHeight)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) {
-                                AuroHaptics.click(view)
-                                val target = if (progress < 0.5f) 1f else 0f
-                                coroutineScope.launch {
-                                    expandProgress.animateTo(target, AuroMotion.spatialDefault())
-                                }
-                            }
-                            .pointerInput(screenHeight) {
-                                val totalDist = (collapsedTop - expandedTop).toPx().coerceAtLeast(1f)
-                                detectDragGestures(
-                                    onDragEnd = {
-                                        val target = if (expandProgress.value > 0.22f) 1f else 0f
+                            .height(collapsedPillHeight),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Metade Esquerda: Letras
+                        val isLyricsActive = activeSheetTab == PlayerSheetTab.LYRICS
+                        val lyricsTextColor = if (progress >= 0.5f) {
+                            if (isLyricsActive) Color.White else Color.White.copy(alpha = 0.45f)
+                        } else {
+                            Color.White.copy(alpha = 0.75f)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    AuroHaptics.click(view)
+                                    if (progress < 0.5f) {
+                                        activeSheetTab = PlayerSheetTab.LYRICS
                                         coroutineScope.launch {
-                                            expandProgress.animateTo(target, AuroMotion.spatialDefault())
+                                            expandProgress.animateTo(1f, AuroMotion.spatialDefault())
+                                        }
+                                    } else {
+                                        if (activeSheetTab == PlayerSheetTab.LYRICS) {
+                                            coroutineScope.launch {
+                                                expandProgress.animateTo(0f, AuroMotion.spatialDefault())
+                                            }
+                                        } else {
+                                            activeSheetTab = PlayerSheetTab.LYRICS
                                         }
                                     }
-                                ) { change, drag ->
-                                    change.consume()
-                                    val delta = -drag.y / totalDist
-                                    coroutineScope.launch {
-                                        expandProgress.snapTo((expandProgress.value + delta).coerceIn(0f, 1f))
+                                }
+                                .pointerInput(screenHeight) {
+                                    val totalDist = (collapsedTop - expandedTop).toPx().coerceAtLeast(1f)
+                                    detectDragGestures(
+                                        onDragEnd = {
+                                            val target = if (expandProgress.value > 0.22f) 1f else 0f
+                                            coroutineScope.launch {
+                                                expandProgress.animateTo(target, AuroMotion.spatialDefault())
+                                            }
+                                        }
+                                    ) { change, drag ->
+                                        change.consume()
+                                        if (progress < 0.3f && activeSheetTab != PlayerSheetTab.LYRICS) {
+                                            activeSheetTab = PlayerSheetTab.LYRICS
+                                        }
+                                        val delta = -drag.y / totalDist
+                                        coroutineScope.launch {
+                                            expandProgress.snapTo((expandProgress.value + delta).coerceIn(0f, 1f))
+                                        }
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.lyrics_tab_label),
+                                    style = TextStyle(
+                                        fontFamily = AuroFontFamily,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    color = lyricsTextColor
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Icon(
+                                    imageVector = if (progress >= 0.5f && isLyricsActive) Icons.Rounded.KeyboardArrowDown else Icons.Rounded.KeyboardArrowUp,
+                                    contentDescription = null,
+                                    tint = lyricsTextColor.copy(alpha = 0.85f),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+
+                        // Divisor Vertical Central (0.5dp, 24dp)
+                        Box(
+                            modifier = Modifier
+                                .width(0.5.dp)
+                                .height(24.dp)
+                                .background(Color.White.copy(alpha = 0.12f))
+                        )
+
+                        // Metade Direita: Fila
+                        val isQueueActive = activeSheetTab == PlayerSheetTab.QUEUE
+                        val queueTextColor = if (progress >= 0.5f) {
+                            if (isQueueActive) Color.White else Color.White.copy(alpha = 0.45f)
+                        } else {
+                            Color.White.copy(alpha = 0.75f)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    AuroHaptics.click(view)
+                                    if (progress < 0.5f) {
+                                        activeSheetTab = PlayerSheetTab.QUEUE
+                                        coroutineScope.launch {
+                                            expandProgress.animateTo(1f, AuroMotion.spatialDefault())
+                                        }
+                                    } else {
+                                        if (activeSheetTab == PlayerSheetTab.QUEUE) {
+                                            coroutineScope.launch {
+                                                expandProgress.animateTo(0f, AuroMotion.spatialDefault())
+                                            }
+                                        } else {
+                                            activeSheetTab = PlayerSheetTab.QUEUE
+                                        }
                                     }
                                 }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                                .pointerInput(screenHeight) {
+                                    val totalDist = (collapsedTop - expandedTop).toPx().coerceAtLeast(1f)
+                                    detectDragGestures(
+                                        onDragEnd = {
+                                            val target = if (expandProgress.value > 0.22f) 1f else 0f
+                                            coroutineScope.launch {
+                                                expandProgress.animateTo(target, AuroMotion.spatialDefault())
+                                            }
+                                        }
+                                    ) { change, drag ->
+                                        change.consume()
+                                        if (progress < 0.3f && activeSheetTab != PlayerSheetTab.QUEUE) {
+                                            activeSheetTab = PlayerSheetTab.QUEUE
+                                        }
+                                        val delta = -drag.y / totalDist
+                                        coroutineScope.launch {
+                                            expandProgress.snapTo((expandProgress.value + delta).coerceIn(0f, 1f))
+                                        }
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = stringResource(R.string.lyrics_label),
-                                style = TextStyle(
-                                    fontFamily = AuroFontFamily,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                ),
-                                color = Color.White.copy(alpha = 0.70f)
-                            )
-                            Spacer(modifier = Modifier.width(5.dp))
-                            Icon(
-                                imageVector = if (progress >= 0.5f) Icons.Rounded.KeyboardArrowDown else Icons.Rounded.KeyboardArrowUp,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.65f),
-                                modifier = Modifier.size(16.dp)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.queue_tab_label),
+                                    style = TextStyle(
+                                        fontFamily = AuroFontFamily,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    color = queueTextColor
+                                )
+                                Spacer(modifier = Modifier.width(5.dp))
+                                Icon(
+                                    imageVector = if (progress >= 0.5f && isQueueActive) Icons.Rounded.KeyboardArrowDown else Icons.Rounded.KeyboardArrowUp,
+                                    contentDescription = null,
+                                    tint = queueTextColor.copy(alpha = 0.85f),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
                         }
                     }
 
                     if (progress > 0.08f) {
-                        LyricsContentView(
-                            lyrics = lyricsData,
-                            progressMs = progressMs,
-                            durationMs = durationMs,
-                            onSeek = onSeek,
+                        Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .weight(1f)
                                 .navigationBarsPadding()
-                                .padding(horizontal = 24.dp)
                                 .graphicsLayer { alpha = ((progress - 0.1f) * 1.2f).coerceIn(0f, 1f) }
-                        )
+                        ) {
+                            if (activeSheetTab == PlayerSheetTab.LYRICS) {
+                                LyricsContentView(
+                                    lyrics = lyricsData,
+                                    progressMs = progressMs,
+                                    durationMs = durationMs,
+                                    onSeek = onSeek,
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 24.dp)
+                                )
+                            } else {
+                                ExpandedQueueSheetView(
+                                    queueViewMode = queueViewMode,
+                                    onQueueViewModeChange = { queueViewMode = it },
+                                    priorityTracks = priorityTracks,
+                                    regularTracks = regularTracks,
+                                    historyList = playbackHistory,
+                                    currentTrackId = currentTrackId,
+                                    shuffleMode = shuffleMode,
+                                    repeatMode = repeatMode,
+                                    onToggleShuffle = onToggleShuffle,
+                                    onToggleRepeat = onToggleRepeat,
+                                    onClearManualQueue = onClearManualQueue,
+                                    onClearHistory = onClearHistory,
+                                    onMoveUpcomingItem = onMoveUpcomingItem,
+                                    onRemoveUpcomingItem = onRemoveUpcomingItem,
+                                    onInsertUpcomingItem = onInsertUpcomingItem,
+                                    onTrackClick = onQueueTrackClick,
+                                    onPlayTrack = onPlayTrack,
+                                    onEnqueueNext = onEnqueueNext,
+                                    showSnackbar = { msg, act, onAct ->
+                                        snackbarState.show(msg, act, onAct)
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 16.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
+
+            // Snackbar do Player
+            AuroSnackbarHost(
+                state = snackbarState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 72.dp, start = 16.dp, end = 16.dp)
+            )
         }
     }
 
@@ -706,7 +888,11 @@ fun AuroNowPlayingScreen(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 QuickMenuItem(Icons.AutoMirrored.Outlined.QueueMusic, stringResource(R.string.menu_queue)) {
-                    showOptionsMenu = false; showQueueSheet = true
+                    showOptionsMenu = false
+                    activeSheetTab = PlayerSheetTab.QUEUE
+                    coroutineScope.launch {
+                        expandProgress.animateTo(1f, AuroMotion.spatialDefault())
+                    }
                 }
                 QuickMenuItem(Icons.Rounded.GraphicEq, stringResource(R.string.tab_equalizer)) {
                     showOptionsMenu = false; onOpenEqualizer()
@@ -720,47 +906,6 @@ fun AuroNowPlayingScreen(
                 QuickMenuItem(Icons.Rounded.Info, stringResource(R.string.context_track_info)) {
                     showOptionsMenu = false; onOpenTrackInfo()
                 }
-            }
-        }
-    }
-
-    // ─────────── Bottom Sheet: Fila ───────────
-    if (showQueueSheet) {
-        ModalBottomSheet(
-            onDismissRequest = { showQueueSheet = false },
-            containerColor = AuroColor.SurfaceGrouped,
-            scrimColor = Color.Black.copy(alpha = 0.65f),
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            dragHandle = {
-                Box(
-                    modifier = Modifier
-                        .padding(vertical = 10.dp)
-                        .width(36.dp)
-                        .height(4.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.25f))
-                )
-            }
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.75f)
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 24.dp)
-            ) {
-                InlineQueueView(
-                    priorityTracks = priorityTracks,
-                    regularTracks = regularTracks,
-                    currentTrackId = currentTrackId,
-                    shuffleMode = shuffleMode,
-                    repeatMode = repeatMode,
-                    onToggleShuffle = onToggleShuffle,
-                    onToggleRepeat = onToggleRepeat,
-                    onClearQueue = onClearQueue,
-                    onTrackClick = onQueueTrackClick,
-                    onRemoveTrack = onRemoveQueueTrack
-                )
             }
         }
     }
@@ -888,34 +1033,55 @@ private fun LyricsContentView(
     }
 }
 
-// ─────────────────────── Componente de Fila Inline (InlineQueueView - Acromático) ───────────────────────
+// ─────────────────────── Componente de Fila Expandida (ExpandedQueueSheetView) ───────────────────────
 
 @Composable
-private fun InlineQueueView(
+private fun ExpandedQueueSheetView(
+    queueViewMode: QueueViewMode,
+    onQueueViewModeChange: (QueueViewMode) -> Unit,
     priorityTracks: List<Track>,
     regularTracks: List<Track>,
+    historyList: List<Pair<Long, Track>>,
     currentTrackId: Long,
     shuffleMode: ShuffleMode,
     repeatMode: RepeatMode,
     onToggleShuffle: () -> Unit,
     onToggleRepeat: () -> Unit,
-    onClearQueue: () -> Unit,
+    onClearManualQueue: () -> Unit,
+    onClearHistory: () -> Unit,
+    onMoveUpcomingItem: (section: QueueSection, from: Int, to: Int) -> Unit,
+    onRemoveUpcomingItem: (section: QueueSection, index: Int) -> Track?,
+    onInsertUpcomingItem: (section: QueueSection, index: Int, track: Track) -> Unit,
     onTrackClick: (Track, Int, Boolean) -> Unit,
-    onRemoveTrack: (Track) -> Unit
+    onPlayTrack: (Track) -> Unit,
+    onEnqueueNext: (Track) -> Unit,
+    showSnackbar: (message: String, actionLabel: String?, onAction: (() -> Unit)?) -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val view = LocalView.current
-    val totalTracks = priorityTracks.size + regularTracks.size
+    val density = LocalDensity.current
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // 3 Pílulas no topo: Aleatório, Repetir, Limpar (100% Branco Acromático)
+    var localPriorityTracks by remember(priorityTracks) { mutableStateOf(priorityTracks) }
+    var localRegularTracks by remember(regularTracks) { mutableStateOf(regularTracks) }
+
+    var draggingSection by remember { mutableStateOf<QueueSection?>(null) }
+    var draggingInitialIndex by remember { mutableStateOf<Int?>(null) }
+    var draggingCurrentIndex by remember { mutableStateOf<Int?>(null) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+
+    val itemHeightPx = with(density) { 62.dp.toPx() }
+
+    Column(modifier = modifier) {
+        // 1. Linha Superior: 3 Pílulas Rápidas (Aleatório, Repetir, Limpar)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
+                .padding(vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 1. Aleatório
+            // Aleatório
             val isShuffleActive = shuffleMode != ShuffleMode.OFF
             Row(
                 modifier = Modifier
@@ -951,7 +1117,7 @@ private fun InlineQueueView(
                 )
             }
 
-            // 2. Repetir
+            // Repetir
             val isRepeatActive = repeatMode != RepeatMode.OFF
             Row(
                 modifier = Modifier
@@ -987,7 +1153,7 @@ private fun InlineQueueView(
                 )
             }
 
-            // 3. Limpar
+            // Limpar Fila Prioritária/Manual
             Row(
                 modifier = Modifier
                     .weight(1f)
@@ -997,7 +1163,8 @@ private fun InlineQueueView(
                     .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
                     .clickable {
                         AuroHaptics.click(view)
-                        onClearQueue()
+                        onClearManualQueue()
+                        showSnackbar(context.getString(R.string.queue_manual_cleared), null, null)
                     },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
@@ -1019,69 +1186,361 @@ private fun InlineQueueView(
             }
         }
 
-        if (totalTracks == 0) {
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // 2. Segmented Control / Alternador de Modo ("A seguir" | "Histórico")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(Color.White.copy(alpha = 0.06f))
+                .border(0.5.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(18.dp))
+                .padding(2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val isUpNext = queueViewMode == QueueViewMode.UP_NEXT
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (isUpNext) Color.White.copy(alpha = 0.16f) else Color.Transparent)
+                    .clickable {
+                        AuroHaptics.click(view)
+                        onQueueViewModeChange(QueueViewMode.UP_NEXT)
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = stringResource(R.string.end_of_queue),
-                    style = AuroType.Subtitle.copy(color = AuroColor.TextSecondary)
+                    text = stringResource(R.string.queue_mode_up_next),
+                    style = AuroType.Caption.copy(
+                        fontWeight = if (isUpNext) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (isUpNext) Color.White else AuroColor.TextSecondary
+                    )
                 )
             }
-        } else {
-            LazyColumn(
+
+            val isHistory = queueViewMode == QueueViewMode.HISTORY
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentPadding = PaddingValues(bottom = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (isHistory) Color.White.copy(alpha = 0.16f) else Color.Transparent)
+                    .clickable {
+                        AuroHaptics.click(view)
+                        onQueueViewModeChange(QueueViewMode.HISTORY)
+                    },
+                contentAlignment = Alignment.Center
             ) {
-                if (priorityTracks.isNotEmpty()) {
-                    item {
+                Text(
+                    text = stringResource(R.string.queue_mode_history),
+                    style = AuroType.Caption.copy(
+                        fontWeight = if (isHistory) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (isHistory) Color.White else AuroColor.TextSecondary
+                    )
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 3. Conteúdo do Modo Selecionado
+        if (queueViewMode == QueueViewMode.UP_NEXT) {
+            val totalUpcoming = localPriorityTracks.size + localRegularTracks.size
+            if (totalUpcoming == 0) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.end_of_queue),
+                        style = AuroType.Subtitle.copy(color = AuroColor.TextSecondary),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentPadding = PaddingValues(bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Seção A Seguir (Fila Prioritária)
+                    if (localPriorityTracks.isNotEmpty()) {
+                        item(key = "header_priority") {
+                            Text(
+                                text = stringResource(R.string.queue_mode_up_next),
+                                style = AuroType.Caption.copy(
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                ),
+                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                            )
+                        }
+
+                        itemsIndexed(localPriorityTracks, key = { _, t -> "p_${t.id}" }) { index, track ->
+                            val isThisDragging = draggingSection == QueueSection.PRIORITY && draggingCurrentIndex == index
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .zIndex(if (isThisDragging) 2f else 0f)
+                                    .graphicsLayer {
+                                        if (isThisDragging) {
+                                            translationY = dragOffsetY
+                                            scaleX = 1.03f
+                                            scaleY = 1.03f
+                                        }
+                                    }
+                            ) {
+                                UpcomingTrackRow(
+                                    track = track,
+                                    index = index,
+                                    section = QueueSection.PRIORITY,
+                                    isPlaying = track.id == currentTrackId,
+                                    isDragging = isThisDragging,
+                                    onClick = { onTrackClick(track, index, true) },
+                                    onSwipeDelete = {
+                                        val removed = onRemoveUpcomingItem(QueueSection.PRIORITY, index)
+                                        if (removed != null) {
+                                            showSnackbar(
+                                                context.getString(R.string.queue_item_removed),
+                                                context.getString(R.string.undo)
+                                            ) {
+                                                onInsertUpcomingItem(QueueSection.PRIORITY, index, removed)
+                                            }
+                                        }
+                                    },
+                                    dragHandleModifier = Modifier.pointerInput(localPriorityTracks.size) {
+                                        detectVerticalDragGestures(
+                                            onDragStart = {
+                                                AuroHaptics.sliderTick(view)
+                                                draggingSection = QueueSection.PRIORITY
+                                                draggingInitialIndex = index
+                                                draggingCurrentIndex = index
+                                                dragOffsetY = 0f
+                                            },
+                                            onVerticalDrag = { change, dragAmount ->
+                                                change.consume()
+                                                dragOffsetY += dragAmount
+
+                                                val slotsShifted = (dragOffsetY / itemHeightPx).roundToInt()
+                                                val currentIdx = draggingCurrentIndex ?: index
+                                                val targetIdx = (currentIdx + slotsShifted).coerceIn(0, localPriorityTracks.size - 1)
+
+                                                if (targetIdx != currentIdx) {
+                                                    AuroHaptics.sliderTick(view)
+                                                    val list = localPriorityTracks.toMutableList()
+                                                    val item = list.removeAt(currentIdx)
+                                                    list.add(targetIdx, item)
+                                                    localPriorityTracks = list
+                                                    dragOffsetY -= (targetIdx - currentIdx) * itemHeightPx
+                                                    draggingCurrentIndex = targetIdx
+                                                }
+                                            },
+                                            onDragEnd = {
+                                                val initial = draggingInitialIndex
+                                                val target = draggingCurrentIndex
+                                                if (initial != null && target != null && initial != target) {
+                                                    onMoveUpcomingItem(QueueSection.PRIORITY, initial, target)
+                                                }
+                                                draggingSection = null
+                                                draggingInitialIndex = null
+                                                draggingCurrentIndex = null
+                                                dragOffsetY = 0f
+                                            },
+                                            onDragCancel = {
+                                                draggingSection = null
+                                                draggingInitialIndex = null
+                                                draggingCurrentIndex = null
+                                                dragOffsetY = 0f
+                                                localPriorityTracks = priorityTracks
+                                            }
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    // Seção Continuando (Fila Regular)
+                    if (localRegularTracks.isNotEmpty()) {
+                        item(key = "header_regular") {
+                            Text(
+                                text = stringResource(R.string.queue_section_continuing),
+                                style = AuroType.Caption.copy(
+                                    color = AuroColor.TextTertiary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                ),
+                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                            )
+                        }
+
+                        itemsIndexed(localRegularTracks, key = { _, t -> "r_${t.id}" }) { index, track ->
+                            val isThisDragging = draggingSection == QueueSection.QUEUE && draggingCurrentIndex == index
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .zIndex(if (isThisDragging) 2f else 0f)
+                                    .graphicsLayer {
+                                        if (isThisDragging) {
+                                            translationY = dragOffsetY
+                                            scaleX = 1.03f
+                                            scaleY = 1.03f
+                                        }
+                                    }
+                            ) {
+                                UpcomingTrackRow(
+                                    track = track,
+                                    index = index,
+                                    section = QueueSection.QUEUE,
+                                    isPlaying = track.id == currentTrackId,
+                                    isDragging = isThisDragging,
+                                    onClick = { onTrackClick(track, index, false) },
+                                    onSwipeDelete = {
+                                        val removed = onRemoveUpcomingItem(QueueSection.QUEUE, index)
+                                        if (removed != null) {
+                                            showSnackbar(
+                                                context.getString(R.string.queue_item_removed),
+                                                context.getString(R.string.undo)
+                                            ) {
+                                                onInsertUpcomingItem(QueueSection.QUEUE, index, removed)
+                                            }
+                                        }
+                                    },
+                                    dragHandleModifier = Modifier.pointerInput(localRegularTracks.size) {
+                                        detectVerticalDragGestures(
+                                            onDragStart = {
+                                                AuroHaptics.sliderTick(view)
+                                                draggingSection = QueueSection.QUEUE
+                                                draggingInitialIndex = index
+                                                draggingCurrentIndex = index
+                                                dragOffsetY = 0f
+                                            },
+                                            onVerticalDrag = { change, dragAmount ->
+                                                change.consume()
+                                                dragOffsetY += dragAmount
+
+                                                val slotsShifted = (dragOffsetY / itemHeightPx).roundToInt()
+                                                val currentIdx = draggingCurrentIndex ?: index
+                                                val targetIdx = (currentIdx + slotsShifted).coerceIn(0, localRegularTracks.size - 1)
+
+                                                if (targetIdx != currentIdx) {
+                                                    AuroHaptics.sliderTick(view)
+                                                    val list = localRegularTracks.toMutableList()
+                                                    val item = list.removeAt(currentIdx)
+                                                    list.add(targetIdx, item)
+                                                    localRegularTracks = list
+                                                    dragOffsetY -= (targetIdx - currentIdx) * itemHeightPx
+                                                    draggingCurrentIndex = targetIdx
+                                                }
+                                            },
+                                            onDragEnd = {
+                                                val initial = draggingInitialIndex
+                                                val target = draggingCurrentIndex
+                                                if (initial != null && target != null && initial != target) {
+                                                    onMoveUpcomingItem(QueueSection.QUEUE, initial, target)
+                                                }
+                                                draggingSection = null
+                                                draggingInitialIndex = null
+                                                draggingCurrentIndex = null
+                                                dragOffsetY = 0f
+                                            },
+                                            onDragCancel = {
+                                                draggingSection = null
+                                                draggingInitialIndex = null
+                                                draggingCurrentIndex = null
+                                                dragOffsetY = 0f
+                                                localRegularTracks = regularTracks
+                                            }
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // Modo HISTÓRICO
+            if (historyList.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = stringResource(R.string.history_empty),
+                        style = AuroType.Subtitle.copy(color = AuroColor.TextSecondary),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Text(
-                            text = stringResource(R.string.queue_section_priority),
+                            text = stringResource(R.string.queue_mode_history),
                             style = AuroType.Caption.copy(
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
-                            ),
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                            )
                         )
-                    }
-
-                    itemsIndexed(priorityTracks, key = { index, t -> "priority_${t.id}_$index" }) { index, track ->
-                        InlineTrackRow(
-                            track = track,
-                            isPlaying = track.id == currentTrackId,
-                            onClick = { onTrackClick(track, index, true) },
-                            onRemove = { onRemoveTrack(track) }
-                        )
-                    }
-                }
-
-                if (regularTracks.isNotEmpty()) {
-                    item {
                         Text(
-                            text = stringResource(R.string.queue_section_normal),
+                            text = stringResource(R.string.history_clear),
                             style = AuroType.Caption.copy(
-                                color = AuroColor.TextTertiary,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
+                                color = AuroColor.TextSecondary,
+                                fontWeight = FontWeight.SemiBold
                             ),
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    AuroHaptics.click(view)
+                                    onClearHistory()
+                                }
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
                         )
                     }
 
-                    itemsIndexed(regularTracks, key = { index, t -> "regular_${t.id}_$index" }) { index, track ->
-                        InlineTrackRow(
-                            track = track,
-                            isPlaying = track.id == currentTrackId,
-                            onClick = { onTrackClick(track, index, false) },
-                            onRemove = { onRemoveTrack(track) }
-                        )
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentPadding = PaddingValues(bottom = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(historyList, key = { it.first }) { (_, hTrack) ->
+                            HistoryTrackRow(
+                                track = hTrack,
+                                isPlaying = hTrack.id == currentTrackId,
+                                onClick = {
+                                    AuroHaptics.click(view)
+                                    onPlayTrack(hTrack)
+                                },
+                                onAddToNext = {
+                                    AuroHaptics.click(view)
+                                    onEnqueueNext(hTrack)
+                                    showSnackbar(
+                                        context.getString(R.string.history_added_next),
+                                        null,
+                                        null
+                                    )
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -1089,12 +1548,165 @@ private fun InlineQueueView(
     }
 }
 
+// ─────────────────────── Componente de Linha de Faixa Futura com Swipe e Drag ───────────────────────
+
 @Composable
-private fun InlineTrackRow(
+private fun UpcomingTrackRow(
+    track: Track,
+    index: Int,
+    section: QueueSection,
+    isPlaying: Boolean,
+    isDragging: Boolean,
+    onClick: () -> Unit,
+    onSwipeDelete: () -> Unit,
+    dragHandleModifier: Modifier = Modifier
+) {
+    val view = LocalView.current
+    val density = LocalDensity.current
+    val coroutineScope = rememberCoroutineScope()
+    val coverBitmap = rememberTrackCover(track, 100)
+
+    val swipeOffsetX = remember { Animatable(0f) }
+    val swipeThreshold = with(density) { 90.dp.toPx() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(AuroRadius.card))
+    ) {
+        // Fundo vermelho revelado no swipe para esquerda
+        if (swipeOffsetX.value < -2f) {
+            val progress = ((-swipeOffsetX.value) / swipeThreshold).coerceIn(0f, 1f)
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(Color(0xFFE53935).copy(alpha = progress * 0.9f))
+                    .padding(end = 16.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.DeleteOutline,
+                    contentDescription = stringResource(R.string.cd_remove_item),
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        // Conteúdo da Linha com Deslocamento Horizontal
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(swipeOffsetX.value.roundToInt(), 0) }
+                .clip(RoundedCornerShape(AuroRadius.card))
+                .background(if (isPlaying) Color.White.copy(alpha = 0.12f) else AuroColor.SurfaceGrouped.copy(alpha = 0.70f))
+                .clickable { onClick() }
+                .pointerInput(track.id) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            coroutineScope.launch {
+                                if (swipeOffsetX.value < -swipeThreshold) {
+                                    AuroHaptics.confirm(view)
+                                    swipeOffsetX.animateTo(-with(density) { 400.dp.toPx() }, AuroMotion.spatialDefault())
+                                    onSwipeDelete()
+                                } else {
+                                    swipeOffsetX.animateTo(0f, AuroMotion.spatialDefault())
+                                }
+                            }
+                        },
+                        onDragCancel = {
+                            coroutineScope.launch { swipeOffsetX.animateTo(0f, AuroMotion.spatialDefault()) }
+                        }
+                    ) { change, dragAmount ->
+                        change.consume()
+                        coroutineScope.launch {
+                            val newOffset = (swipeOffsetX.value + dragAmount).coerceAtMost(0f)
+                            swipeOffsetX.snapTo(newOffset)
+                        }
+                    }
+                }
+                .padding(start = 10.dp, end = 2.dp, top = 8.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(6.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (coverBitmap != null) {
+                    Image(
+                        bitmap = coverBitmap.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    AuroCoverPlaceholder(
+                        modifier = Modifier.fillMaxSize(),
+                        glass = false,
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = track.title,
+                    style = AuroType.Body.copy(
+                        fontWeight = if (isPlaying) FontWeight.Bold else FontWeight.SemiBold,
+                        color = if (isPlaying) Color.White else AuroColor.TextPrimary
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                    style = AuroType.Subtitle.copy(fontSize = 12.sp, color = AuroColor.TextSecondary),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                text = formatTimeMs(track.durationMs),
+                style = AuroType.Caption.copy(
+                    color = AuroColor.TextSecondary,
+                    fontFamily = FontFamily.Monospace,
+                    fontFeatureSettings = "tnum"
+                )
+            )
+
+            // Alça de 3 Barras para Arrasto Imediato (Touch Target de 44x44dp)
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .then(dragHandleModifier),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.DragHandle,
+                    contentDescription = stringResource(R.string.queue_reorder_handle),
+                    tint = AuroColor.TextTertiary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+// ─────────────────────── Componente de Linha de Histórico ───────────────────────
+
+@Composable
+private fun HistoryTrackRow(
     track: Track,
     isPlaying: Boolean,
     onClick: () -> Unit,
-    onRemove: () -> Unit
+    onAddToNext: () -> Unit
 ) {
     val coverBitmap = rememberTrackCover(track, 100)
 
@@ -1160,15 +1772,17 @@ private fun InlineTrackRow(
             )
         )
 
+        Spacer(modifier = Modifier.width(4.dp))
+
         IconButton(
-            onClick = onRemove,
-            modifier = Modifier.size(32.dp)
+            onClick = onAddToNext,
+            modifier = Modifier.size(36.dp)
         ) {
             Icon(
-                imageVector = Icons.Outlined.Close,
-                contentDescription = stringResource(R.string.cd_delete_preset),
-                tint = AuroColor.TextTertiary,
-                modifier = Modifier.size(16.dp)
+                imageVector = Icons.AutoMirrored.Outlined.QueueMusic,
+                contentDescription = stringResource(R.string.selection_play_next),
+                tint = AuroColor.TextSecondary,
+                modifier = Modifier.size(18.dp)
             )
         }
     }

@@ -7,6 +7,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -263,19 +264,19 @@ fun AuroQueueScreen(
                                     }
                                 },
                                 dragHandleModifier = Modifier.pointerInput(localPriorityTracks.size) {
-                                    detectDragGesturesAfterLongPress(
+                                    detectVerticalDragGestures(
                                         onDragStart = {
-                                            AuroHaptics.longPress(view)
+                                            AuroHaptics.sliderTick(view)
                                             draggingSection = QueueSection.PRIORITY
                                             draggingInitialIndex = index
                                             draggingCurrentIndex = index
                                             dragOffsetY = 0f
                                             dragPointerY = with(density) { (index * 68).dp.toPx() }
                                         },
-                                        onDrag = { change, dragAmount ->
+                                        onVerticalDrag = { change, dragAmount ->
                                             change.consume()
-                                            dragOffsetY += dragAmount.y
-                                            dragPointerY += dragAmount.y
+                                            dragOffsetY += dragAmount
+                                            dragPointerY += dragAmount
 
                                             val slotsShifted = (dragOffsetY / itemHeightPx).roundToInt()
                                             val currentIdx = draggingCurrentIndex ?: index
@@ -366,19 +367,19 @@ fun AuroQueueScreen(
                                     }
                                 },
                                 dragHandleModifier = Modifier.pointerInput(localRegularTracks.size) {
-                                    detectDragGesturesAfterLongPress(
+                                    detectVerticalDragGestures(
                                         onDragStart = {
-                                            AuroHaptics.longPress(view)
+                                            AuroHaptics.sliderTick(view)
                                             draggingSection = QueueSection.QUEUE
                                             draggingInitialIndex = index
                                             draggingCurrentIndex = index
                                             dragOffsetY = 0f
                                             dragPointerY = with(density) { (index * 68).dp.toPx() }
                                         },
-                                        onDrag = { change, dragAmount ->
+                                        onVerticalDrag = { change, dragAmount ->
                                             change.consume()
-                                            dragOffsetY += dragAmount.y
-                                            dragPointerY += dragAmount.y
+                                            dragOffsetY += dragAmount
+                                            dragPointerY += dragAmount
 
                                             val slotsShifted = (dragOffsetY / itemHeightPx).roundToInt()
                                             val currentIdx = draggingCurrentIndex ?: index

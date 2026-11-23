@@ -129,7 +129,11 @@ class QueueManager {
             if (priorityQueue.isEmpty()) {
                 preQueueSnapshot = PreQueueSnapshot(originalTracks.toList(), currentIndex)
             }
-            priorityQueue.add(0, track)
+            if (isPlayingFromPriorityQueue && priorityQueue.isNotEmpty()) {
+                priorityQueue.add(1, track)
+            } else {
+                priorityQueue.add(0, track)
+            }
         }
     }
 
@@ -178,6 +182,50 @@ class QueueManager {
             }
         }
         return result
+    }
+
+    fun getUpcomingPriorityTracks(): List<Track> = synchronized(this) {
+        if (isPlayingFromPriorityQueue) {
+            priorityQueue.drop(1)
+        } else {
+            priorityQueue.toList()
+        }
+    }
+
+    private fun getEffectiveRegularPosition(): Int {
+        val baseIndex = if (isPlayingFromPriorityQueue && preQueueSnapshot != null) {
+            preQueueSnapshot!!.index
+        } else {
+            currentIndex
+        }
+        return if (isShuffle && shuffleIndices.size == originalTracks.size) {
+            val pos = shuffleIndices.indexOf(baseIndex)
+            if (pos != -1) pos else baseIndex
+        } else {
+            baseIndex
+        }
+    }
+
+    fun getUpcomingRegularTracks(): List<Track> = synchronized(this) {
+        val tracks = getTracks()
+        val pos = getEffectiveRegularPosition()
+        if (pos in tracks.indices && pos + 1 < tracks.size) {
+            tracks.subList(pos + 1, tracks.size)
+        } else {
+            emptyList()
+        }
+    }
+
+    fun clearManualQueueKeepingCurrent() {
+        synchronized(this) {
+            if (isPlayingFromPriorityQueue && priorityQueue.isNotEmpty()) {
+                if (priorityQueue.size > 1) {
+                    priorityQueue.subList(1, priorityQueue.size).clear()
+                }
+            } else {
+                priorityQueue.clear()
+            }
+        }
     }
 
     fun clearPriorityQueue() {
@@ -363,6 +411,21 @@ class QueueManager {
         }
     }
 
+    fun skipToUpcoming(section: QueueSection, upcomingIndex: Int): Track? = synchronized(this) {
+        when (section) {
+            QueueSection.PRIORITY -> {
+                val offset = if (isPlayingFromPriorityQueue) 1 else 0
+                val target = upcomingIndex + offset
+                return skipToPriority(target)
+            }
+            QueueSection.QUEUE -> {
+                val offset = getEffectiveRegularPosition() + 1
+                val target = offset + upcomingIndex
+                return skipTo(target)
+            }
+        }
+    }
+
     // --- Reordenação da Fila (Fase 4.1) ---
 
     fun moveItem(section: QueueSection, from: Int, to: Int): Boolean {
@@ -413,6 +476,93 @@ class QueueManager {
             else -> return false
         }
         return moveItem(sec, from, to)
+    }
+
+    fun moveUpcomingItem(section: QueueSection, fromUpcoming: Int, toUpcoming: Int): Boolean = synchronized(this) {
+        val offset = when (section) {
+            QueueSection.PRIORITY -> if (isPlayingFromPriorityQueue) 1 else 0
+            QueueSection.QUEUE -> getEffectiveRegularPosition() + 1
+        }
+        return moveItem(section, fromUpcoming + offset, toUpcoming + offset)
+    }
+
+    fun removeUpcomingItem(section: QueueSection, upcomingIndex: Int): Track? = synchronized(this) {
+        when (section) {
+            QueueSection.PRIORITY -> {
+                val offset = if (isPlayingFromPriorityQueue) 1 else 0
+                val internalIndex = upcomingIndex + offset
+                if (internalIndex in priorityQueue.indices) {
+                    val removed = priorityQueue.removeAt(internalIndex)
+                    if (priorityQueue.isEmpty() && isPlayingFromPriorityQueue) {
+                        restorePreQueue()
+                    }
+                    return removed
+                }
+                return null
+            }
+            QueueSection.QUEUE -> {
+                val offset = getEffectiveRegularPosition() + 1
+                val internalIndex = upcomingIndex + offset
+                if (isShuffle) {
+                    if (internalIndex in shuffleIndices.indices) {
+                        val origIdx = shuffleIndices.removeAt(internalIndex)
+                        if (origIdx in originalTracks.indices) {
+                            val removed = originalTracks.removeAt(origIdx)
+                            for (i in shuffleIndices.indices) {
+                                if (shuffleIndices[i] > origIdx) {
+                                    shuffleIndices[i] = shuffleIndices[i] - 1
+                                }
+                            }
+                            if (origIdx < currentIndex) {
+                                currentIndex--
+                            } else if (origIdx == currentIndex && currentIndex >= originalTracks.size) {
+                                currentIndex = (originalTracks.size - 1).coerceAtLeast(0)
+                            }
+                            return removed
+                        }
+                    }
+                } else {
+                    if (internalIndex in originalTracks.indices) {
+                        val removed = originalTracks.removeAt(internalIndex)
+                        if (internalIndex < currentIndex) {
+                            currentIndex--
+                        } else if (internalIndex == currentIndex && currentIndex >= originalTracks.size) {
+                            currentIndex = (originalTracks.size - 1).coerceAtLeast(0)
+                        }
+                        return removed
+                    }
+                }
+                return null
+            }
+        }
+    }
+
+    fun insertUpcomingItem(section: QueueSection, upcomingIndex: Int, track: Track) = synchronized(this) {
+        when (section) {
+            QueueSection.PRIORITY -> {
+                val offset = if (isPlayingFromPriorityQueue) 1 else 0
+                val target = (upcomingIndex + offset).coerceIn(offset, priorityQueue.size)
+                if (priorityQueue.isEmpty() && !isPlayingFromPriorityQueue) {
+                    preQueueSnapshot = PreQueueSnapshot(originalTracks.toList(), currentIndex)
+                }
+                priorityQueue.add(target, track)
+            }
+            QueueSection.QUEUE -> {
+                val offset = getEffectiveRegularPosition() + 1
+                if (isShuffle) {
+                    val origIdx = originalTracks.size
+                    originalTracks.add(track)
+                    val target = (upcomingIndex + offset).coerceIn(0, shuffleIndices.size)
+                    shuffleIndices.add(target, origIdx)
+                } else {
+                    val target = (upcomingIndex + offset).coerceIn(0, originalTracks.size)
+                    originalTracks.add(target, track)
+                    if (target <= currentIndex) {
+                        currentIndex++
+                    }
+                }
+            }
+        }
     }
 
     // --- Shuffle Modes ---
