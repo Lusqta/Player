@@ -205,6 +205,121 @@ class LibraryRepository() {
         return applySorting(filtered, sortMode)
     }
 
+    fun getPrimaryTracksForArtist(artistName: String, sortMode: SortMode = SortMode.ALBUM_ASC): List<Track> {
+        val filtered = getAllTracks().filter { isPrimaryArtistTrack(it, artistName) }
+        return applySorting(filtered, sortMode)
+    }
+
+    fun getFeatTracksForArtist(artistName: String, sortMode: SortMode = SortMode.ALBUM_ASC): List<Track> {
+        val filtered = getAllTracks().filter { isFeatArtistTrack(it, artistName) }
+        return applySorting(filtered, sortMode)
+    }
+
+    fun getTop5TracksForArtist(artistName: String): List<Track> {
+        val primary = getPrimaryTracksForArtist(artistName).filterNot { isJunkAudio(it) }
+        val base = if (primary.isNotEmpty()) {
+            primary
+        } else {
+            getFeatTracksForArtist(artistName).filterNot { isJunkAudio(it) }
+        }
+        if (base.isEmpty()) return emptyList()
+
+        val played = base.filter { it.playCount > 0 }
+            .sortedWith(compareByDescending<Track> { it.playCount }.thenByDescending { it.lastPlayedTimestamp })
+            .take(5)
+
+        if (played.size >= 5) {
+            return played
+        }
+
+        val playedIds = played.map { it.id }.toSet()
+        val remaining = base.filterNot { it.id in playedIds }.shuffled()
+        val needed = 5 - played.size
+        return played + remaining.take(needed)
+    }
+
+    fun getArtistReleases(artistName: String): List<ArtistRelease> {
+        val primary = getPrimaryTracksForArtist(artistName)
+        val validTracks = primary.filter { isValidHighlightName(it.album) }
+        if (validTracks.isEmpty()) return emptyList()
+
+        return validTracks.groupBy { it.album.trim() }
+            .map { (albumName, tracks) ->
+                val year = tracks.maxOfOrNull { it.year } ?: 0
+                val latestDateAddedSec = tracks.maxOfOrNull { it.dateAddedSec } ?: 0L
+                val trackCount = tracks.size
+                val maxTrackNumber = tracks.maxOfOrNull { it.trackNumber } ?: 0
+                val totalPlays = tracks.sumOf { it.playCount }
+                val coverTrack = tracks.maxByOrNull { it.playCount } ?: tracks.first()
+                val isAlbum = classifyIsAlbum(albumName, trackCount, maxTrackNumber)
+
+                ArtistRelease(
+                    albumName = albumName,
+                    year = year,
+                    latestDateAddedSec = latestDateAddedSec,
+                    trackCount = trackCount,
+                    maxTrackNumber = maxTrackNumber,
+                    totalPlays = totalPlays,
+                    coverTrack = coverTrack,
+                    isAlbum = isAlbum
+                )
+            }
+            .sortedWith(
+                compareByDescending<ArtistRelease> { it.year }
+                    .thenByDescending { it.latestDateAddedSec }
+                    .thenBy { it.albumName.lowercase() }
+            )
+    }
+
+    fun getTop3CarouselReleases(artistName: String): List<ArtistRelease> {
+        val allReleases = getArtistReleases(artistName)
+        if (allReleases.isEmpty()) return emptyList()
+
+        val albums = allReleases.filter { it.isAlbum }
+        val candidates = if (albums.size >= 3) {
+            albums
+        } else {
+            val singles = allReleases.filterNot { it.isAlbum }
+            albums + singles
+        }
+
+        val played = candidates.filter { it.totalPlays > 0 }
+            .sortedByDescending { it.totalPlays }
+            .take(3)
+
+        if (played.size >= 3) {
+            return played
+        }
+
+        val playedNames = played.map { it.albumName.lowercase() }.toSet()
+        val chronologicalRemaining = candidates.filterNot { it.albumName.lowercase() in playedNames }
+            .sortedWith(
+                compareByDescending<ArtistRelease> { it.year }
+                    .thenByDescending { it.latestDateAddedSec }
+                    .thenBy { it.albumName.lowercase() }
+            )
+        val needed = 3 - played.size
+        return played + chronologicalRemaining.take(needed)
+    }
+
+    fun resolveArtistFallbackCoverTrack(artistName: String): Track? {
+        val releases = getArtistReleases(artistName)
+        if (releases.isNotEmpty()) {
+            return releases.first().coverTrack
+        }
+        val primaryTracks = getPrimaryTracksForArtist(artistName)
+        if (primaryTracks.isNotEmpty()) {
+            return primaryTracks.first()
+        }
+        val featTracks = getFeatTracksForArtist(artistName)
+        if (featTracks.isNotEmpty()) {
+            return featTracks.maxByOrNull { it.playCount }
+                ?: featTracks.maxByOrNull { it.dateAddedSec }
+                ?: featTracks.first()
+        }
+        return null
+    }
+
     fun getAlbumArtists(): List<Artist> {
         val all = getAllTracks()
         return all.groupBy { if (it.albumArtist.isNotEmpty()) it.albumArtist else it.artist }
@@ -296,10 +411,30 @@ class LibraryRepository() {
             .sortedByDescending { it.playCount }
     }
 
+    fun getTop50MostPlayed(): List<Track> {
+        return getAllTracks()
+            .filter { it.playCount > 0 && !isJunkAudio(it) }
+            .sortedWith(
+                compareByDescending<Track> { it.playCount }
+                    .thenByDescending { it.lastPlayedTimestamp }
+            )
+            .take(50)
+    }
+
     fun getTopRated(): List<Track> {
         return getAllTracks()
             .filter { it.rating > 0 }
             .sortedByDescending { it.rating }
+    }
+
+    fun getFavoriteTracks(): List<Track> {
+        return getAllTracks()
+            .filter { it.rating > 0 }
+            .sortedWith(
+                compareByDescending<Track> { it.rating }
+                    .thenByDescending { it.lastPlayedTimestamp }
+                    .thenBy { it.title.lowercase() }
+            )
     }
 
     // --- Playlists ---
@@ -370,6 +505,24 @@ class LibraryRepository() {
 
     fun clearPlaybackHistory() {
         getOrCreateDb()?.clearPlaybackHistory()
+    }
+
+    // --- Mídia de Artista (Foto / GIF) ---
+
+    fun setArtistMedia(artistName: String, path: String, isGif: Boolean) {
+        getOrCreateDb()?.setArtistMedia(artistName, path, isGif)
+    }
+
+    fun getArtistMedia(artistName: String): Pair<String, Boolean>? {
+        return getOrCreateDb()?.getArtistMedia(artistName)
+    }
+
+    fun getAllArtistMedia(): Map<String, Pair<String, Boolean>> {
+        return getOrCreateDb()?.getAllArtistMedia() ?: emptyMap()
+    }
+
+    fun removeArtistMedia(artistName: String) {
+        getOrCreateDb()?.removeArtistMedia(artistName)
     }
 
     // --- Ordenação Dinâmica ---

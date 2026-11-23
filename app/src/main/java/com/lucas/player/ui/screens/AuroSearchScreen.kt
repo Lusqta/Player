@@ -54,6 +54,8 @@ import com.lucas.player.data.PreferencesManager
 import com.lucas.player.model.Album
 import com.lucas.player.model.Artist
 import com.lucas.player.model.Track
+import com.lucas.player.model.formatArtistsDisplay
+import com.lucas.player.model.splitArtists
 import com.lucas.player.ui.components.AuroEmptyState
 import com.lucas.player.ui.components.AuroHaptics
 import com.lucas.player.ui.components.AuroTopFade
@@ -156,15 +158,25 @@ fun AuroSearchScreen(
     val matchedArtists = remember(trimmed, allTracks) {
         if (trimmed.isEmpty()) emptyList()
         else {
-            allTracks
-                .filter { it.artist.contains(trimmed, ignoreCase = true) }
-                .groupBy { it.artist }
-                .map { (artistName, tracks) ->
+            val map = mutableMapOf<String, Pair<String, MutableSet<Long>>>()
+            for (track in allTracks) {
+                val artists = splitArtists(track.artist)
+                for (artist in artists) {
+                    if (artist.contains(trimmed, ignoreCase = true)) {
+                        val key = artist.lowercase().trim()
+                        val entry = map.getOrPut(key) { artist.trim() to mutableSetOf() }
+                        entry.second.add(track.id)
+                    }
+                }
+            }
+            map.values
+                .map { (displayName, trackIds) ->
                     Artist(
-                        name = artistName,
-                        trackCount = tracks.size
+                        name = displayName,
+                        trackCount = trackIds.size
                     )
                 }
+                .sortedBy { it.name.lowercase() }
         }
     }
 
@@ -641,8 +653,9 @@ private fun SearchAlbumRow(
                 overflow = TextOverflow.Ellipsis
             )
             Spacer(modifier = Modifier.height(2.dp))
+            val artistDisplay = formatArtistsDisplay(album.artist, stringResource(R.string.unknown_artist))
             Text(
-                text = "${album.artist} • ${pluralStringResource(R.plurals.tracks_count, album.trackCount, album.trackCount)}",
+                text = "$artistDisplay • ${pluralStringResource(R.plurals.tracks_count, album.trackCount, album.trackCount)}",
                 style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

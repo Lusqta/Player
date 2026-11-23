@@ -14,10 +14,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicOff
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material.icons.rounded.Whatshot
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -96,8 +98,16 @@ fun AuroDrilldownScreen(
         rememberTrackCover(firstTrack, 400)
     }
     var groupAccent by remember { mutableStateOf(AuroAccent.Neutral) }
-    LaunchedEffect(heroCover) {
-        groupAccent = CoverGlow.from(heroCover)
+    LaunchedEffect(heroCover, category) {
+        groupAccent = if (heroCover != null) {
+            CoverGlow.from(heroCover)
+        } else if (category == LibraryCategory.TOP_RATED) {
+            AuroAccent(mesh1 = Color(0xFFD04565), mesh2 = Color(0xFF6A1A34), a = Color(0xFFD04565), b = Color(0xFF6A1A34))
+        } else if (category == LibraryCategory.MOST_PLAYED) {
+            AuroAccent(mesh1 = Color(0xFF6F4BF0), mesh2 = Color(0xFF3A2A90), a = Color(0xFF6F4BF0), b = Color(0xFF3A2A90))
+        } else {
+            AuroAccent.Neutral
+        }
     }
 
     BoxWithConstraints(
@@ -194,6 +204,42 @@ fun AuroDrilldownScreen(
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize()
                                     )
+                                } else if (category == LibraryCategory.TOP_RATED) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                Brush.radialGradient(
+                                                    colors = listOf(Color(0xFFD04565), Color(0xFF2A0E18))
+                                                )
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Favorite,
+                                            contentDescription = null,
+                                            tint = Color.White.copy(alpha = 0.85f),
+                                            modifier = Modifier.size(64.dp)
+                                        )
+                                    }
+                                } else if (category == LibraryCategory.MOST_PLAYED) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                Brush.radialGradient(
+                                                    colors = listOf(Color(0xFF6F4BF0), Color(0xFF1A1340))
+                                                )
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Whatshot,
+                                            contentDescription = null,
+                                            tint = Color.White.copy(alpha = 0.85f),
+                                            modifier = Modifier.size(64.dp)
+                                        )
+                                    }
                                 } else if (category == LibraryCategory.ARTISTS || category == LibraryCategory.ALBUM_ARTISTS || category == LibraryCategory.PLAYLISTS) {
                                     ArtistMonogram(
                                         name = groupTitle,
@@ -251,10 +297,11 @@ fun AuroDrilldownScreen(
                             LibraryCategory.YEARS -> stringResource(R.string.group_subtitle_year)
                             LibraryCategory.COMPOSERS -> stringResource(R.string.group_subtitle_composer)
                             LibraryCategory.PLAYLISTS -> stringResource(R.string.group_subtitle_playlist)
+                            LibraryCategory.MOST_PLAYED, LibraryCategory.TOP_RATED -> stringResource(R.string.group_subtitle_smart_playlist)
                             else -> stringResource(category.getTitleRes())
                         }
                         val countDurationText = if (tracks.isEmpty()) {
-                            "0 faixas"
+                            pluralStringResource(R.plurals.tracks_count, 0, 0)
                         } else {
                             "${pluralStringResource(R.plurals.tracks_count, tracks.size, tracks.size)}  ·  ${formatTimeMs(totalDurationMs)}"
                         }
@@ -341,130 +388,130 @@ fun AuroDrilldownScreen(
                     )
                 }
             }
+        }
 
-            // Top Bar Limpa: Botão voltar (<) e Fixar (Pin) sem círculos
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        // Top Bar Limpa: Botão voltar (<) e Fixar (Pin) sem círculos
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = {
+                    AuroHaptics.click(view)
+                    onBackToCategoryList()
+                },
+                modifier = Modifier.size(44.dp)
             ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = stringResource(R.string.cd_back),
+                    tint = AuroColor.TextPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
                     onClick = {
                         AuroHaptics.click(view)
-                        onBackToCategoryList()
+                        onTogglePin()
                     },
                     modifier = Modifier.size(44.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = stringResource(R.string.cd_back),
-                        tint = AuroColor.TextPrimary,
-                        modifier = Modifier.size(24.dp)
+                        imageVector = if (isPinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
+                        contentDescription = stringResource(if (isPinned) R.string.action_unpin else R.string.action_pin),
+                        tint = if (isPinned) Color.White else Color.White.copy(alpha = 0.55f),
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = {
-                            AuroHaptics.click(view)
-                            onTogglePin()
-                        },
-                        modifier = Modifier.size(44.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isPinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
-                            contentDescription = stringResource(if (isPinned) R.string.action_unpin else R.string.action_pin),
-                            tint = if (isPinned) Color.White else Color.White.copy(alpha = 0.55f),
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-
-                    if (category == LibraryCategory.PLAYLISTS) {
-                        var showMenu by remember { mutableStateOf(false) }
-                        Box {
-                            IconButton(
-                                onClick = {
-                                    AuroHaptics.click(view)
-                                    showMenu = true
+                if (category == LibraryCategory.PLAYLISTS) {
+                    var showMenu by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(
+                            onClick = {
+                                AuroHaptics.click(view)
+                                showMenu = true
+                            },
+                            modifier = Modifier.size(44.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.MoreVert,
+                                contentDescription = stringResource(R.string.cd_more_options),
+                                tint = AuroColor.TextPrimary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false },
+                            modifier = Modifier.background(AuroColor.SurfaceGrouped)
+                        ) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = stringResource(R.string.playlist_add_tracks),
+                                        style = AuroType.Body,
+                                        color = AuroColor.TextPrimary
+                                    )
                                 },
-                                modifier = Modifier.size(44.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.MoreVert,
-                                    contentDescription = stringResource(R.string.cd_more_options),
-                                    tint = AuroColor.TextPrimary,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                            DropdownMenu(
-                                expanded = showMenu,
-                                onDismissRequest = { showMenu = false },
-                                modifier = Modifier.background(AuroColor.SurfaceGrouped)
-                            ) {
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = stringResource(R.string.playlist_add_tracks),
-                                            style = AuroType.Body,
-                                            color = AuroColor.TextPrimary
-                                        )
-                                    },
-                                    onClick = {
-                                        showMenu = false
-                                        onAddTracksToPlaylist?.invoke()
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = stringResource(R.string.playlist_edit_action),
-                                            style = AuroType.Body,
-                                            color = AuroColor.TextPrimary
-                                        )
-                                    },
-                                    onClick = {
-                                        showMenu = false
-                                        onEditPlaylist?.invoke()
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = stringResource(R.string.playlist_delete_action),
-                                            style = AuroType.Body,
-                                            color = AuroColor.Danger
-                                        )
-                                    },
-                                    onClick = {
-                                        showMenu = false
-                                        onDeletePlaylist?.invoke()
-                                    }
-                                )
-                            }
+                                onClick = {
+                                    showMenu = false
+                                    onAddTracksToPlaylist?.invoke()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = stringResource(R.string.playlist_edit_action),
+                                        style = AuroType.Body,
+                                        color = AuroColor.TextPrimary
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    onEditPlaylist?.invoke()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = stringResource(R.string.playlist_delete_action),
+                                        style = AuroType.Body,
+                                        color = AuroColor.Danger
+                                    )
+                                },
+                                onClick = {
+                                    showMenu = false
+                                    onDeletePlaylist?.invoke()
+                                }
+                            )
                         }
                     }
                 }
             }
+        }
 
-            // FastScroller translúcido na margem direita (dinâmico abaixo do Hero, apenas se houver 20+ faixas)
-            if (tracks.size >= 20 && (maxHeight - fastScrollerTopDp - bottomInset > 180.dp)) {
-                AuroAlphabetFastScroller(
-                    onLetterSelected = { letter ->
-                        val targetIndex = tracks.indexOfFirst { matchesFirstLetter(it.title, letter) }
-                        if (targetIndex >= 0) {
-                            coroutineScope.launch {
-                                listState.scrollToItem(targetIndex + 1)
-                            }
+        // FastScroller translúcido na margem direita (dinâmico abaixo do Hero, apenas se houver 20+ faixas)
+        if (tracks.size >= 20 && (maxHeight - fastScrollerTopDp - bottomInset > 180.dp)) {
+            AuroAlphabetFastScroller(
+                onLetterSelected = { letter ->
+                    val targetIndex = tracks.indexOfFirst { matchesFirstLetter(it.title, letter) }
+                    if (targetIndex >= 0) {
+                        coroutineScope.launch {
+                            listState.scrollToItem(targetIndex + 1)
                         }
-                    },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(top = fastScrollerTopDp, bottom = bottomInset + 30.dp, end = 2.dp)
-                )
-            }
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = fastScrollerTopDp, bottom = bottomInset + 30.dp, end = 2.dp)
+            )
         }
     }
 }

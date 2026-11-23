@@ -62,10 +62,12 @@ import com.lucas.player.queue.QueueSection
 import com.lucas.player.queue.RepeatMode
 import com.lucas.player.queue.ShuffleMode
 import com.lucas.player.ui.components.*
+import androidx.compose.foundation.gestures.scrollBy
 import com.lucas.player.ui.theme.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -1069,6 +1071,45 @@ private fun ExpandedQueueSheetView(
     var draggingInitialIndex by remember { mutableStateOf<Int?>(null) }
     var draggingCurrentIndex by remember { mutableStateOf<Int?>(null) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    var dragPointerY by remember { mutableFloatStateOf(0f) }
+    val queueListState = rememberLazyListState()
+
+    // Rolagem automática suave de 60fps perto das bordas superior e inferior
+    LaunchedEffect(draggingSection) {
+        if (draggingSection == null) return@LaunchedEffect
+        while (isActive && draggingSection != null) {
+            val viewportH = queueListState.layoutInfo.viewportSize.height
+            if (viewportH > 0) {
+                val edgeThreshold = with(density) { 70.dp.toPx() }
+                if (dragPointerY > 0 && dragPointerY < edgeThreshold) {
+                    val factor = ((edgeThreshold - dragPointerY) / edgeThreshold).coerceIn(0.2f, 1f)
+                    queueListState.scrollBy(-18f * factor)
+                } else if (dragPointerY > viewportH - edgeThreshold) {
+                    val factor = ((dragPointerY - (viewportH - edgeThreshold)) / edgeThreshold).coerceIn(0.2f, 1f)
+                    queueListState.scrollBy(18f * factor)
+                }
+            }
+            delay(16)
+        }
+    }
+
+    val priorityKeys = remember(localPriorityTracks) {
+        val counts = mutableMapOf<Long, Int>()
+        localPriorityTracks.map { track ->
+            val occ = counts.getOrDefault(track.id, 0)
+            counts[track.id] = occ + 1
+            "p_${track.id}_$occ"
+        }
+    }
+
+    val regularKeys = remember(localRegularTracks) {
+        val counts = mutableMapOf<Long, Int>()
+        localRegularTracks.map { track ->
+            val occ = counts.getOrDefault(track.id, 0)
+            counts[track.id] = occ + 1
+            "r_${track.id}_$occ"
+        }
+    }
 
     val itemHeightPx = with(density) { 62.dp.toPx() }
 
@@ -1154,14 +1195,15 @@ private fun ExpandedQueueSheetView(
             }
 
             // Limpar Fila Prioritária/Manual
+            val isClearEnabled = localPriorityTracks.isNotEmpty()
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .height(36.dp)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.08f))
-                    .border(1.dp, Color.White.copy(alpha = 0.12f), CircleShape)
-                    .clickable {
+                    .background(Color.White.copy(alpha = if (isClearEnabled) 0.08f else 0.04f))
+                    .border(1.dp, Color.White.copy(alpha = if (isClearEnabled) 0.12f else 0.06f), CircleShape)
+                    .clickable(enabled = isClearEnabled) {
                         AuroHaptics.click(view)
                         onClearManualQueue()
                         showSnackbar(context.getString(R.string.queue_manual_cleared), null, null)
@@ -1172,14 +1214,14 @@ private fun ExpandedQueueSheetView(
                 Icon(
                     imageVector = Icons.Outlined.DeleteOutline,
                     contentDescription = null,
-                    tint = AuroColor.TextSecondary,
+                    tint = AuroColor.TextSecondary.copy(alpha = if (isClearEnabled) 1f else 0.40f),
                     modifier = Modifier.size(16.dp)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = stringResource(R.string.search_recent_clear),
                     style = AuroType.Caption.copy(
-                        color = AuroColor.TextSecondary,
+                        color = AuroColor.TextSecondary.copy(alpha = if (isClearEnabled) 1f else 0.40f),
                         fontWeight = FontWeight.SemiBold
                     )
                 )
@@ -1264,6 +1306,7 @@ private fun ExpandedQueueSheetView(
                 }
             } else {
                 LazyColumn(
+                    state = queueListState,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
@@ -1284,11 +1327,12 @@ private fun ExpandedQueueSheetView(
                             )
                         }
 
-                        itemsIndexed(localPriorityTracks, key = { _, t -> "p_${t.id}" }) { index, track ->
+                        itemsIndexed(localPriorityTracks, key = { index, _ -> priorityKeys.getOrElse(index) { "p_fallback_$index" } }) { index, track ->
                             val isThisDragging = draggingSection == QueueSection.PRIORITY && draggingCurrentIndex == index
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .animateItem()
                                     .zIndex(if (isThisDragging) 2f else 0f)
                                     .graphicsLayer {
                                         if (isThisDragging) {
@@ -1324,10 +1368,12 @@ private fun ExpandedQueueSheetView(
                                                 draggingInitialIndex = index
                                                 draggingCurrentIndex = index
                                                 dragOffsetY = 0f
+                                                dragPointerY = with(density) { (index * 62).dp.toPx() }
                                             },
                                             onVerticalDrag = { change, dragAmount ->
                                                 change.consume()
                                                 dragOffsetY += dragAmount
+                                                dragPointerY += dragAmount
 
                                                 val slotsShifted = (dragOffsetY / itemHeightPx).roundToInt()
                                                 val currentIdx = draggingCurrentIndex ?: index
@@ -1382,11 +1428,12 @@ private fun ExpandedQueueSheetView(
                             )
                         }
 
-                        itemsIndexed(localRegularTracks, key = { _, t -> "r_${t.id}" }) { index, track ->
+                        itemsIndexed(localRegularTracks, key = { index, _ -> regularKeys.getOrElse(index) { "r_fallback_$index" } }) { index, track ->
                             val isThisDragging = draggingSection == QueueSection.QUEUE && draggingCurrentIndex == index
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .animateItem()
                                     .zIndex(if (isThisDragging) 2f else 0f)
                                     .graphicsLayer {
                                         if (isThisDragging) {
@@ -1422,10 +1469,12 @@ private fun ExpandedQueueSheetView(
                                                 draggingInitialIndex = index
                                                 draggingCurrentIndex = index
                                                 dragOffsetY = 0f
+                                                dragPointerY = with(density) { (index * 62).dp.toPx() }
                                             },
                                             onVerticalDrag = { change, dragAmount ->
                                                 change.consume()
                                                 dragOffsetY += dragAmount
+                                                dragPointerY += dragAmount
 
                                                 val slotsShifted = (dragOffsetY / itemHeightPx).roundToInt()
                                                 val currentIdx = draggingCurrentIndex ?: index
@@ -1566,7 +1615,7 @@ private fun UpcomingTrackRow(
     val coroutineScope = rememberCoroutineScope()
     val coverBitmap = rememberTrackCover(track, 100)
 
-    val swipeOffsetX = remember { Animatable(0f) }
+    val swipeOffsetX = remember(track.id, index) { Animatable(0f) }
     val swipeThreshold = with(density) { 90.dp.toPx() }
 
     Box(
@@ -1609,6 +1658,7 @@ private fun UpcomingTrackRow(
                                     AuroHaptics.confirm(view)
                                     swipeOffsetX.animateTo(-with(density) { 400.dp.toPx() }, AuroMotion.spatialDefault())
                                     onSwipeDelete()
+                                    swipeOffsetX.snapTo(0f)
                                 } else {
                                     swipeOffsetX.animateTo(0f, AuroMotion.spatialDefault())
                                 }
@@ -1663,7 +1713,7 @@ private fun UpcomingTrackRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                    text = formatArtistsDisplay(track.artist, stringResource(R.string.unknown_artist)),
                     style = AuroType.Subtitle.copy(fontSize = 12.sp, color = AuroColor.TextSecondary),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1754,7 +1804,7 @@ private fun HistoryTrackRow(
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                text = formatArtistsDisplay(track.artist, stringResource(R.string.unknown_artist)),
                 style = AuroType.Subtitle.copy(fontSize = 12.sp, color = AuroColor.TextSecondary),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
+import com.lucas.player.data.LibraryRepository
 import com.lucas.player.model.Track
 import com.lucas.player.model.formatArtistsDisplay
 import com.lucas.player.model.isJunkAudio
@@ -82,12 +83,16 @@ fun AuroHomeScreen(
     onOpenNowPlaying: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenLibrary: () -> Unit = {},
+    onOpenMostPlayed: () -> Unit = {},
+    onOpenFavorites: () -> Unit = {},
     onArtistClick: (String) -> Unit = {},
     playlists: List<HomePlaylist> = emptyList(),
     onAlbumClick: (String) -> Unit = {},
     onAlbumPlay: (String) -> Unit = {},
     onPlaylistClick: (String) -> Unit = {},
     onCreatePlaylist: () -> Unit = {},
+    artistMediaMap: Map<String, Pair<String, Boolean>> = emptyMap(),
+    libraryRepository: LibraryRepository = LibraryRepository.getInstance(),
     listState: LazyListState = rememberLazyListState(),
     modifier: Modifier = Modifier
 ) {
@@ -145,8 +150,10 @@ fun AuroHomeScreen(
                 map.map { (key, tracks) ->
                     val displayName = casingMap[key] ?: key
                     val totalPlays = tracks.sumOf { it.playCount }
-                    val bestTrack = tracks.maxByOrNull { it.playCount } ?: tracks.firstOrNull()
-                    Triple(displayName, bestTrack, totalPlays)
+                    val coverTrack = libraryRepository.resolveArtistFallbackCoverTrack(displayName)
+                        ?: tracks.maxByOrNull { it.playCount }
+                        ?: tracks.firstOrNull()
+                    Triple(displayName, coverTrack, totalPlays)
                 }
                 .sortedByDescending { it.third }
                 .take(12)
@@ -218,7 +225,8 @@ fun AuroHomeScreen(
                                 baseColor = Color(0xFF1A1340),
                                 spotAColor = Color(0xFF6F4BF0), spotACx = 0.50f, spotACy = 0.45f, spotARadius = 0.70f, spotAAlpha = 0.95f,
                                 spotBColor = Color(0xFF3A2A90), spotBCx = 0.10f, spotBCy = 0.95f, spotBRadius = 0.55f, spotBAlpha = 0.80f,
-                                onClick = {
+                                onClick = onOpenMostPlayed,
+                                onPlayClick = {
                                     val cleanMost = mostPlayed.filterNot { isJunkAudio(it) }
                                     if (cleanMost.isNotEmpty()) onPlayAll(cleanMost)
                                     else if (cleanTracks.isNotEmpty()) onPlayAll(cleanTracks)
@@ -233,7 +241,8 @@ fun AuroHomeScreen(
                                 baseColor = Color(0xFF2A0E18),
                                 spotAColor = Color(0xFFD04565), spotACx = 0.25f, spotACy = 0.85f, spotARadius = 0.75f, spotAAlpha = 0.95f,
                                 spotBColor = Color(0xFF6A1A34), spotBCx = 0.90f, spotBCy = 0.15f, spotBRadius = 0.55f, spotBAlpha = 0.80f,
-                                onClick = {
+                                onClick = onOpenFavorites,
+                                onPlayClick = {
                                     val favs = cleanTracks.filter { it.rating > 0 }
                                     if (favs.isNotEmpty()) onPlayAll(favs)
                                     else onShuffleAll(cleanTracks.ifEmpty { allTracks })
@@ -301,7 +310,7 @@ fun AuroHomeScreen(
                                 horizontalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
                                 items(artistEntries, key = { it.first }) { (artistName, artistTrack) ->
-                                    val coverBitmap = rememberTrackCover(artistTrack, 120)
+                                    val media = artistMediaMap[artistName.trim().lowercase()]
 
                                     Column(
                                         modifier = Modifier
@@ -320,20 +329,14 @@ fun AuroHomeScreen(
                                                 .border(0.5.dp, Color.White.copy(alpha = 0.08f), AuroSquircle),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            if (coverBitmap != null) {
-                                                Image(
-                                                    bitmap = coverBitmap.asImageBitmap(),
-                                                    contentDescription = artistName,
-                                                    contentScale = ContentScale.Crop,
-                                                    modifier = Modifier.fillMaxSize()
-                                                )
-                                            } else {
-                                                ArtistMonogram(
-                                                    name = artistName,
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    shape = AuroSquircle
-                                                )
-                                            }
+                                            ArtistAvatarImage(
+                                                artistName = artistName,
+                                                customMediaPath = media?.first,
+                                                isGif = media?.second ?: false,
+                                                fallbackTrack = artistTrack,
+                                                shape = AuroSquircle,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
                                         }
                                         Spacer(modifier = Modifier.height(6.dp))
                                         Text(
@@ -437,7 +440,7 @@ fun AuroHomeScreen(
                                 horizontalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
                                 item(key = "new_playlist") { NewPlaylistCard(onClick = onCreatePlaylist) }
-                                items(playlists, key = { it.name }) { pl ->
+                                items(playlists, key = { it.id }) { pl ->
                                     PlaylistCard(
                                         coverTrack = pl.coverTrack,
                                         coverPath = pl.coverPath,
@@ -473,7 +476,8 @@ private fun QuickMixCard(
     spotBCy: Float,
     spotBRadius: Float,
     spotBAlpha: Float,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onPlayClick: () -> Unit = onClick
 ) {
     val view = LocalView.current
     val mixShape = RoundedCornerShape(AuroRadius.mix)
@@ -538,7 +542,7 @@ private fun QuickMixCard(
             isPlaying = false,
             size = 28.dp,
             minTouchTarget = 48.dp,
-            onClick = onClick,
+            onClick = onPlayClick,
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .offset(x = 4.dp, y = 7.dp)

@@ -95,8 +95,11 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         is NavScreen.Equalizer,
         is NavScreen.Queue,
         is NavScreen.Settings -> 2
-        is NavScreen.Drilldown -> 3
-        is NavScreen.NowPlaying -> 4
+        is NavScreen.Drilldown,
+        is NavScreen.ArtistProfile -> 3
+        is NavScreen.ArtistTracks,
+        is NavScreen.ArtistDiscography -> 4
+        is NavScreen.NowPlaying -> 5
     }
 
     // Estados Reativos do Player
@@ -162,6 +165,33 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                     renderCurrentCategory()
                 }
             }
+        }
+    }
+
+    private val targetArtistForMediaState = mutableStateOf<String?>(null)
+    private val artistMediaVersionState = mutableIntStateOf(0)
+
+    private val pickArtistMediaLauncher = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val artist = targetArtistForMediaState.value
+        if (uri != null && !artist.isNullOrBlank()) {
+            val result = CoverArtLoader.saveArtistMedia(this, artist, uri)
+            if (result != null) {
+                libraryRepo.setArtistMedia(artist, result.first, result.second)
+                artistMediaVersionState.intValue++
+                AuroHaptics.confirm(window.decorView)
+                snackbarState.show(text = getString(R.string.artist_media_updated))
+            }
+        }
+    }
+
+    private fun removeArtistMedia(artistName: String) {
+        val media = libraryRepo.getArtistMedia(artistName)
+        if (media != null) {
+            libraryRepo.removeArtistMedia(artistName)
+            CoverArtLoader.deleteArtistMedia(media.first)
+            artistMediaVersionState.intValue++
+            AuroHaptics.confirm(window.decorView)
+            snackbarState.show(text = getString(R.string.artist_media_removed))
         }
     }
 
@@ -747,6 +777,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         )
                                     }
                                 }
+                                val artistMediaMap = remember(artistMediaVersionState.intValue) {
+                                    libraryRepo.getAllArtistMedia()
+                                }
                                 AuroHomeScreen(
                                     currentTrack = currentTrack,
                                     isPlaying = isPlaying,
@@ -785,17 +818,33 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onOpenNowPlaying = { navController.openNowPlaying() },
                                     onOpenSettings = { showMenuSheetState.value = true },
                                     onOpenLibrary = { navController.toggleLibrary() },
-                                    onArtistClick = { artistName ->
-                                        drillDownGroup(LibraryCategory.ARTISTS, artistName)
+                                    onOpenMostPlayed = {
+                                        val title = getString(R.string.home_mix_most_played)
+                                        drillDownGroup(LibraryCategory.MOST_PLAYED, title)
                                         navController.navigateTo(
                                             NavScreen.Drilldown(
-                                                category = LibraryCategory.ARTISTS,
-                                                title = artistName,
-                                                subtitle = getString(R.string.group_subtitle_artist)
+                                                category = LibraryCategory.MOST_PLAYED,
+                                                title = title,
+                                                subtitle = getString(R.string.group_subtitle_smart_playlist)
                                             )
                                         )
                                     },
+                                    onOpenFavorites = {
+                                        val title = getString(R.string.home_mix_favorites)
+                                        drillDownGroup(LibraryCategory.TOP_RATED, title)
+                                        navController.navigateTo(
+                                            NavScreen.Drilldown(
+                                                category = LibraryCategory.TOP_RATED,
+                                                title = title,
+                                                subtitle = getString(R.string.group_subtitle_smart_playlist)
+                                            )
+                                        )
+                                    },
+                                    onArtistClick = { artistName ->
+                                        navController.navigateTo(NavScreen.ArtistProfile(artistName))
+                                    },
                                     playlists = homePlaylists,
+                                    artistMediaMap = artistMediaMap,
                                     onAlbumClick = { albumName ->
                                         drillDownGroup(LibraryCategory.ALBUMS, albumName)
                                         navController.navigateTo(
@@ -984,14 +1033,18 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                             trackContextMenuState.value = track
                                         },
                                         onGroupClick = { group ->
-                                            drillDownGroup(activeScreen.category, group.title)
-                                            navController.navigateTo(
-                                                NavScreen.Drilldown(
-                                                    category = activeScreen.category,
-                                                    title = group.title,
-                                                    subtitle = group.subtitle
+                                            if (activeScreen.category == LibraryCategory.ARTISTS || activeScreen.category == LibraryCategory.ALBUM_ARTISTS) {
+                                                navController.navigateTo(NavScreen.ArtistProfile(group.title))
+                                            } else {
+                                                drillDownGroup(activeScreen.category, group.title)
+                                                navController.navigateTo(
+                                                    NavScreen.Drilldown(
+                                                        category = activeScreen.category,
+                                                        title = group.title,
+                                                        subtitle = group.subtitle
+                                                    )
                                                 )
-                                            )
+                                            }
                                         },
                                         onGroupLongClick = { group ->
                                             if (activeScreen.category == LibraryCategory.PLAYLISTS) {
@@ -1087,6 +1140,141 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onTrackMenuClick = { track ->
                                         trackContextMenuState.value = track
                                     },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+
+                            is NavScreen.ArtistProfile -> {
+                                val artistName = activeScreen.artistName
+                                val isPinned = preferencesManager.isGroupPinned("ARTISTS_$artistName")
+                                val artistMedia = remember(artistName, artistMediaVersionState.intValue) {
+                                    libraryRepo.getArtistMedia(artistName)
+                                }
+                                AuroArtistScreen(
+                                    artistName = artistName,
+                                    onBack = { navController.navigateUp() },
+                                    onNavigateToTracks = { navController.navigateTo(NavScreen.ArtistTracks(artistName)) },
+                                    onNavigateToDiscography = { navController.navigateTo(NavScreen.ArtistDiscography(artistName)) },
+                                    onAlbumClick = { albumName ->
+                                        drillDownGroup(LibraryCategory.ALBUMS, albumName)
+                                        navController.navigateTo(
+                                            NavScreen.Drilldown(
+                                                category = LibraryCategory.ALBUMS,
+                                                title = albumName,
+                                                subtitle = getString(R.string.group_subtitle_album)
+                                            )
+                                        )
+                                    },
+                                    onTrackClick = { _, position ->
+                                        val topTracks = libraryRepo.getTop5TracksForArtist(artistName)
+                                        if (topTracks.isNotEmpty()) {
+                                            playbackService?.playQueue(topTracks, position)
+                                            navController.openNowPlaying()
+                                        }
+                                    },
+                                    onTrackLongClick = { track ->
+                                        trackContextMenuState.value = track
+                                    },
+                                    onTrackMenuClick = { track ->
+                                        trackContextMenuState.value = track
+                                    },
+                                    onPlayAll = {
+                                        val topTracks = libraryRepo.getTop5TracksForArtist(artistName)
+                                        if (topTracks.isNotEmpty()) {
+                                            playbackService?.playQueue(topTracks, 0)
+                                            navController.openNowPlaying()
+                                        }
+                                    },
+                                    onShuffleAll = {
+                                        val topTracks = libraryRepo.getTop5TracksForArtist(artistName)
+                                        if (topTracks.isNotEmpty()) {
+                                            playbackService?.queueManager?.setShuffleMode(ShuffleMode.ALL_TRACKS)
+                                            shuffleModeState.value = ShuffleMode.ALL_TRACKS
+                                            playbackService?.playQueue(topTracks.shuffled(), 0)
+                                            navController.openNowPlaying()
+                                        }
+                                    },
+                                    currentPlayingId = currentTrack?.id ?: -1L,
+                                    isPinned = isPinned,
+                                    onTogglePin = {
+                                        preferencesManager.togglePinnedGroup("ARTISTS_$artistName")
+                                    },
+                                    onChangeMedia = {
+                                        targetArtistForMediaState.value = artistName
+                                        pickArtistMediaLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                    },
+                                    onRemoveMedia = {
+                                        removeArtistMedia(artistName)
+                                    },
+                                    customMediaPath = artistMedia?.first,
+                                    isGif = artistMedia?.second ?: false,
+                                    artistMediaVersion = artistMediaVersionState.intValue,
+                                    dataVersion = totalTracksCount + (currentTrack?.playCount ?: 0).hashCode(),
+                                    errorTrackIds = errorTrackIds.toSet(),
+                                    showFileFormat = preferencesManager.isShowFileFormatEnabled(),
+                                    libraryRepository = libraryRepo,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+
+                            is NavScreen.ArtistTracks -> {
+                                val artistName = activeScreen.artistName
+                                AuroArtistTracksScreen(
+                                    artistName = artistName,
+                                    onBack = { navController.navigateUp() },
+                                    onTrackClick = { track, position ->
+                                        val tracks = libraryRepo.getPrimaryTracksForArtist(artistName, SortMode.TITLE_ASC)
+                                        val all = if (tracks.any { it.id == track.id }) tracks else (tracks + libraryRepo.getFeatTracksForArtist(artistName, SortMode.TITLE_ASC)).sortedBy { it.title.lowercase() }
+                                        val idx = all.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
+                                        playbackService?.playQueue(all, idx)
+                                        navController.openNowPlaying()
+                                    },
+                                    onTrackLongClick = { track ->
+                                        trackContextMenuState.value = track
+                                    },
+                                    onTrackMenuClick = { track ->
+                                        trackContextMenuState.value = track
+                                    },
+                                    onPlayAll = { tracks ->
+                                        if (tracks.isNotEmpty()) {
+                                            playbackService?.playQueue(tracks, 0)
+                                            navController.openNowPlaying()
+                                        }
+                                    },
+                                    onShuffleAll = { tracks ->
+                                        if (tracks.isNotEmpty()) {
+                                            playbackService?.queueManager?.setShuffleMode(ShuffleMode.ALL_TRACKS)
+                                            shuffleModeState.value = ShuffleMode.ALL_TRACKS
+                                            playbackService?.playQueue(tracks.shuffled(), 0)
+                                            navController.openNowPlaying()
+                                        }
+                                    },
+                                    currentPlayingId = currentTrack?.id ?: -1L,
+                                    dataVersion = totalTracksCount + (currentTrack?.playCount ?: 0).hashCode(),
+                                    errorTrackIds = errorTrackIds.toSet(),
+                                    showFileFormat = preferencesManager.isShowFileFormatEnabled(),
+                                    libraryRepository = libraryRepo,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+
+                            is NavScreen.ArtistDiscography -> {
+                                val artistName = activeScreen.artistName
+                                AuroArtistDiscographyScreen(
+                                    artistName = artistName,
+                                    onBack = { navController.navigateUp() },
+                                    onAlbumClick = { albumName ->
+                                        drillDownGroup(LibraryCategory.ALBUMS, albumName)
+                                        navController.navigateTo(
+                                            NavScreen.Drilldown(
+                                                category = LibraryCategory.ALBUMS,
+                                                title = albumName,
+                                                subtitle = getString(R.string.group_subtitle_album)
+                                            )
+                                        )
+                                    },
+                                    dataVersion = totalTracksCount + (currentTrack?.playCount ?: 0).hashCode(),
+                                    libraryRepository = libraryRepo,
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
@@ -1289,14 +1477,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         )
                                     },
                                     onArtistClick = { artistName ->
-                                        drillDownGroup(LibraryCategory.ARTISTS, artistName)
-                                        navController.navigateTo(
-                                            NavScreen.Drilldown(
-                                                category = LibraryCategory.ARTISTS,
-                                                title = artistName,
-                                                subtitle = getString(R.string.group_subtitle_artist)
-                                            )
-                                        )
+                                        navController.navigateTo(NavScreen.ArtistProfile(artistName))
                                     },
                                     onClose = { navController.navigateUp() },
                                     modifier = Modifier.fillMaxSize()
@@ -1953,6 +2134,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 val pl = libraryRepo.getUserPlaylists().firstOrNull { it.name.equals(groupName, ignoreCase = true) }
                 if (pl != null) libraryRepo.getTracksForUserPlaylist(pl.id) else emptyList()
             }
+            LibraryCategory.MOST_PLAYED -> libraryRepo.getTop50MostPlayed()
+            LibraryCategory.TOP_RATED -> libraryRepo.getFavoriteTracks()
             else -> emptyList()
         }
         drilldownTracksState.value = tracks

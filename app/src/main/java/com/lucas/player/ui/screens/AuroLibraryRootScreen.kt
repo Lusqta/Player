@@ -226,7 +226,7 @@ fun AuroLibraryRootScreen(
                                 contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                items(pinnedItems, key = { it.title }) { item ->
+                                items(pinnedItems, key = { "${it.title}_${it.subtitle}" }) { item ->
                                     val coverBitmap = rememberPlaylistCover(item.coverPath, coverTrackFinder(item), 150)
 
                                     Column(

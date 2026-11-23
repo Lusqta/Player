@@ -161,6 +161,18 @@
         <item quantity="one">%d faixa</item>
         <item quantity="other">%d faixas</item>
     </plurals>
+    <plurals name="albums_count">
+        <item quantity="one">%d álbum</item>
+        <item quantity="other">%d álbuns</item>
+    </plurals>
+    <plurals name="singles_count">
+        <item quantity="one">%d single</item>
+        <item quantity="other">%d singles</item>
+    </plurals>
+    <plurals name="items_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d itens</item>
+    </plurals>
     <plurals name="tracks_indexed_count">
         <item quantity="one">%d faixa indexada</item>
         <item quantity="other">%d faixas indexadas</item>
@@ -350,6 +362,7 @@
     <string name="group_subtitle_year">Ano</string>
     <string name="group_subtitle_composer">Compositor</string>
     <string name="group_subtitle_playlist">Playlist</string>
+    <string name="group_subtitle_smart_playlist">Playlist inteligente</string>
 
     <!-- Confirmações e Avisos Adicionais (Fase 5.3) -->
     <string name="confirm_delete_playlist_message">Deseja excluir a lista “%1$s”?</string>
@@ -390,4 +403,16 @@
     <string name="history_clear">Limpar histórico</string>
     <string name="history_empty">Nenhuma música tocada ainda</string>
     <string name="history_added_next">Adicionada a seguir</string>
+
+    <!-- Tela de Artista Estilo Streaming -->
+    <string name="artist_top_tracks">Principais músicas</string>
+    <string name="artist_albums">Álbuns</string>
+    <string name="artist_singles_eps">Singles e EPs</string>
+    <string name="artist_discography">Discografia</string>
+    <string name="artist_show_feats">Mostrar feats</string>
+    <string name="artist_change_media">Alterar foto ou GIF</string>
+    <string name="artist_remove_media">Remover foto</string>
+    <string name="artist_media_updated">Foto do artista atualizada</string>
+    <string name="artist_media_removed">Foto do artista removida</string>
+    <string name="artist_see_all">Ver tudo</string>
 </resources>

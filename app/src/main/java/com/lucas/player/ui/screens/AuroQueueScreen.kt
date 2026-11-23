@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import com.lucas.player.R
 import com.lucas.player.model.Track
+import com.lucas.player.model.formatArtistsDisplay
 import com.lucas.player.queue.QueueSection
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.AuroColor
@@ -109,6 +110,24 @@ fun AuroQueueScreen(
     LaunchedEffect(regularTracks) {
         if (draggingSection != QueueSection.QUEUE) {
             localRegularTracks = regularTracks
+        }
+    }
+
+    val priorityKeys = remember(localPriorityTracks) {
+        val counts = mutableMapOf<Long, Int>()
+        localPriorityTracks.map { track ->
+            val occ = counts.getOrDefault(track.id, 0)
+            counts[track.id] = occ + 1
+            "p_${track.id}_$occ"
+        }
+    }
+
+    val regularKeys = remember(localRegularTracks) {
+        val counts = mutableMapOf<Long, Int>()
+        localRegularTracks.map { track ->
+            val occ = counts.getOrDefault(track.id, 0)
+            counts[track.id] = occ + 1
+            "r_${track.id}_$occ"
         }
     }
 
@@ -230,7 +249,7 @@ fun AuroQueueScreen(
                         )
                     }
 
-                    itemsIndexed(localPriorityTracks, key = { _, t -> "prio_${t.id}" }) { index, track ->
+                    itemsIndexed(localPriorityTracks, key = { index, _ -> priorityKeys.getOrElse(index) { "prio_fallback_$index" } }) { index, track ->
                         val isThisDragging = draggingSection == QueueSection.PRIORITY && draggingCurrentIndex == index
 
                         Box(
@@ -333,7 +352,7 @@ fun AuroQueueScreen(
                         )
                     }
 
-                    itemsIndexed(localRegularTracks, key = { _, t -> "reg_${t.id}" }) { index, track ->
+                    itemsIndexed(localRegularTracks, key = { index, _ -> regularKeys.getOrElse(index) { "reg_fallback_$index" } }) { index, track ->
                         val isThisDragging = draggingSection == QueueSection.QUEUE && draggingCurrentIndex == index
 
                         Box(
@@ -551,7 +570,7 @@ private fun AuroQueueTrackRow(
             }
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = track.artist.ifEmpty { stringResource(R.string.unknown_artist) },
+                text = formatArtistsDisplay(track.artist, stringResource(R.string.unknown_artist)),
                 style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.lucas.player.ui.theme.AuroMotion
 import androidx.compose.ui.text.font.FontWeight
@@ -93,7 +94,11 @@ fun AuroCategoryListScreen(
     ) {
         AuroTopBar(
             title = stringResource(category.getTitleRes()),
-            subtitle = if (isTrackListCategory) "${displayedTracks.size} faixas" else "${displayedGroups.size} itens",
+            subtitle = if (isTrackListCategory) {
+                pluralStringResource(R.plurals.tracks_count, displayedTracks.size, displayedTracks.size)
+            } else {
+                pluralStringResource(R.plurals.items_count, displayedGroups.size, displayedGroups.size)
+            },
             canGoBack = true,
             onBackClick = onBackClick,
             rightActions = {

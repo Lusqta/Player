@@ -1,6 +1,16 @@
 package com.lucas.player.ui.components
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
+import android.graphics.drawable.AnimatedImageDrawable
+import android.graphics.drawable.Drawable
+import android.os.Build
+import android.widget.ImageView
+import androidx.compose.ui.viewinterop.AndroidView
+import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.unit.Dp
 import kotlin.math.abs
 import kotlin.math.sin
@@ -68,7 +78,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
 import com.lucas.player.data.CoverArtLoader
-import com.lucas.player.model.Track
+import com.lucas.player.model.*
 import com.lucas.player.ui.navigation.NavScreen
 import com.lucas.player.ui.theme.*
 import java.util.Locale
@@ -97,6 +107,8 @@ fun formatArtistsDisplay(raw: String, fallback: String = ""): String = com.lucas
 fun formatDisplayArtist(raw: String, fallback: String = ""): String = formatArtistsDisplay(raw, fallback)
 
 fun isJunkAudio(track: Track, minSecFloor: Int = 30): Boolean = com.lucas.player.model.isJunkAudio(track, minSecFloor)
+
+fun isValidHighlightName(raw: String): Boolean = com.lucas.player.model.isValidHighlightName(raw)
 
 @Composable
 fun ArtistMonogram(
@@ -140,9 +152,164 @@ fun ArtistMonogram(
     }
 }
 
-fun isValidHighlightName(raw: String): Boolean {
-    val t = raw.trim()
-    return t.isNotEmpty() && !t.equals("<unknown>", ignoreCase = true) && !t.equals("Desconhecido", ignoreCase = true)
+@Composable
+fun ArtistAvatarImage(
+    artistName: String,
+    customMediaPath: String?,
+    isGif: Boolean,
+    fallbackTrack: Track?,
+    shape: Shape = AuroSquircle,
+    mediaStamp: Long = 0L,
+    modifier: Modifier = Modifier
+) {
+    val reduceMotion = rememberReduceMotion()
+    val resolvedStamp = remember(customMediaPath, mediaStamp) {
+        if (mediaStamp != 0L) mediaStamp
+        else customMediaPath?.let { File(it).takeIf(File::exists)?.lastModified() } ?: 0L
+    }
+    val mediaFile = remember(customMediaPath, resolvedStamp) {
+        if (!customMediaPath.isNullOrBlank()) {
+            val f = File(customMediaPath)
+            if (f.exists()) f else null
+        } else null
+    }
+
+    if (mediaFile != null && isGif) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            var gifDrawable by remember(mediaFile.absolutePath, resolvedStamp) {
+                mutableStateOf<Drawable?>(null)
+            }
+            LaunchedEffect(mediaFile.absolutePath, resolvedStamp) {
+                val d = withContext(Dispatchers.IO) {
+                    try {
+                        val source = ImageDecoder.createSource(mediaFile)
+                        ImageDecoder.decodeDrawable(source)
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+                gifDrawable = d
+            }
+
+            if (gifDrawable != null) {
+                AndroidView(
+                    factory = { ctx ->
+                        ImageView(ctx).apply {
+                            scaleType = ImageView.ScaleType.CENTER_CROP
+                            setImageDrawable(gifDrawable)
+                            (gifDrawable as? AnimatedImageDrawable)?.let {
+                                if (!reduceMotion) it.start() else it.stop()
+                            }
+                        }
+                    },
+                    update = { iv ->
+                        if (iv.drawable != gifDrawable) {
+                            iv.setImageDrawable(gifDrawable)
+                        }
+                        (gifDrawable as? AnimatedImageDrawable)?.let {
+                            if (!reduceMotion) {
+                                if (!it.isRunning) it.start()
+                            } else {
+                                if (it.isRunning) it.stop()
+                            }
+                        }
+                    },
+                    modifier = modifier.clip(shape)
+                )
+            } else {
+                // Enquanto carrega em background ou se der fallback para o 1º frame
+                var bmp by remember(mediaFile.absolutePath, resolvedStamp) {
+                    mutableStateOf(CoverArtLoader.getCachedArtistStaticBitmap(mediaFile.absolutePath))
+                }
+                LaunchedEffect(mediaFile.absolutePath, resolvedStamp) {
+                    CoverArtLoader.loadArtistStaticBitmap(mediaFile.absolutePath, 400) { loaded ->
+                        bmp = loaded
+                    }
+                }
+                if (bmp != null) {
+                    Image(
+                        bitmap = bmp!!.asImageBitmap(),
+                        contentDescription = artistName,
+                        contentScale = ContentScale.Crop,
+                        modifier = modifier.clip(shape)
+                    )
+                } else {
+                    val fallbackCover = rememberTrackCover(fallbackTrack, 400)
+                    if (fallbackCover != null) {
+                        Image(
+                            bitmap = fallbackCover.asImageBitmap(),
+                            contentDescription = artistName,
+                            contentScale = ContentScale.Crop,
+                            modifier = modifier.clip(shape)
+                        )
+                    } else {
+                        ArtistMonogram(name = artistName, modifier = modifier, shape = shape)
+                    }
+                }
+            }
+        } else {
+            // Android API 26-27 fallback: static 1st frame
+            var bmp by remember(mediaFile.absolutePath, resolvedStamp) {
+                mutableStateOf(CoverArtLoader.getCachedArtistStaticBitmap(mediaFile.absolutePath))
+            }
+            LaunchedEffect(mediaFile.absolutePath, resolvedStamp) {
+                CoverArtLoader.loadArtistStaticBitmap(mediaFile.absolutePath, 400) { loaded ->
+                    bmp = loaded
+                }
+            }
+            if (bmp != null) {
+                Image(
+                    bitmap = bmp!!.asImageBitmap(),
+                    contentDescription = artistName,
+                    contentScale = ContentScale.Crop,
+                    modifier = modifier.clip(shape)
+                )
+            } else {
+                ArtistMonogram(name = artistName, modifier = modifier, shape = shape)
+            }
+        }
+    } else if (mediaFile != null && !isGif) {
+        var bmp by remember(mediaFile.absolutePath, resolvedStamp) {
+            mutableStateOf(CoverArtLoader.getCachedArtistStaticBitmap(mediaFile.absolutePath))
+        }
+        LaunchedEffect(mediaFile.absolutePath, resolvedStamp) {
+            CoverArtLoader.loadArtistStaticBitmap(mediaFile.absolutePath, 400) { loaded ->
+                bmp = loaded
+            }
+        }
+        if (bmp != null) {
+            Image(
+                bitmap = bmp!!.asImageBitmap(),
+                contentDescription = artistName,
+                contentScale = ContentScale.Crop,
+                modifier = modifier.clip(shape)
+            )
+        } else {
+            val fallbackCover = rememberTrackCover(fallbackTrack, 400)
+            if (fallbackCover != null) {
+                Image(
+                    bitmap = fallbackCover.asImageBitmap(),
+                    contentDescription = artistName,
+                    contentScale = ContentScale.Crop,
+                    modifier = modifier.clip(shape)
+                )
+            } else {
+                ArtistMonogram(name = artistName, modifier = modifier, shape = shape)
+            }
+        }
+    } else {
+        val fallbackCover = rememberTrackCover(fallbackTrack, 400)
+        if (fallbackCover != null) {
+            Image(
+                bitmap = fallbackCover.asImageBitmap(),
+                contentDescription = artistName,
+                contentScale = ContentScale.Crop,
+                modifier = modifier.clip(shape)
+            )
+        } else {
+            ArtistMonogram(name = artistName, modifier = modifier, shape = shape)
+        }
+    }
 }
 
 @Composable
@@ -255,7 +422,10 @@ fun EditorialFloatingNavbar(
                     contentDescription = stringResource(R.string.tab_library),
                     isActive = currentScreen is NavScreen.LibraryRoot ||
                         currentScreen is NavScreen.CategoryList ||
-                        currentScreen is NavScreen.Drilldown,
+                        currentScreen is NavScreen.Drilldown ||
+                        currentScreen is NavScreen.ArtistProfile ||
+                        currentScreen is NavScreen.ArtistTracks ||
+                        currentScreen is NavScreen.ArtistDiscography,
                     onClick = onLibraryClick
                 )
                 EditorialNavIcon(

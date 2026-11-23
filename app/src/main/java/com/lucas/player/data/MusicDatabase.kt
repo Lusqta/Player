@@ -98,6 +98,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         seedBuiltinPresets(db)
         createCachedTracksTable(db)
         createPlaybackHistoryTable(db)
+        createArtistMediaTable(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -120,6 +121,21 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         if (oldVersion < 6) {
             createPlaybackHistoryTable(db)
         }
+        if (oldVersion < 7) {
+            createArtistMediaTable(db)
+        }
+    }
+
+    private fun createArtistMediaTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_ARTIST_MEDIA (
+                $COL_ARTIST_KEY TEXT PRIMARY KEY,
+                $COL_ARTIST_MEDIA_PATH TEXT NOT NULL,
+                $COL_ARTIST_IS_GIF INTEGER DEFAULT 0
+            )
+            """.trimIndent()
+        )
     }
 
     private fun createPlaybackHistoryTable(db: SQLiteDatabase) {
@@ -663,9 +679,80 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         } catch (_: Exception) {}
     }
 
+    fun setArtistMedia(artistName: String, path: String, isGif: Boolean) {
+        val key = artistName.trim().lowercase()
+        if (key.isEmpty()) return
+        try {
+            val cv = ContentValues().apply {
+                put(COL_ARTIST_KEY, key)
+                put(COL_ARTIST_MEDIA_PATH, path)
+                put(COL_ARTIST_IS_GIF, if (isGif) 1 else 0)
+            }
+            writableDatabase.insertWithOnConflict(TABLE_ARTIST_MEDIA, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+        } catch (_: Exception) {}
+    }
+
+    fun getArtistMedia(artistName: String): Pair<String, Boolean>? {
+        val key = artistName.trim().lowercase()
+        if (key.isEmpty()) return null
+        try {
+            val cursor = readableDatabase.query(
+                TABLE_ARTIST_MEDIA,
+                arrayOf(COL_ARTIST_MEDIA_PATH, COL_ARTIST_IS_GIF),
+                "$COL_ARTIST_KEY = ?",
+                arrayOf(key),
+                null, null, null
+            )
+            cursor.use {
+                if (it.moveToFirst()) {
+                    val path = it.getString(0) ?: ""
+                    val isGif = it.getInt(1) == 1
+                    return Pair(path, isGif)
+                }
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    fun getAllArtistMedia(): Map<String, Pair<String, Boolean>> {
+        val result = mutableMapOf<String, Pair<String, Boolean>>()
+        try {
+            val cursor = readableDatabase.query(
+                TABLE_ARTIST_MEDIA,
+                arrayOf(COL_ARTIST_KEY, COL_ARTIST_MEDIA_PATH, COL_ARTIST_IS_GIF),
+                null, null, null, null, null
+            )
+            cursor.use {
+                val keyCol = it.getColumnIndexOrThrow(COL_ARTIST_KEY)
+                val pathCol = it.getColumnIndexOrThrow(COL_ARTIST_MEDIA_PATH)
+                val gifCol = it.getColumnIndexOrThrow(COL_ARTIST_IS_GIF)
+                while (it.moveToNext()) {
+                    val key = it.getString(keyCol) ?: continue
+                    val path = it.getString(pathCol) ?: ""
+                    val isGif = it.getInt(gifCol) == 1
+                    result[key] = Pair(path, isGif)
+                }
+            }
+        } catch (_: Exception) {}
+        return result
+    }
+
+    fun removeArtistMedia(artistName: String) {
+        val key = artistName.trim().lowercase()
+        if (key.isEmpty()) return
+        try {
+            writableDatabase.delete(TABLE_ARTIST_MEDIA, "$COL_ARTIST_KEY = ?", arrayOf(key))
+        } catch (_: Exception) {}
+    }
+
     companion object {
         const val DATABASE_NAME = "poweramp_library.db"
-        const val DATABASE_VERSION = 6
+        const val DATABASE_VERSION = 7
+
+        const val TABLE_ARTIST_MEDIA = "artist_media"
+        const val COL_ARTIST_KEY = "artist_key"
+        const val COL_ARTIST_MEDIA_PATH = "media_path"
+        const val COL_ARTIST_IS_GIF = "is_gif"
 
         const val TABLE_PLAYBACK_HISTORY = "playback_history"
         const val COL_HISTORY_ID = "id"

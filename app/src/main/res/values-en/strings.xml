@@ -161,6 +161,18 @@
         <item quantity="one">%d track</item>
         <item quantity="other">%d tracks</item>
     </plurals>
+    <plurals name="albums_count">
+        <item quantity="one">%d album</item>
+        <item quantity="other">%d albums</item>
+    </plurals>
+    <plurals name="singles_count">
+        <item quantity="one">%d single</item>
+        <item quantity="other">%d singles</item>
+    </plurals>
+    <plurals name="items_count">
+        <item quantity="one">%d item</item>
+        <item quantity="other">%d items</item>
+    </plurals>
     <plurals name="tracks_indexed_count">
         <item quantity="one">%d track indexed</item>
         <item quantity="other">%d tracks indexed</item>
@@ -349,6 +361,7 @@
     <string name="group_subtitle_year">Year</string>
     <string name="group_subtitle_composer">Composer</string>
     <string name="group_subtitle_playlist">Playlist</string>
+    <string name="group_subtitle_smart_playlist">Smart playlist</string>
 
     <!-- Confirmations & Additional Feedback (Phase 5.3) -->
     <string name="confirm_delete_playlist_message">Do you want to delete playlist “%1$s”?</string>
@@ -389,4 +402,16 @@
     <string name="history_clear">Clear history</string>
     <string name="history_empty">No listening history yet</string>
     <string name="history_added_next">Added to play next</string>
+
+    <!-- Streaming-Style Artist Screen -->
+    <string name="artist_top_tracks">Top songs</string>
+    <string name="artist_albums">Albums</string>
+    <string name="artist_singles_eps">Singles &amp; EPs</string>
+    <string name="artist_discography">Discography</string>
+    <string name="artist_show_feats">Show features</string>
+    <string name="artist_change_media">Change photo or GIF</string>
+    <string name="artist_remove_media">Remove photo</string>
+    <string name="artist_media_updated">Artist photo updated</string>
+    <string name="artist_media_removed">Artist photo removed</string>
+    <string name="artist_see_all">See all</string>
 </resources>

@@ -21,6 +21,9 @@ sealed class NavScreen {
         val title: String,
         val subtitle: String = ""
     ) : NavScreen()
+    data class ArtistProfile(val artistName: String) : NavScreen()
+    data class ArtistTracks(val artistName: String) : NavScreen()
+    data class ArtistDiscography(val artistName: String) : NavScreen()
     object Equalizer : NavScreen()
     object Search : NavScreen()
     object Queue : NavScreen()
@@ -90,6 +93,11 @@ class PlayerNavController(initialScreen: NavScreen = NavScreen.Home) {
      */
     fun toggleLibrary() {
         when (val curr = currentScreen) {
+            is NavScreen.ArtistProfile,
+            is NavScreen.ArtistTracks,
+            is NavScreen.ArtistDiscography -> {
+                navigateTo(NavScreen.LibraryRoot)
+            }
             is NavScreen.Drilldown -> {
                 navigateTo(NavScreen.CategoryList(curr.category))
             }
