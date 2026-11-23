@@ -45,9 +45,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -135,18 +133,11 @@ fun EditorialFloatingNavbar(
     onSearchClick: () -> Unit,
     onLibraryClick: () -> Unit,
     onTuneClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    backdropLayer: androidx.compose.ui.graphics.layer.GraphicsLayer? = null,
-    backdropOrigin: androidx.compose.ui.geometry.Offset = androidx.compose.ui.geometry.Offset.Zero
+    modifier: Modifier = Modifier
 ) {
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    var navPosition by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
-    val blurRadiusPx = remember(density) { with(density) { 24.dp.toPx() } }
-
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .onGloballyPositioned { navPosition = it.positionInRoot() }
             // Bloqueia cliques e arrastos nos espaços vazios para não atravessarem para a lista atrás
             .pointerInput(Unit) {
                 awaitPointerEventScope {
@@ -158,39 +149,10 @@ fun EditorialFloatingNavbar(
             }
             .clipToBounds()
     ) {
-        // Camada de blur real do conteúdo passando por trás (API 31+)
-        if (backdropLayer != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .graphicsLayer {
-                        renderEffect = androidx.compose.ui.graphics.BlurEffect(
-                            radiusX = blurRadiusPx,
-                            radiusY = blurRadiusPx,
-                            edgeTreatment = androidx.compose.ui.graphics.TileMode.Clamp
-                        )
-                    }
-                    .drawBehind {
-                        val dx = navPosition.x - backdropOrigin.x
-                        val dy = navPosition.y - backdropOrigin.y
-                        translate(left = -dx, top = -dy) {
-                            drawLayer(backdropLayer)
-                        }
-                    }
-            )
-        }
-
-        // Película escura translúcida + conteúdo da navbar
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(
-                    if (backdropLayer != null && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                        Color(0xA6101012) // ~65% opacidade para deixar o blur visível
-                    } else {
-                        Color(0xF0121214)
-                    }
-                )
+                .background(Color(0xF2121214))
                 .navigationBarsPadding()
         ) {
             HorizontalDivider(

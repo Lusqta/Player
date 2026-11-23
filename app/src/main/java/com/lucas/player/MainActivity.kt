@@ -34,15 +34,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.layer.drawLayer
-import androidx.compose.ui.graphics.rememberGraphicsLayer
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -232,37 +226,45 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 uri.lastPathSegment ?: ""
             }
 
-            val folderName = when {
-                docId.contains(":") -> {
-                    val sub = docId.substringAfter(":")
-                    if (sub.contains("/")) sub.substringAfterLast("/") else sub
-                }
-                else -> docId
-            }.ifEmpty { "Música" }
+            val folderName = try {
+                when {
+                    docId.contains(":") -> {
+                        val sub = docId.substringAfter(":")
+                        if (sub.contains("/")) sub.substringAfterLast("/") else sub
+                    }
+                    else -> docId
+                }.ifEmpty { "Música" }
+            } catch (_: Exception) { "Música" }
 
-            val folderPath = when {
-                docId.startsWith("primary:", ignoreCase = true) -> {
-                    val rel = docId.substringAfter(":")
-                    val base = Environment.getExternalStorageDirectory().absolutePath
-                    if (rel.isEmpty()) base else "$base/$rel"
+            val folderPath = try {
+                when {
+                    docId.startsWith("primary:", ignoreCase = true) -> {
+                        val rel = docId.substringAfter(":")
+                        val base = Environment.getExternalStorageDirectory().absolutePath
+                        if (rel.isEmpty()) base else "$base/$rel"
+                    }
+                    docId.contains(":") -> {
+                        val parts = docId.split(":")
+                        "/storage/${parts[0]}/${parts.getOrElse(1) { "" }}"
+                    }
+                    else -> docId
                 }
-                docId.contains(":") -> {
-                    val parts = docId.split(":")
-                    "/storage/${parts[0]}/${parts.getOrElse(1) { "" }}"
-                }
-                else -> docId
+            } catch (_: Exception) { docId }
+
+            try {
+                preferencesManager.addMusicFolderUri(uri.toString())
+                preferencesManager.setSelectedMusicFolderUri(uri.toString())
+                preferencesManager.setSelectedMusicFolderPath(folderPath)
+                preferencesManager.setSelectedMusicFolderName(folderName)
+
+                selectedFoldersState.value = preferencesManager.getMusicFolderUris()
+                libraryAccessState.value = LibraryAccess.Granted
+                loadLibrary()
+                checkNotificationPermissionNonBlocking()
+                snackbarState.show(getString(R.string.snackbar_folder_selected, folderName))
+            } catch (e: Exception) {
+                android.util.Log.e("MainActivity", "Erro ao processar pasta selecionada", e)
             }
-
-            preferencesManager.addMusicFolderUri(uri.toString())
-            preferencesManager.setSelectedMusicFolderUri(uri.toString())
-            preferencesManager.setSelectedMusicFolderPath(folderPath)
-            preferencesManager.setSelectedMusicFolderName(folderName)
-
-            selectedFoldersState.value = preferencesManager.getMusicFolderUris()
-            libraryAccessState.value = LibraryAccess.Granted
-            loadLibrary()
-            checkNotificationPermissionNonBlocking()
-            snackbarState.show(getString(R.string.snackbar_folder_selected, folderName))
         }
     }
 
@@ -375,8 +377,6 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         startAndBindService()
 
         setContent {
-            val backdropLayer = rememberGraphicsLayer()
-            var contentRootOffset by remember { mutableStateOf(Offset.Zero) }
             val libraryAccess by libraryAccessState
             val isLoadingLibrary by isLoadingLibraryState
             val loadingTracksCount by loadingTracksCountState
@@ -654,17 +654,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                     // Conteúdo Principal de Acordo com a Tela Ativa (Fase 5.4: insets medidos via LocalAuroBottomInset)
                     Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .onGloballyPositioned { contentRootOffset = it.positionInRoot() }
-                            .drawWithContent {
-                                if (size.width > 0f && size.height > 0f) {
-                                    backdropLayer.record { this@drawWithContent.drawContent() }
-                                    drawLayer(backdropLayer)
-                                } else {
-                                    drawContent()
-                                }
-                            }
+                        modifier = Modifier.fillMaxSize()
                     ) {
                         AnimatedContent(
                             targetState = currentScreen,
@@ -1584,9 +1574,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 onHomeClick = { navController.toggleHome() },
                                 onSearchClick = { navController.toggleSearch() },
                                 onLibraryClick = { navController.toggleLibrary() },
-                                onTuneClick = { showMenuSheetState.value = true },
-                                backdropLayer = backdropLayer,
-                                backdropOrigin = contentRootOffset
+                                onTuneClick = { showMenuSheetState.value = true }
                             )
                         }
                     }
@@ -2144,14 +2132,24 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         isLoadingLibraryState.value = true
         errorTrackIdsState.clear()
         consecutivePlaybackErrors = 0
-        libraryRepo.loadTracks(this) { list ->
-            runOnUiThread {
-                totalTracksCountState.intValue = list.size
-                loadingTracksCountState.intValue = list.size
-                isLoadingLibraryState.value = false
-                selectCategory(LibraryCategory.ALL_SONGS)
-                playbackService?.restoreSavedQueue(list)
+        try {
+            libraryRepo.loadTracks(this) { list ->
+                runOnUiThread {
+                    try {
+                        totalTracksCountState.intValue = list.size
+                        loadingTracksCountState.intValue = list.size
+                        isLoadingLibraryState.value = false
+                        selectCategory(LibraryCategory.ALL_SONGS)
+                        playbackService?.restoreSavedQueue(list)
+                    } catch (e: Exception) {
+                        android.util.Log.e("MainActivity", "Erro ao atualizar UI com biblioteca", e)
+                        isLoadingLibraryState.value = false
+                    }
+                }
             }
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Erro ao disparar carregamento de biblioteca", e)
+            isLoadingLibraryState.value = false
         }
     }
 

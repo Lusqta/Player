@@ -105,6 +105,10 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         if (oldVersion < 3) {
             createCachedTracksTable(db)
         }
+        if (oldVersion < 4) {
+            db.execSQL("DROP TABLE IF EXISTS $TABLE_CACHED_TRACKS")
+            createCachedTracksTable(db)
+        }
     }
 
     private fun createCachedTracksTable(db: SQLiteDatabase) {
@@ -373,59 +377,63 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
 
     fun getCachedTracks(): List<CachedTrack> {
         val list = mutableListOf<CachedTrack>()
-        val db = readableDatabase
-        val query = "SELECT * FROM $TABLE_CACHED_TRACKS"
-        db.rawQuery(query, null).use { cursor ->
-            val idCol = cursor.getColumnIndexOrThrow(COL_CACHE_TRACK_ID)
-            val uriCol = cursor.getColumnIndexOrThrow(COL_CACHE_URI)
-            val treeCol = cursor.getColumnIndexOrThrow(COL_CACHE_TREE_URI)
-            val lrcCol = cursor.getColumnIndexOrThrow(COL_CACHE_LRC_URI)
-            val titleCol = cursor.getColumnIndexOrThrow(COL_CACHE_TITLE)
-            val artistCol = cursor.getColumnIndexOrThrow(COL_CACHE_ARTIST)
-            val albumCol = cursor.getColumnIndexOrThrow(COL_CACHE_ALBUM)
-            val aaCol = cursor.getColumnIndexOrThrow(COL_CACHE_ALBUM_ARTIST)
-            val compCol = cursor.getColumnIndexOrThrow(COL_CACHE_COMPOSER)
-            val genreCol = cursor.getColumnIndexOrThrow(COL_CACHE_GENRE)
-            val yearCol = cursor.getColumnIndexOrThrow(COL_CACHE_YEAR)
-            val tnCol = cursor.getColumnIndexOrThrow(COL_CACHE_TRACK_NUMBER)
-            val dnCol = cursor.getColumnIndexOrThrow(COL_CACHE_DISC_NUMBER)
-            val durCol = cursor.getColumnIndexOrThrow(COL_CACHE_DURATION_MS)
-            val sizeCol = cursor.getColumnIndexOrThrow(COL_CACHE_FILE_SIZE)
-            val dmCol = cursor.getColumnIndexOrThrow(COL_CACHE_DATE_MODIFIED)
-            val daCol = cursor.getColumnIndexOrThrow(COL_CACHE_DATE_ADDED)
-            val folderCol = cursor.getColumnIndexOrThrow(COL_CACHE_FOLDER)
-            val fmtCol = cursor.getColumnIndexOrThrow(COL_CACHE_FORMAT_TAG)
-            val brCol = cursor.getColumnIndexOrThrow(COL_CACHE_BITRATE)
-            val srCol = cursor.getColumnIndexOrThrow(COL_CACHE_SAMPLE_RATE)
+        try {
+            val db = readableDatabase
+            val query = "SELECT * FROM $TABLE_CACHED_TRACKS"
+            db.rawQuery(query, null).use { cursor ->
+                val idCol = cursor.getColumnIndex(COL_CACHE_TRACK_ID)
+                val uriCol = cursor.getColumnIndex(COL_CACHE_URI)
+                val treeCol = cursor.getColumnIndex(COL_CACHE_TREE_URI)
+                val lrcCol = cursor.getColumnIndex(COL_CACHE_LRC_URI)
+                val titleCol = cursor.getColumnIndex(COL_CACHE_TITLE)
+                val artistCol = cursor.getColumnIndex(COL_CACHE_ARTIST)
+                val albumCol = cursor.getColumnIndex(COL_CACHE_ALBUM)
+                val aaCol = cursor.getColumnIndex(COL_CACHE_ALBUM_ARTIST)
+                val compCol = cursor.getColumnIndex(COL_CACHE_COMPOSER)
+                val genreCol = cursor.getColumnIndex(COL_CACHE_GENRE)
+                val yearCol = cursor.getColumnIndex(COL_CACHE_YEAR)
+                val tnCol = cursor.getColumnIndex(COL_CACHE_TRACK_NUMBER)
+                val dnCol = cursor.getColumnIndex(COL_CACHE_DISC_NUMBER)
+                val durCol = cursor.getColumnIndex(COL_CACHE_DURATION_MS)
+                val sizeCol = cursor.getColumnIndex(COL_CACHE_FILE_SIZE)
+                val dmCol = cursor.getColumnIndex(COL_CACHE_DATE_MODIFIED)
+                val daCol = cursor.getColumnIndex(COL_CACHE_DATE_ADDED)
+                val folderCol = cursor.getColumnIndex(COL_CACHE_FOLDER)
+                val fmtCol = cursor.getColumnIndex(COL_CACHE_FORMAT_TAG)
+                val brCol = cursor.getColumnIndex(COL_CACHE_BITRATE)
+                val srCol = cursor.getColumnIndex(COL_CACHE_SAMPLE_RATE)
 
-            while (cursor.moveToNext()) {
-                list.add(
-                    CachedTrack(
-                        trackId = cursor.getLong(idCol),
-                        uri = cursor.getString(uriCol),
-                        treeUri = cursor.getString(treeCol),
-                        lrcUri = cursor.getString(lrcCol) ?: "",
-                        title = cursor.getString(titleCol) ?: "Sem título",
-                        artist = cursor.getString(artistCol) ?: "Artista desconhecido",
-                        album = cursor.getString(albumCol) ?: "Álbum desconhecido",
-                        albumArtist = cursor.getString(aaCol) ?: "",
-                        composer = cursor.getString(compCol) ?: "",
-                        genre = cursor.getString(genreCol) ?: "",
-                        year = cursor.getInt(yearCol),
-                        trackNumber = cursor.getInt(tnCol),
-                        discNumber = cursor.getInt(dnCol),
-                        durationMs = cursor.getLong(durCol),
-                        fileSize = cursor.getLong(sizeCol),
-                        dateModifiedSec = cursor.getLong(dmCol),
-                        dateAddedSec = cursor.getLong(daCol),
-                        folder = cursor.getString(folderCol) ?: "Músicas",
-                        formatTag = cursor.getString(fmtCol) ?: "AUDIO",
-                        bitrateKbps = cursor.getInt(brCol),
-                        sampleRateHz = cursor.getInt(srCol)
+                if (idCol == -1 || uriCol == -1 || treeCol == -1) return emptyList()
+
+                while (cursor.moveToNext()) {
+                    list.add(
+                        CachedTrack(
+                            trackId = cursor.getLong(idCol),
+                            uri = cursor.getString(uriCol),
+                            treeUri = cursor.getString(treeCol),
+                            lrcUri = if (lrcCol != -1) cursor.getString(lrcCol) ?: "" else "",
+                            title = if (titleCol != -1) cursor.getString(titleCol) ?: "Sem título" else "Sem título",
+                            artist = if (artistCol != -1) cursor.getString(artistCol) ?: "Artista desconhecido" else "Artista desconhecido",
+                            album = if (albumCol != -1) cursor.getString(albumCol) ?: "Álbum desconhecido" else "Álbum desconhecido",
+                            albumArtist = if (aaCol != -1) cursor.getString(aaCol) ?: "" else "",
+                            composer = if (compCol != -1) cursor.getString(compCol) ?: "" else "",
+                            genre = if (genreCol != -1) cursor.getString(genreCol) ?: "" else "",
+                            year = if (yearCol != -1) cursor.getInt(yearCol) else 0,
+                            trackNumber = if (tnCol != -1) cursor.getInt(tnCol) else 0,
+                            discNumber = if (dnCol != -1) cursor.getInt(dnCol) else 1,
+                            durationMs = if (durCol != -1) cursor.getLong(durCol) else 0L,
+                            fileSize = if (sizeCol != -1) cursor.getLong(sizeCol) else 0L,
+                            dateModifiedSec = if (dmCol != -1) cursor.getLong(dmCol) else 0L,
+                            dateAddedSec = if (daCol != -1) cursor.getLong(daCol) else 0L,
+                            folder = if (folderCol != -1) cursor.getString(folderCol) ?: "Músicas" else "Músicas",
+                            formatTag = if (fmtCol != -1) cursor.getString(fmtCol) ?: "AUDIO" else "AUDIO",
+                            bitrateKbps = if (brCol != -1) cursor.getInt(brCol) else 0,
+                            sampleRateHz = if (srCol != -1) cursor.getInt(srCol) else 44100
+                        )
                     )
-                )
+                }
             }
-        }
+        } catch (_: Exception) {}
         return list
     }
 
@@ -436,7 +444,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         try {
             val stmt = db.compileStatement(
                 """
-                INSERT INTO $TABLE_CACHED_TRACKS (
+                INSERT OR REPLACE INTO $TABLE_CACHED_TRACKS (
                     $COL_CACHE_TRACK_ID, $COL_CACHE_URI, $COL_CACHE_TREE_URI, $COL_CACHE_LRC_URI,
                     $COL_CACHE_TITLE, $COL_CACHE_ARTIST, $COL_CACHE_ALBUM, $COL_CACHE_ALBUM_ARTIST,
                     $COL_CACHE_COMPOSER, $COL_CACHE_GENRE, $COL_CACHE_YEAR, $COL_CACHE_TRACK_NUMBER,
@@ -444,95 +452,89 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
                     $COL_CACHE_DATE_MODIFIED, $COL_CACHE_DATE_ADDED, $COL_CACHE_FOLDER,
                     $COL_CACHE_FORMAT_TAG, $COL_CACHE_BITRATE, $COL_CACHE_SAMPLE_RATE
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT($COL_CACHE_URI) DO UPDATE SET
-                    $COL_CACHE_TRACK_ID = excluded.$COL_CACHE_TRACK_ID,
-                    $COL_CACHE_TREE_URI = excluded.$COL_CACHE_TREE_URI,
-                    $COL_CACHE_LRC_URI = excluded.$COL_CACHE_LRC_URI,
-                    $COL_CACHE_TITLE = excluded.$COL_CACHE_TITLE,
-                    $COL_CACHE_ARTIST = excluded.$COL_CACHE_ARTIST,
-                    $COL_CACHE_ALBUM = excluded.$COL_CACHE_ALBUM,
-                    $COL_CACHE_ALBUM_ARTIST = excluded.$COL_CACHE_ALBUM_ARTIST,
-                    $COL_CACHE_COMPOSER = excluded.$COL_CACHE_COMPOSER,
-                    $COL_CACHE_GENRE = excluded.$COL_CACHE_GENRE,
-                    $COL_CACHE_YEAR = excluded.$COL_CACHE_YEAR,
-                    $COL_CACHE_TRACK_NUMBER = excluded.$COL_CACHE_TRACK_NUMBER,
-                    $COL_CACHE_DISC_NUMBER = excluded.$COL_CACHE_DISC_NUMBER,
-                    $COL_CACHE_DURATION_MS = excluded.$COL_CACHE_DURATION_MS,
-                    $COL_CACHE_FILE_SIZE = excluded.$COL_CACHE_FILE_SIZE,
-                    $COL_CACHE_DATE_MODIFIED = excluded.$COL_CACHE_DATE_MODIFIED,
-                    $COL_CACHE_DATE_ADDED = excluded.$COL_CACHE_DATE_ADDED,
-                    $COL_CACHE_FOLDER = excluded.$COL_CACHE_FOLDER,
-                    $COL_CACHE_FORMAT_TAG = excluded.$COL_CACHE_FORMAT_TAG,
-                    $COL_CACHE_BITRATE = excluded.$COL_CACHE_BITRATE,
-                    $COL_CACHE_SAMPLE_RATE = excluded.$COL_CACHE_SAMPLE_RATE
                 """.trimIndent()
             )
             for (t in tracks) {
-                stmt.clearBindings()
-                stmt.bindLong(1, t.trackId)
-                stmt.bindString(2, t.uri)
-                stmt.bindString(3, t.treeUri)
-                stmt.bindString(4, t.lrcUri)
-                stmt.bindString(5, t.title)
-                stmt.bindString(6, t.artist)
-                stmt.bindString(7, t.album)
-                stmt.bindString(8, t.albumArtist)
-                stmt.bindString(9, t.composer)
-                stmt.bindString(10, t.genre)
-                stmt.bindLong(11, t.year.toLong())
-                stmt.bindLong(12, t.trackNumber.toLong())
-                stmt.bindLong(13, t.discNumber.toLong())
-                stmt.bindLong(14, t.durationMs)
-                stmt.bindLong(15, t.fileSize)
-                stmt.bindLong(16, t.dateModifiedSec)
-                stmt.bindLong(17, t.dateAddedSec)
-                stmt.bindString(18, t.folder)
-                stmt.bindString(19, t.formatTag)
-                stmt.bindLong(20, t.bitrateKbps.toLong())
-                stmt.bindLong(21, t.sampleRateHz.toLong())
-                stmt.executeInsert()
+                try {
+                    stmt.clearBindings()
+                    stmt.bindLong(1, t.trackId)
+                    stmt.bindString(2, t.uri)
+                    stmt.bindString(3, t.treeUri)
+                    stmt.bindString(4, t.lrcUri)
+                    stmt.bindString(5, t.title)
+                    stmt.bindString(6, t.artist)
+                    stmt.bindString(7, t.album)
+                    stmt.bindString(8, t.albumArtist)
+                    stmt.bindString(9, t.composer)
+                    stmt.bindString(10, t.genre)
+                    stmt.bindLong(11, t.year.toLong())
+                    stmt.bindLong(12, t.trackNumber.toLong())
+                    stmt.bindLong(13, t.discNumber.toLong())
+                    stmt.bindLong(14, t.durationMs)
+                    stmt.bindLong(15, t.fileSize)
+                    stmt.bindLong(16, t.dateModifiedSec)
+                    stmt.bindLong(17, t.dateAddedSec)
+                    stmt.bindString(18, t.folder)
+                    stmt.bindString(19, t.formatTag)
+                    stmt.bindLong(20, t.bitrateKbps.toLong())
+                    stmt.bindLong(21, t.sampleRateHz.toLong())
+                    stmt.executeInsert()
+                } catch (_: Exception) {}
             }
             db.setTransactionSuccessful()
+        } catch (_: Exception) {
         } finally {
-            db.endTransaction()
+            try {
+                db.endTransaction()
+            } catch (_: Exception) {}
         }
     }
 
     fun deleteCachedTracksNotIn(validUris: Set<String>) {
         val db = writableDatabase
         if (validUris.isEmpty()) {
-            db.delete(TABLE_CACHED_TRACKS, null, null)
+            try {
+                db.delete(TABLE_CACHED_TRACKS, null, null)
+            } catch (_: Exception) {}
             return
         }
         val cachedUris = mutableListOf<String>()
-        db.rawQuery("SELECT $COL_CACHE_URI FROM $TABLE_CACHED_TRACKS", null).use { cursor ->
-            val uriCol = cursor.getColumnIndexOrThrow(COL_CACHE_URI)
-            while (cursor.moveToNext()) {
-                cachedUris.add(cursor.getString(uriCol))
-            }
-        }
-        val toDelete = cachedUris.filter { it !in validUris }
-        if (toDelete.isNotEmpty()) {
-            db.beginTransaction()
-            try {
-                toDelete.chunked(500).forEach { chunk ->
-                    val placeholders = chunk.joinToString(",") { "?" }
-                    db.delete(TABLE_CACHED_TRACKS, "$COL_CACHE_URI IN ($placeholders)", chunk.toTypedArray())
+        try {
+            db.rawQuery("SELECT $COL_CACHE_URI FROM $TABLE_CACHED_TRACKS", null).use { cursor ->
+                val uriCol = cursor.getColumnIndex(COL_CACHE_URI)
+                if (uriCol != -1) {
+                    while (cursor.moveToNext()) {
+                        cursor.getString(uriCol)?.let { cachedUris.add(it) }
+                    }
                 }
-                db.setTransactionSuccessful()
-            } finally {
-                db.endTransaction()
             }
-        }
+            val toDelete = cachedUris.filter { it !in validUris }
+            if (toDelete.isNotEmpty()) {
+                db.beginTransaction()
+                try {
+                    toDelete.chunked(500).forEach { chunk ->
+                        val placeholders = chunk.joinToString(",") { "?" }
+                        db.delete(TABLE_CACHED_TRACKS, "$COL_CACHE_URI IN ($placeholders)", chunk.toTypedArray())
+                    }
+                    db.setTransactionSuccessful()
+                } finally {
+                    try {
+                        db.endTransaction()
+                    } catch (_: Exception) {}
+                }
+            }
+        } catch (_: Exception) {}
     }
 
     fun clearCachedTracks() {
-        writableDatabase.delete(TABLE_CACHED_TRACKS, null, null)
+        try {
+            writableDatabase.delete(TABLE_CACHED_TRACKS, null, null)
+        } catch (_: Exception) {}
     }
 
     companion object {
         const val DATABASE_NAME = "poweramp_library.db"
-        const val DATABASE_VERSION = 3
+        const val DATABASE_VERSION = 4
 
         const val TABLE_STATS = "track_stats"
         const val COL_TRACK_ID = "track_id"

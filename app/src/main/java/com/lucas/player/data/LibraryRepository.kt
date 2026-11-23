@@ -80,12 +80,17 @@ class LibraryRepository() {
 
         // 2. Varredura e sincronização em background via SAF puro (DocumentsContract)
         sharedExecutor.execute {
-            val list = scanSafFolders(context, folderUris, statsMap, minSec)
-            synchronized(sharedTracks) {
-                sharedTracks.clear()
-                sharedTracks.addAll(list)
+            try {
+                val list = scanSafFolders(context, folderUris, statsMap, minSec)
+                synchronized(sharedTracks) {
+                    sharedTracks.clear()
+                    sharedTracks.addAll(list)
+                }
+                onComplete(list)
+            } catch (e: Throwable) {
+                android.util.Log.e("LibraryRepository", "Erro na varredura de pastas SAF", e)
+                onComplete(getAllTracks())
             }
-            onComplete(list)
         }
     }
 
@@ -424,30 +429,32 @@ class LibraryRepository() {
 
                 try {
                     contentResolver.query(childrenUri, projection, null, null, null)?.use { cursor ->
-                        val idCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
-                        val nameCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
-                        val mimeCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                        val idCol = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                        val nameCol = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                        val mimeCol = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
                         val sizeCol = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
                         val modCol = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
 
-                        while (cursor.moveToNext()) {
-                            val docId = cursor.getString(idCol) ?: continue
-                            val displayName = cursor.getString(nameCol) ?: continue
-                            val mimeType = cursor.getString(mimeCol) ?: ""
-                            val size = if (sizeCol != -1) cursor.getLong(sizeCol) else 0L
-                            val modMs = if (modCol != -1) cursor.getLong(modCol) else 0L
+                        if (idCol != -1 && nameCol != -1 && mimeCol != -1) {
+                            while (cursor.moveToNext()) {
+                                val docId = cursor.getString(idCol) ?: continue
+                                val displayName = cursor.getString(nameCol) ?: continue
+                                val mimeType = cursor.getString(mimeCol) ?: ""
+                                val size = if (sizeCol != -1) cursor.getLong(sizeCol) else 0L
+                                val modMs = if (modCol != -1) cursor.getLong(modCol) else 0L
 
-                            if (displayName.equals(".nomedia", ignoreCase = true)) {
-                                hasNomedia = true
-                                break
+                                if (displayName.equals(".nomedia", ignoreCase = true)) {
+                                    hasNomedia = true
+                                    break
+                                }
+
+                                if (displayName.startsWith(".")) {
+                                    continue
+                                }
+
+                                folderEntries.add(Triple(docId, displayName, mimeType))
+                                entryDetails[docId] = Pair(size, modMs / 1000L)
                             }
-
-                            if (displayName.startsWith(".")) {
-                                continue
-                            }
-
-                            folderEntries.add(Triple(docId, displayName, mimeType))
-                            entryDetails[docId] = Pair(size, modMs / 1000L)
                         }
                     }
                 } catch (_: Exception) {}
@@ -661,13 +668,18 @@ class LibraryRepository() {
 
     private fun cachedToTrack(cached: MusicDatabase.CachedTrack, statsMap: Map<Long, MusicDatabase.TrackStat>): Track {
         val stat = statsMap[cached.trackId]
+        val parsedUri = try {
+            Uri.parse(cached.uri)
+        } catch (_: Exception) {
+            Uri.EMPTY
+        }
         return Track(
             id = cached.trackId,
             title = cached.title,
             artist = cached.artist,
             album = cached.album,
             durationMs = cached.durationMs,
-            uri = Uri.parse(cached.uri),
+            uri = parsedUri,
             path = "",
             folder = cached.folder,
             albumArtist = cached.albumArtist,
