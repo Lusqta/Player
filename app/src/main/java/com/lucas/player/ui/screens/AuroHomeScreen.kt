@@ -526,14 +526,17 @@ private fun QuickMixCard(
                 text = title,
                 style = TextStyle(
                     fontFamily = AuroFontFamily,
-                    fontSize = 15.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.align(Alignment.Center)
+                textAlign = TextAlign.Start,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 12.dp, end = 14.dp)
+                    .offset(y = (-3).dp)
             )
         }
 

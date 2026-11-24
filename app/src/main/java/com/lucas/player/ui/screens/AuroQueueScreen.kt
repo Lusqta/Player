@@ -162,7 +162,7 @@ fun AuroQueueScreen(
     ) {
         AuroTopBar(
             title = stringResource(R.string.queue_breadcrumb),
-            subtitle = if (totalCount > 0) pluralStringResource(R.plurals.tracks_count, totalCount, totalCount) else null,
+            subtitle = if (totalCount > 0) formatTracksCount(totalCount) else null,
             canGoBack = true,
             onBackClick = onBackClick,
             rightActions = {
@@ -214,7 +214,7 @@ fun AuroQueueScreen(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = "${pluralStringResource(R.plurals.tracks_count, totalCount, totalCount)} • ${formatTimeMs(totalDuration)}",
+                        text = "${formatTracksCount(totalCount)} • ${formatTimeMs(totalDuration)}",
                         style = AuroType.Body.copy(fontWeight = FontWeight.Medium)
                     )
                 }
@@ -609,7 +609,7 @@ private fun AuroQueueTrackRow(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Rounded.DragHandle,
+                imageVector = Icons.Rounded.Reorder,
                 contentDescription = stringResource(R.string.queue_reorder_handle),
                 tint = if (isDragging) Color.White else AuroColor.TextTertiary,
                 modifier = Modifier.size(24.dp)

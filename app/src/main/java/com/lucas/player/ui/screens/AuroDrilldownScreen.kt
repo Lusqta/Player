@@ -301,9 +301,9 @@ fun AuroDrilldownScreen(
                             else -> stringResource(category.getTitleRes())
                         }
                         val countDurationText = if (tracks.isEmpty()) {
-                            pluralStringResource(R.plurals.tracks_count, 0, 0)
+                            formatTracksCount(0)
                         } else {
-                            "${pluralStringResource(R.plurals.tracks_count, tracks.size, tracks.size)}  ·  ${formatTimeMs(totalDurationMs)}"
+                            "${formatTracksCount(tracks.size)}  ·  ${formatTimeMs(totalDurationMs)}"
                         }
                         Text(
                             text = "$singularLabel  ·  $countDurationText",

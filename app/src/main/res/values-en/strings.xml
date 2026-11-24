@@ -157,6 +157,7 @@
     <string name="rating_removed_toast">Rating removed</string>
 
     <!-- Plurals (Phase 5.3) -->
+    <string name="tracks_count_zero">0 tracks</string>
     <plurals name="tracks_count">
         <item quantity="one">%d track</item>
         <item quantity="other">%d tracks</item>

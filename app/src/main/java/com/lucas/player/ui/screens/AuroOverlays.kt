@@ -530,7 +530,7 @@ fun AuroAddToPlaylistDialog(
                                 modifier = Modifier.weight(1f)
                             )
                             Text(
-                                text = pluralStringResource(R.plurals.tracks_count, pl.trackCount, pl.trackCount),
+                                text = formatTracksCount(pl.trackCount),
                                 style = AuroType.Caption.copy(
                                     color = AuroColor.TextSecondary,
                                     fontFamily = FontFamily.Monospace,

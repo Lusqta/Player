@@ -222,9 +222,11 @@ fun AuroNowPlayingScreen(
 
             // ─────────── CAMADA 1: PLAYER (Capa 100% largura + Metadados + Transporte + Scrubber) ───────────
             if (playerAlpha > 0f) {
+                val coverSide = minOf(maxWidth - (AuroSpace.ScreenMargin * 2), screenHeight * 0.46f)
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
+                        .padding(bottom = collapsedPillHeight + collapsedBottomGap + 12.dp)
                         .graphicsLayer {
                             alpha = playerAlpha
                             scaleX = 1f - 0.04f * progress
@@ -263,13 +265,11 @@ fun AuroNowPlayingScreen(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    // Capa quadrada com margem lateral
+                    // Capa quadrada centralizada
                     Box(
                         modifier = Modifier
-                            .padding(horizontal = AuroSpace.ScreenMargin)
-                            .fillMaxWidth()
-                            .aspectRatio(1f)
-                            .heightIn(max = screenHeight * 0.46f)
+                            .size(coverSide)
+                            .align(Alignment.CenterHorizontally)
                             .graphicsLayer {
                                 scaleX = coverScale
                                 scaleY = coverScale
@@ -316,7 +316,7 @@ fun AuroNowPlayingScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.heightIn(min = 16.dp).weight(1f))
 
                     // Título / Artista + ♡ e •••
                     Row(
@@ -391,7 +391,7 @@ fun AuroNowPlayingScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(28.dp))
+                    Spacer(modifier = Modifier.heightIn(min = 16.dp).weight(1f))
 
                     // Controles de Transporte: Shuffle · Prev · Play · Next · Repeat
                     val playCornerRadius by animateDpAsState(
@@ -514,7 +514,7 @@ fun AuroNowPlayingScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.heightIn(min = 16.dp).weight(1f))
 
                     // Scrubber fino branco
                     EditorialScrubber(
@@ -1739,7 +1739,7 @@ private fun UpcomingTrackRow(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.DragHandle,
+                    imageVector = Icons.Rounded.Reorder,
                     contentDescription = stringResource(R.string.queue_reorder_handle),
                     tint = AuroColor.TextTertiary,
                     modifier = Modifier.size(20.dp)

@@ -40,6 +40,7 @@ import com.lucas.player.ui.components.AuroHaptics
 import com.lucas.player.ui.components.AuroTopBar
 import com.lucas.player.ui.components.AuroTopFade
 import com.lucas.player.ui.components.AuroTrackRow
+import com.lucas.player.ui.components.formatTracksCount
 import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.AuroFontFamily
 import com.lucas.player.ui.theme.AuroSpace
@@ -98,7 +99,7 @@ fun AuroYearsScreen(
     ) {
         AuroTopBar(
             title = stringResource(R.string.category_years),
-            subtitle = pluralStringResource(R.plurals.tracks_count, yearTracks.size, yearTracks.size),
+            subtitle = formatTracksCount(yearTracks.size),
             canGoBack = true,
             onBackClick = onBackClick,
             rightActions = {

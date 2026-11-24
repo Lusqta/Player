@@ -64,9 +64,11 @@ import com.lucas.player.ui.navigation.PlayerNavController
 import com.lucas.player.ui.screens.*
 import com.lucas.player.ui.screens.HomePlaylist
 import com.lucas.player.ui.theme.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 sealed class LibraryAccess {
     object Granted : LibraryAccess()
@@ -74,6 +76,17 @@ sealed class LibraryAccess {
     object Denied : LibraryAccess()
     object PermanentlyDenied : LibraryAccess()
 }
+
+private data class HomeSnapshot(
+    val allTracks: List<Track> = emptyList(),
+    val recentlyPlayed: List<Track> = emptyList(),
+    val mostPlayed: List<Track> = emptyList(),
+    val userPlaylists: List<UserPlaylist> = emptyList(),
+    val playlists: List<HomePlaylist> = emptyList(),
+    val recentLibraryItems: List<RecentLibraryItem> = emptyList(),
+    val categoryCounts: Map<LibraryCategory, Int> = emptyMap(),
+    val albumCoverMap: Map<String, Track?> = emptyMap()
+)
 
 class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
@@ -125,6 +138,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     }
 
     // Estados da Biblioteca
+    private val libraryVersionState = mutableIntStateOf(0)
     private val totalTracksCountState = mutableIntStateOf(0)
     private val libraryAccessState = mutableStateOf<LibraryAccess>(LibraryAccess.NeedsRequest)
     private val selectedFoldersState = mutableStateOf<List<String>>(emptyList())
@@ -162,6 +176,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                     libraryRepo.updatePlaylistCover(pl.id, savedPath)
                     editingPlaylistState.value = pl.copy(coverPath = savedPath)
                     playlistsVersionState.intValue++
+                    libraryVersionState.intValue++
                     renderCurrentCategory()
                 }
             }
@@ -416,6 +431,11 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         enableHighRefreshRate()
         AuroHaptics.init(this)
         LibraryRepository.init(this)
+        libraryRepo.onStatsChangedListener = {
+            runOnUiThread {
+                libraryVersionState.intValue++
+            }
+        }
 
         selectedFoldersState.value = preferencesManager.getMusicFolderUris()
         libraryAccessState.value = evaluateLibraryAccess()
@@ -439,6 +459,62 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             val durationMs by durationMsState
             val shuffleMode by shuffleModeState
             val repeatMode by repeatModeState
+
+            val libraryVersion by libraryVersionState
+            val plVersion by playlistsVersionState
+            val artistMediaVersion by artistMediaVersionState
+            val homeSnapshot by produceState(
+                initialValue = HomeSnapshot(),
+                key1 = libraryVersion,
+                key2 = plVersion
+            ) {
+                value = withContext(Dispatchers.IO) {
+                    val all = libraryRepo.getAllTracks()
+                    val recent = libraryRepo.getRecentlyPlayed().take(20)
+                    val most = libraryRepo.getMostPlayed().take(60)
+                    val userPls = libraryRepo.getUserPlaylists()
+                    val homePls = userPls.map { pl ->
+                        HomePlaylist(
+                            id = pl.id,
+                            name = pl.name,
+                            countText = formatTracksCount(this@MainActivity, pl.trackCount),
+                            coverTrack = libraryRepo.getTracksForUserPlaylist(pl.id).firstOrNull(),
+                            coverPath = pl.coverPath
+                        )
+                    }
+                    val recentItems = libraryRepo.getRecentLibraryItems(12)
+                    val counts = mapOf(
+                        LibraryCategory.ALL_SONGS to all.size,
+                        LibraryCategory.ALBUMS to all.map { it.album }.filter { it.isNotBlank() }.distinct().size,
+                        LibraryCategory.ARTISTS to all.map { it.artist }.filter { it.isNotBlank() }.distinct().size,
+                        LibraryCategory.ALBUM_ARTISTS to all.map { it.albumArtist.ifBlank { it.artist } }.filter { it.isNotBlank() }.distinct().size,
+                        LibraryCategory.GENRES to all.map { it.genre }.filter { it.isNotBlank() }.distinct().size,
+                        LibraryCategory.YEARS to all.map { it.year }.filter { it > 0 }.distinct().size,
+                        LibraryCategory.COMPOSERS to all.map { it.composer }.filter { it.isNotBlank() }.distinct().size,
+                        LibraryCategory.FOLDERS to all.map { it.folder }.filter { it.isNotBlank() }.distinct().size,
+                        LibraryCategory.PLAYLISTS to userPls.size
+                    )
+                    val albumCovers = all.groupBy { it.album.lowercase() }.mapValues { it.value.firstOrNull() }
+                    HomeSnapshot(
+                        allTracks = all,
+                        recentlyPlayed = recent,
+                        mostPlayed = most,
+                        userPlaylists = userPls,
+                        playlists = homePls,
+                        recentLibraryItems = recentItems,
+                        categoryCounts = counts,
+                        albumCoverMap = albumCovers
+                    )
+                }
+            }
+            val artistMediaMap by produceState<Map<String, Pair<String, Boolean>>>(
+                initialValue = emptyMap(),
+                key1 = artistMediaVersion
+            ) {
+                value = withContext(Dispatchers.IO) {
+                    libraryRepo.getAllArtistMedia()
+                }
+            }
 
             val totalTracksCount by totalTracksCountState
             val displayedTracks by displayedTracksState
@@ -762,34 +838,17 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         ) { activeScreen ->
                             when (activeScreen) {
                             is NavScreen.Home -> {
-                                val plVersion = playlistsVersionState.intValue
-                                val all = libraryRepo.getAllTracks()
-                                val recent = libraryRepo.getRecentlyPlayed().take(20)
-                                val most = libraryRepo.getMostPlayed().take(60)
-                                val homePlaylists = remember(plVersion, all) {
-                                    libraryRepo.getUserPlaylists().map { pl ->
-                                        HomePlaylist(
-                                            id = pl.id,
-                                            name = pl.name,
-                                            countText = resources.getQuantityString(R.plurals.tracks_count, pl.trackCount, pl.trackCount),
-                                            coverTrack = libraryRepo.getTracksForUserPlaylist(pl.id).firstOrNull(),
-                                            coverPath = pl.coverPath
-                                        )
-                                    }
-                                }
-                                val artistMediaMap = remember(artistMediaVersionState.intValue) {
-                                    libraryRepo.getAllArtistMedia()
-                                }
                                 AuroHomeScreen(
                                     currentTrack = currentTrack,
                                     isPlaying = isPlaying,
-                                    recentlyPlayed = recent,
-                                    mostPlayed = most,
-                                    allTracks = all,
+                                    recentlyPlayed = homeSnapshot.recentlyPlayed,
+                                    mostPlayed = homeSnapshot.mostPlayed,
+                                    allTracks = homeSnapshot.allTracks,
                                     isLoading = isLoadingLibrary,
                                     loadingCount = loadingTracksCount,
                                     listState = getScrollState("home"),
                                     onTrackClick = { track ->
+                                        val all = homeSnapshot.allTracks
                                         val idx = all.indexOfFirst { it.id == track.id }.takeIf { it != -1 } ?: 0
                                         playbackService?.playQueue(all, idx)
                                         navController.openNowPlaying()
@@ -812,6 +871,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         if (currentTrack != null) {
                                             if (!isPlaying) playbackService?.play()
                                         } else {
+                                            val all = homeSnapshot.allTracks
                                             if (all.isNotEmpty()) playbackService?.playQueue(all, 0)
                                         }
                                     },
@@ -843,7 +903,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onArtistClick = { artistName ->
                                         navController.navigateTo(NavScreen.ArtistProfile(artistName))
                                     },
-                                    playlists = homePlaylists,
+                                    playlists = homeSnapshot.playlists,
                                     artistMediaMap = artistMediaMap,
                                     onAlbumClick = { albumName ->
                                         drillDownGroup(LibraryCategory.ALBUMS, albumName)
@@ -878,48 +938,32 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             }
 
                             is NavScreen.LibraryRoot -> {
-                                val plVersion = playlistsVersionState.intValue
-                                val all = libraryRepo.getAllTracks()
+                                val all = homeSnapshot.allTracks
                                 val pinnedKeys = preferencesManager.getPinnedGroups()
                                 val pinnedItems = displayedGroups.filter { pinnedKeys.contains(it.title) }
-                                val recentItems = remember(all, plVersion) {
-                                    libraryRepo.getRecentLibraryItems(12)
-                                }
-                                val categoryCounts = remember(all) {
-                                    mapOf(
-                                        LibraryCategory.ALL_SONGS to all.size,
-                                        LibraryCategory.ALBUMS to all.map { it.album }.filter { it.isNotBlank() }.distinct().size,
-                                        LibraryCategory.ARTISTS to all.map { it.artist }.filter { it.isNotBlank() }.distinct().size,
-                                        LibraryCategory.ALBUM_ARTISTS to all.map { it.albumArtist.ifBlank { it.artist } }.filter { it.isNotBlank() }.distinct().size,
-                                        LibraryCategory.GENRES to all.map { it.genre }.filter { it.isNotBlank() }.distinct().size,
-                                        LibraryCategory.YEARS to all.map { it.year }.filter { it > 0 }.distinct().size,
-                                        LibraryCategory.COMPOSERS to all.map { it.composer }.filter { it.isNotBlank() }.distinct().size,
-                                        LibraryCategory.FOLDERS to all.map { it.folder }.filter { it.isNotBlank() }.distinct().size
-                                    )
-                                }
                                 AuroLibraryRootScreen(
                                     totalTracksCount = totalTracksCount,
                                     isLoading = isLoadingLibrary,
                                     loadingCount = loadingTracksCount,
-                                    categoryCounts = categoryCounts,
+                                    categoryCounts = homeSnapshot.categoryCounts,
                                     listState = getScrollState("library_root"),
                                     pinnedGroups = pinnedKeys,
                                     pinnedItems = pinnedItems,
-                                    recentLibraryItems = recentItems,
+                                    recentLibraryItems = homeSnapshot.recentLibraryItems,
                                     coverTrackFinder = { group -> all.firstOrNull { it.album.equals(group.title, ignoreCase = true) || it.artist.equals(group.title, ignoreCase = true) } },
                                     onShuffleAll = {
-                                        val all = libraryRepo.getAllTracks()
-                                        if (all.isNotEmpty()) {
+                                        val tracks = homeSnapshot.allTracks
+                                        if (tracks.isNotEmpty()) {
                                             shuffleModeState.value = ShuffleMode.ALL_TRACKS
-                                            playbackService?.playQueue(all.shuffled(), 0)
+                                            playbackService?.playQueue(tracks.shuffled(), 0)
                                         }
                                     },
                                     onResumePlayback = {
                                         if (currentTrack != null) {
                                             if (!isPlaying) playbackService?.play()
                                         } else {
-                                            val all = libraryRepo.getAllTracks()
-                                            if (all.isNotEmpty()) playbackService?.playQueue(all, 0)
+                                            val tracks = homeSnapshot.allTracks
+                                            if (tracks.isNotEmpty()) playbackService?.playQueue(tracks, 0)
                                         }
                                     },
                                     onSelectCategory = { cat ->
@@ -949,7 +993,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                                 )
                                             }
                                             is RecentLibraryItem.SingleTrackItem -> {
-                                                val allTracksList = libraryRepo.getAllTracks()
+                                                val allTracksList = homeSnapshot.allTracks
                                                 val idx = allTracksList.indexOfFirst { it.id == item.track.id }.takeIf { it != -1 } ?: 0
                                                 playbackService?.playQueue(allTracksList, idx)
                                                 navController.openNowPlaying()
@@ -967,9 +1011,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         }
                                     },
                                     onTrackClick = { track ->
-                                        val all = libraryRepo.getAllTracks()
-                                        val idx = all.indexOfFirst { it.id == track.id }.takeIf { it != -1 } ?: 0
-                                        playbackService?.playQueue(all, idx)
+                                        val tracks = homeSnapshot.allTracks
+                                        val idx = tracks.indexOfFirst { it.id == track.id }.takeIf { it != -1 } ?: 0
+                                        playbackService?.playQueue(tracks, idx)
                                         navController.openNowPlaying()
                                     },
                                     onSortClick = { showSortOrderState.value = true },
@@ -1043,7 +1087,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         AuroYearsScreen(
                                             currentPlayingId = currentTrack?.id ?: -1L,
                                             sortMode = currentSortModeState.value,
-                                            dataVersion = totalTracksCount + (currentTrack?.playCount ?: 0).hashCode(),
+                                            dataVersion = libraryVersion,
                                             onBackClick = { navController.navigateUp() },
                                             onSortClick = { showSortOrderState.value = true },
                                             onTrackClick = { tracks, position ->
@@ -1090,13 +1134,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     }
 
                                     else -> {
-                                        val albumCoverMap = remember(activeScreen.category, displayedGroups, totalTracksCount) {
-                                            if (activeScreen.category == LibraryCategory.ALBUMS) {
-                                                libraryRepo.getAllTracks()
-                                                    .groupBy { it.album.lowercase() }
-                                                    .mapValues { it.value.firstOrNull() }
-                                            } else emptyMap()
-                                        }
+                                        val albumCoverMap = homeSnapshot.albumCoverMap
                                         AuroCategoryListScreen(
                                             category = activeScreen.category,
                                             listState = getScrollState("category_${activeScreen.category.name}"),
@@ -1256,9 +1294,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             is NavScreen.ArtistProfile -> {
                                 val artistName = activeScreen.artistName
                                 val isPinned = preferencesManager.isGroupPinned("ARTISTS_$artistName")
-                                val artistMedia = remember(artistName, artistMediaVersionState.intValue) {
-                                    libraryRepo.getArtistMedia(artistName)
-                                }
+                                val artistMedia = artistMediaMap[artistName.trim().lowercase()]
                                 AuroArtistScreen(
                                     artistName = artistName,
                                     onBack = { navController.navigateUp() },
@@ -1317,8 +1353,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     },
                                     customMediaPath = artistMedia?.first,
                                     isGif = artistMedia?.second ?: false,
-                                    artistMediaVersion = artistMediaVersionState.intValue,
-                                    dataVersion = totalTracksCount + (currentTrack?.playCount ?: 0).hashCode(),
+                                    artistMediaVersion = artistMediaVersion,
+                                    libraryVersion = libraryVersion,
                                     errorTrackIds = errorTrackIds.toSet(),
                                     showFileFormat = preferencesManager.isShowFileFormatEnabled(),
                                     libraryRepository = libraryRepo,
@@ -1359,7 +1395,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         }
                                     },
                                     currentPlayingId = currentTrack?.id ?: -1L,
-                                    dataVersion = totalTracksCount + (currentTrack?.playCount ?: 0).hashCode(),
+                                    libraryVersion = libraryVersion,
                                     errorTrackIds = errorTrackIds.toSet(),
                                     showFileFormat = preferencesManager.isShowFileFormatEnabled(),
                                     libraryRepository = libraryRepo,
@@ -1382,7 +1418,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                             )
                                         )
                                     },
-                                    dataVersion = totalTracksCount + (currentTrack?.playCount ?: 0).hashCode(),
+                                    libraryVersion = libraryVersion,
                                     libraryRepository = libraryRepo,
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -1559,12 +1595,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     listState = getScrollState("search"),
                                     searchQuery = searchQuery,
                                     onQueryChange = { q -> onSearchQueryChange(q) },
-                                    allTracks = libraryRepo.getAllTracks(),
+                                    allTracks = homeSnapshot.allTracks,
                                     currentPlayingId = currentTrack?.id ?: -1L,
                                     preferencesManager = preferencesManager,
                                     errorTrackIds = errorTrackIds.toSet(),
                                     onTrackClick = { track, position ->
-                                        val all = libraryRepo.getAllTracks()
+                                        val all = homeSnapshot.allTracks
                                         val idx = all.indexOfFirst { it.id == track.id }.takeIf { it != -1 } ?: position
                                         playbackService?.playQueue(all, idx)
                                         navController.openNowPlaying()
@@ -1786,6 +1822,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     trackContextMenuState.value = null
                                     libraryRepo.removeTrackFromUserPlaylist(playlist.id, track.id)
                                     playlistsVersionState.intValue++
+                                    libraryVersionState.intValue++
                                     drillDownGroup(LibraryCategory.PLAYLISTS, playlist.name)
                                     renderCurrentCategory()
                                 }
@@ -1798,11 +1835,14 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         val tracks = tracksToAddToPlaylistState.value
                         AuroAddToPlaylistDialog(
                             track = tracks.first(),
-                            playlists = libraryRepo.getUserPlaylists(),
+                            playlists = homeSnapshot.userPlaylists,
                             onCreatePlaylist = { name ->
                                 val plId = libraryRepo.createPlaylist(name)
                                 if (plId > 0) {
                                     tracks.forEach { libraryRepo.addTrackToUserPlaylist(plId, it.id) }
+                                    playlistsVersionState.intValue++
+                                    libraryVersionState.intValue++
+                                    renderCurrentCategory()
                                     snackbarState.show(getString(R.string.snackbar_added_multiple_to_playlist, name))
                                 }
                                 tracksToAddToPlaylistState.value = emptyList()
@@ -1811,6 +1851,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             },
                             onSelectPlaylist = { pl ->
                                 tracks.forEach { libraryRepo.addTrackToUserPlaylist(pl.id, it.id) }
+                                playlistsVersionState.intValue++
+                                libraryVersionState.intValue++
+                                renderCurrentCategory()
                                 snackbarState.show(getString(R.string.snackbar_added_multiple_to_playlist, pl.name))
                                 tracksToAddToPlaylistState.value = emptyList()
                                 isSelectionModeState.value = false
@@ -1826,6 +1869,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 val plId = libraryRepo.createPlaylist(name)
                                 if (plId > 0) {
                                     playlistsVersionState.intValue++
+                                    libraryVersionState.intValue++
                                     renderCurrentCategory()
                                     snackbarState.show(getString(R.string.snackbar_playlist_created))
                                     drillDownGroup(LibraryCategory.PLAYLISTS, name)
@@ -1859,6 +1903,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 libraryRepo.updatePlaylistCover(pl.id, "")
                                 editingPlaylistState.value = pl.copy(coverPath = "")
                                 playlistsVersionState.intValue++
+                                libraryVersionState.intValue++
                                 renderCurrentCategory()
                             },
                             onSave = { newName ->
@@ -1872,6 +1917,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 }
                                 editingPlaylistState.value = null
                                 playlistsVersionState.intValue++
+                                libraryVersionState.intValue++
                                 renderCurrentCategory()
                             },
                             onDismiss = { editingPlaylistState.value = null }
@@ -1880,16 +1926,23 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                     // Bottom Sheet para Adicionar Músicas em Lote
                     showPlaylistTrackPickerState.value?.let { pl ->
-                        val existingIds = remember(pl.id, drilldownTracks) {
-                            libraryRepo.getTracksForUserPlaylist(pl.id).map { it.id }.toSet()
+                        val existingIds by produceState(
+                            initialValue = emptySet<Long>(),
+                            key1 = pl.id,
+                            key2 = drilldownTracks
+                        ) {
+                            value = withContext(Dispatchers.IO) {
+                                libraryRepo.getTracksForUserPlaylist(pl.id).map { it.id }.toSet()
+                            }
                         }
                         AuroPlaylistTrackPickerSheet(
-                            allTracks = libraryRepo.getAllTracks(),
+                            allTracks = homeSnapshot.allTracks,
                             existingTrackIds = existingIds,
                             onAddTracks = { selectedIds ->
                                 libraryRepo.addTracksToPlaylist(pl.id, selectedIds)
                                 showPlaylistTrackPickerState.value = null
                                 playlistsVersionState.intValue++
+                                libraryVersionState.intValue++
                                 drillDownGroup(LibraryCategory.PLAYLISTS, pl.name)
                                 renderCurrentCategory()
                                 snackbarState.show(getString(R.string.snackbar_added_multiple_to_playlist, pl.name))
@@ -1907,6 +1960,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 libraryRepo.deletePlaylist(pl.id)
                                 deletingPlaylistState.value = null
                                 playlistsVersionState.intValue++
+                                libraryVersionState.intValue++
                                 val cur = navController.currentScreen
                                 if (cur is NavScreen.Drilldown && cur.category == LibraryCategory.PLAYLISTS) {
                                     navController.navigateUp()
@@ -1921,12 +1975,13 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                     addToPlaylistDialogTrack.value?.let { track ->
                         AuroAddToPlaylistDialog(
                             track = track,
-                            playlists = libraryRepo.getUserPlaylists(),
+                            playlists = homeSnapshot.userPlaylists,
                             onCreatePlaylist = { name ->
                                 val plId = libraryRepo.createPlaylist(name)
                                 if (plId > 0) {
                                     libraryRepo.addTrackToUserPlaylist(plId, track.id)
                                     playlistsVersionState.intValue++
+                                    libraryVersionState.intValue++
                                     renderCurrentCategory()
                                     snackbarState.show(getString(R.string.snackbar_playlist_created_track_added))
                                 }
@@ -1935,6 +1990,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             onSelectPlaylist = { pl ->
                                 libraryRepo.addTrackToUserPlaylist(pl.id, track.id)
                                 playlistsVersionState.intValue++
+                                libraryVersionState.intValue++
                                 renderCurrentCategory()
                                 snackbarState.show(getString(R.string.snackbar_added_to_playlist, pl.name))
                                 addToPlaylistDialogTrack.value = null
@@ -2119,6 +2175,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         val pl = libraryRepo.getUserPlaylists().firstOrNull { it.name == playlistName }
         if (pl != null) {
             libraryRepo.deletePlaylist(pl.id)
+            playlistsVersionState.intValue++
+            libraryVersionState.intValue++
             renderCurrentCategory()
             snackbarState.show(getString(R.string.snackbar_playlist_deleted, pl.name))
         }
@@ -2130,6 +2188,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         if (currentTrackState.value?.id == track.id) {
             currentTrackState.value = track.copy(rating = rating)
         }
+        libraryVersionState.intValue++
         renderCurrentCategory()
         snackbarState.show(if (rating > 0) getString(R.string.snackbar_rating_set, rating) else getString(R.string.snackbar_rating_removed))
     }
@@ -2151,7 +2210,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             LibraryCategory.FOLDERS -> {
                 val folders = libraryRepo.getFolders()
                 displayedGroupsState.value = folders.map {
-                    GroupItem(it.name, it.path, resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount))
+                    GroupItem(it.name, it.path, formatTracksCount(this, it.trackCount))
                 }
                 displayedTracksState.value = emptyList()
             }
@@ -2159,42 +2218,42 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 val albums = libraryRepo.getAlbums()
                 displayedGroupsState.value = albums.map {
                     val yearStr = if (it.year > 0) " • ${it.year}" else ""
-                    GroupItem(it.name, "${it.artist}$yearStr", resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount))
+                    GroupItem(it.name, "${it.artist}$yearStr", formatTracksCount(this, it.trackCount))
                 }
                 displayedTracksState.value = emptyList()
             }
             LibraryCategory.ARTISTS -> {
                 val artists = libraryRepo.getArtists()
                 displayedGroupsState.value = artists.map {
-                    GroupItem(it.name, getString(R.string.group_subtitle_artist), resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount))
+                    GroupItem(it.name, getString(R.string.group_subtitle_artist), formatTracksCount(this, it.trackCount))
                 }
                 displayedTracksState.value = emptyList()
             }
             LibraryCategory.ALBUM_ARTISTS -> {
                 val artists = libraryRepo.getAlbumArtists()
                 displayedGroupsState.value = artists.map {
-                    GroupItem(it.name, getString(R.string.group_subtitle_album_artist), resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount))
+                    GroupItem(it.name, getString(R.string.group_subtitle_album_artist), formatTracksCount(this, it.trackCount))
                 }
                 displayedTracksState.value = emptyList()
             }
             LibraryCategory.GENRES -> {
                 val genres = libraryRepo.getGenres()
                 displayedGroupsState.value = genres.map {
-                    GroupItem(it.name, getString(R.string.group_subtitle_genre), resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount))
+                    GroupItem(it.name, getString(R.string.group_subtitle_genre), formatTracksCount(this, it.trackCount))
                 }
                 displayedTracksState.value = emptyList()
             }
             LibraryCategory.YEARS -> {
                 val years = libraryRepo.getYears()
                 displayedGroupsState.value = years.map {
-                    GroupItem(it.year.toString(), getString(R.string.group_subtitle_year), resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount))
+                    GroupItem(it.year.toString(), getString(R.string.group_subtitle_year), formatTracksCount(this, it.trackCount))
                 }
                 displayedTracksState.value = emptyList()
             }
             LibraryCategory.COMPOSERS -> {
                 val comps = libraryRepo.getComposers()
                 displayedGroupsState.value = comps.map {
-                    GroupItem(it.name, getString(R.string.group_subtitle_composer), resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount))
+                    GroupItem(it.name, getString(R.string.group_subtitle_composer), formatTracksCount(this, it.trackCount))
                 }
                 displayedTracksState.value = emptyList()
             }
@@ -2206,7 +2265,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             LibraryCategory.PLAYLISTS -> {
                 val pls = libraryRepo.getUserPlaylists()
                 displayedGroupsState.value = pls.map {
-                    GroupItem(it.name, getString(R.string.group_subtitle_playlist), resources.getQuantityString(R.plurals.tracks_count, it.trackCount, it.trackCount), it.coverPath)
+                    GroupItem(it.name, getString(R.string.group_subtitle_playlist), formatTracksCount(this, it.trackCount), it.coverPath)
                 }
                 displayedTracksState.value = emptyList()
             }
@@ -2323,6 +2382,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             } else {
                 durationMsState.longValue = 0L
             }
+            libraryVersionState.intValue++
             refreshQueueAndHistoryState()
         }
     }
@@ -2396,6 +2456,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         totalTracksCountState.intValue = list.size
                         loadingTracksCountState.intValue = list.size
                         isLoadingLibraryState.value = false
+                        libraryVersionState.intValue++
                         selectCategory(LibraryCategory.ALL_SONGS)
                         playbackService?.restoreSavedQueue(list)
                     } catch (e: Exception) {
@@ -2420,6 +2481,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
     override fun onDestroy() {
         super.onDestroy()
+        libraryRepo.onStatsChangedListener = null
         if (isBound) {
             playbackService?.removeListener(this)
             unbindService(serviceConnection)

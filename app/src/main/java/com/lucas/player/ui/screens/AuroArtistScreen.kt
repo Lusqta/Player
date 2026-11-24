@@ -48,7 +48,9 @@ import com.lucas.player.model.isValidHighlightName
 import com.lucas.player.model.isJunkAudio
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * TELA PRINCIPAL DE ARTISTA (Editorial Dark OLED - Estilo Streaming)
@@ -58,6 +60,15 @@ import kotlinx.coroutines.launch
  * - Seção 1: Principais músicas (Top 5) clicável com atalho Aleatório
  * - Seção 2: Álbuns / Discografia com carrossel horizontal de até 3 lançamentos
  */
+private data class ArtistProfileData(
+    val top5Tracks: List<Track> = emptyList(),
+    val releases: List<ArtistRelease> = emptyList(),
+    val carouselReleases: List<ArtistRelease> = emptyList(),
+    val primaryTracks: List<Track> = emptyList(),
+    val featTracks: List<Track> = emptyList(),
+    val fallbackTrack: Track? = null
+)
+
 @Composable
 fun AuroArtistScreen(
     artistName: String,
@@ -78,7 +89,7 @@ fun AuroArtistScreen(
     customMediaPath: String? = null,
     isGif: Boolean = false,
     artistMediaVersion: Int = 0,
-    dataVersion: Int = 0,
+    libraryVersion: Int = 0,
     errorTrackIds: Set<Long> = emptySet(),
     showFileFormat: Boolean = true,
     libraryRepository: LibraryRepository = LibraryRepository.getInstance(),
@@ -92,12 +103,28 @@ fun AuroArtistScreen(
         customMediaPath?.let { java.io.File(it).takeIf(java.io.File::exists)?.lastModified() } ?: 0L
     }
 
-    val top5Tracks = remember(artistName, dataVersion) { libraryRepository.getTop5TracksForArtist(artistName) }
-    val releases = remember(artistName, dataVersion) { libraryRepository.getArtistReleases(artistName) }
-    val carouselReleases = remember(artistName, dataVersion) { libraryRepository.getTop3CarouselReleases(artistName) }
-    val primaryTracks = remember(artistName, dataVersion) { libraryRepository.getPrimaryTracksForArtist(artistName) }
-    val featTracks = remember(artistName, dataVersion) { libraryRepository.getFeatTracksForArtist(artistName) }
-    val fallbackTrack = remember(artistName, dataVersion) { libraryRepository.resolveArtistFallbackCoverTrack(artistName) }
+    val profileData by produceState(
+        initialValue = ArtistProfileData(),
+        key1 = artistName,
+        key2 = libraryVersion
+    ) {
+        value = withContext(Dispatchers.IO) {
+            ArtistProfileData(
+                top5Tracks = libraryRepository.getTop5TracksForArtist(artistName),
+                releases = libraryRepository.getArtistReleases(artistName),
+                carouselReleases = libraryRepository.getTop3CarouselReleases(artistName),
+                primaryTracks = libraryRepository.getPrimaryTracksForArtist(artistName),
+                featTracks = libraryRepository.getFeatTracksForArtist(artistName),
+                fallbackTrack = libraryRepository.resolveArtistFallbackCoverTrack(artistName)
+            )
+        }
+    }
+    val top5Tracks = profileData.top5Tracks
+    val releases = profileData.releases
+    val carouselReleases = profileData.carouselReleases
+    val primaryTracks = profileData.primaryTracks
+    val featTracks = profileData.featTracks
+    val fallbackTrack = profileData.fallbackTrack
 
     val fallbackCover = rememberTrackCover(fallbackTrack, 400)
     var customBitmap by remember(customMediaPath, mediaStamp) {
@@ -122,7 +149,7 @@ fun AuroArtistScreen(
     val albumCount = releases.count { it.isAlbum }
     val singleCount = releases.count { !it.isAlbum }
     val subtitleText = buildString {
-        append(pluralStringResource(R.plurals.tracks_count, totalTracksCount, totalTracksCount))
+        append(formatTracksCount(totalTracksCount))
         if (albumCount > 0) {
             append(" • ")
             append(pluralStringResource(R.plurals.albums_count, albumCount, albumCount))
@@ -183,7 +210,7 @@ fun AuroArtistScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(
-                        modifier = Modifier.size(160.dp),
+                        modifier = Modifier.size(220.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         ArtistAvatarImage(
@@ -193,7 +220,7 @@ fun AuroArtistScreen(
                             fallbackTrack = fallbackTrack,
                             shape = AuroSquircle,
                             mediaStamp = mediaStamp,
-                            modifier = Modifier.size(160.dp)
+                            modifier = Modifier.size(220.dp)
                         )
 
                         TranslucentPlayButton(
@@ -543,6 +570,12 @@ fun AuroArtistScreen(
  * - Filtro opcional: "Mostrar feats"
  * - Fast scroller alfabético quando > 15 faixas
  */
+private data class ArtistTracksData(
+    val primaryTracks: List<Track> = emptyList(),
+    val featTracks: List<Track> = emptyList(),
+    val loaded: Boolean = false
+)
+
 @Composable
 fun AuroArtistTracksScreen(
     artistName: String,
@@ -553,7 +586,7 @@ fun AuroArtistTracksScreen(
     onPlayAll: (List<Track>) -> Unit,
     onShuffleAll: (List<Track>) -> Unit,
     currentPlayingId: Long,
-    dataVersion: Int = 0,
+    libraryVersion: Int = 0,
     errorTrackIds: Set<Long> = emptySet(),
     showFileFormat: Boolean = true,
     libraryRepository: LibraryRepository = LibraryRepository.getInstance(),
@@ -564,10 +597,28 @@ fun AuroArtistTracksScreen(
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
-    val primaryTracks = remember(artistName, dataVersion) { libraryRepository.getPrimaryTracksForArtist(artistName, SortMode.TITLE_ASC) }
-    val featTracks = remember(artistName, dataVersion) { libraryRepository.getFeatTracksForArtist(artistName, SortMode.TITLE_ASC) }
+    val tracksData by produceState(
+        initialValue = ArtistTracksData(),
+        key1 = artistName,
+        key2 = libraryVersion
+    ) {
+        value = withContext(Dispatchers.IO) {
+            ArtistTracksData(
+                primaryTracks = libraryRepository.getPrimaryTracksForArtist(artistName, SortMode.TITLE_ASC),
+                featTracks = libraryRepository.getFeatTracksForArtist(artistName, SortMode.TITLE_ASC),
+                loaded = true
+            )
+        }
+    }
+    val primaryTracks = tracksData.primaryTracks
+    val featTracks = tracksData.featTracks
 
-    var showFeats by remember(artistName, dataVersion) { mutableStateOf(primaryTracks.isEmpty() && featTracks.isNotEmpty()) }
+    var showFeats by remember(artistName) { mutableStateOf(false) }
+    LaunchedEffect(artistName, tracksData.loaded) {
+        if (tracksData.loaded && primaryTracks.isEmpty() && featTracks.isNotEmpty()) {
+            showFeats = true
+        }
+    }
 
     val displayedTracks = remember(primaryTracks, featTracks, showFeats) {
         if (showFeats && featTracks.isNotEmpty()) {
@@ -619,7 +670,7 @@ fun AuroArtistTracksScreen(
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
-                        text = pluralStringResource(R.plurals.tracks_count, displayedTracks.size, displayedTracks.size),
+                        text = formatTracksCount(displayedTracks.size),
                         style = AuroType.Caption,
                         color = AuroColor.TextSecondary,
                         maxLines = 1,
@@ -741,7 +792,7 @@ fun AuroArtistDiscographyScreen(
     artistName: String,
     onBack: () -> Unit,
     onAlbumClick: (String) -> Unit,
-    dataVersion: Int = 0,
+    libraryVersion: Int = 0,
     libraryRepository: LibraryRepository = LibraryRepository.getInstance(),
     modifier: Modifier = Modifier
 ) {
@@ -749,7 +800,15 @@ fun AuroArtistDiscographyScreen(
     val bottomInset = LocalAuroBottomInset.current
     val listState = rememberLazyListState()
 
-    val releases = remember(artistName, dataVersion) { libraryRepository.getArtistReleases(artistName) }
+    val releases by produceState(
+        initialValue = emptyList<ArtistRelease>(),
+        key1 = artistName,
+        key2 = libraryVersion
+    ) {
+        value = withContext(Dispatchers.IO) {
+            libraryRepository.getArtistReleases(artistName)
+        }
+    }
     val albums = remember(releases) { releases.filter { it.isAlbum } }
     val singlesAndEps = remember(releases) { releases.filterNot { it.isAlbum } }
 
@@ -937,7 +996,7 @@ private fun DiscographyCard(
 
         val desc = buildString {
             if (release.year > 0) append("${release.year} • ")
-            append(pluralStringResource(R.plurals.tracks_count, release.trackCount, release.trackCount))
+            append(formatTracksCount(release.trackCount))
         }
 
         Text(

@@ -98,6 +98,9 @@ class LibraryRepository() {
         return synchronized(sharedTracks) { sharedTracks.toList() }
     }
 
+    @Volatile
+    var onStatsChangedListener: (() -> Unit)? = null
+
     fun recordTrackPlayed(trackId: Long) {
         sharedExecutor.execute {
             getOrCreateDb()?.incrementPlayCount(trackId)
@@ -111,6 +114,7 @@ class LibraryRepository() {
                     )
                 }
             }
+            onStatsChangedListener?.invoke()
         }
     }
 
@@ -124,6 +128,7 @@ class LibraryRepository() {
                     sharedTracks[index] = t.copy(rating = rating)
                 }
             }
+            onStatsChangedListener?.invoke()
         }
     }
 
@@ -457,11 +462,14 @@ class LibraryRepository() {
         }
 
         for (playlist in playlists) {
-            val countStr = appContext?.resources?.getQuantityString(
-                com.lucas.player.R.plurals.tracks_count,
-                playlist.trackCount,
-                playlist.trackCount
-            ) ?: "${playlist.trackCount} faixas"
+            val countStr = appContext?.let { ctx ->
+                if (playlist.trackCount == 0) ctx.getString(com.lucas.player.R.string.tracks_count_zero)
+                else ctx.resources.getQuantityString(
+                    com.lucas.player.R.plurals.tracks_count,
+                    playlist.trackCount,
+                    playlist.trackCount
+                )
+            } ?: "${playlist.trackCount} faixas"
             val subtitle = appContext?.getString(com.lucas.player.R.string.recent_playlist_subtitle, countStr)
                 ?: "Playlist · $countStr"
 

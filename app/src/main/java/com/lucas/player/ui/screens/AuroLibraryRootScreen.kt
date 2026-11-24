@@ -479,11 +479,7 @@ fun AuroLibraryRootScreen(
 
                                         val subtitleText = when (recentItem) {
                                             is RecentLibraryItem.PlaylistItem -> {
-                                                val countStr = pluralStringResource(
-                                                    R.plurals.tracks_count,
-                                                    recentItem.playlist.trackCount,
-                                                    recentItem.playlist.trackCount
-                                                )
+                                                val countStr = formatTracksCount(recentItem.playlist.trackCount)
                                                 stringResource(R.string.recent_playlist_subtitle, countStr)
                                             }
                                             else -> recentItem.subtitle.ifBlank { stringResource(R.string.unknown_artist) }

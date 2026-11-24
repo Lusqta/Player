@@ -1,5 +1,6 @@
 package com.lucas.player.ui.components
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
@@ -152,6 +153,17 @@ fun ArtistMonogram(
     }
 }
 
+fun formatTracksCount(context: Context, count: Int): String {
+    return if (count == 0) context.getString(R.string.tracks_count_zero)
+    else context.resources.getQuantityString(R.plurals.tracks_count, count, count)
+}
+
+@Composable
+fun formatTracksCount(count: Int): String {
+    return if (count == 0) stringResource(R.string.tracks_count_zero)
+    else pluralStringResource(R.plurals.tracks_count, count, count)
+}
+
 @Composable
 fun ArtistAvatarImage(
     artistName: String,
@@ -203,7 +215,7 @@ fun ArtistAvatarImage(
                         }
                     },
                     update = { iv ->
-                        if (iv.drawable != gifDrawable) {
+                        if (iv.drawable !== gifDrawable) {
                             iv.setImageDrawable(gifDrawable)
                         }
                         (gifDrawable as? AnimatedImageDrawable)?.let {

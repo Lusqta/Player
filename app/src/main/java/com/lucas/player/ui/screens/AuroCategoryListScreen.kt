@@ -134,7 +134,7 @@ fun AuroCategoryListScreen(
                 category == LibraryCategory.ALL_SONGS && trimmedQuery.isNotEmpty() ->
                     stringResource(R.string.tracks_filtered_count, filteredTracks.size, displayedTracks.size)
                 isTrackListCategory ->
-                    pluralStringResource(R.plurals.tracks_count, displayedTracks.size, displayedTracks.size)
+                    formatTracksCount(displayedTracks.size)
                 else ->
                     pluralStringResource(R.plurals.items_count, displayedGroups.size, displayedGroups.size)
             },
