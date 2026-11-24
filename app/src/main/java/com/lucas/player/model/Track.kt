@@ -74,6 +74,43 @@ data class UserPlaylist(
     val coverPath: String = ""
 )
 
+sealed class RecentLibraryItem {
+    abstract val key: String
+    abstract val title: String
+    abstract val subtitle: String
+    abstract val timestampSec: Long
+
+    data class AlbumItem(
+        val albumName: String,
+        val artist: String,
+        val coverTrack: Track,
+        override val timestampSec: Long
+    ) : RecentLibraryItem() {
+        override val key: String = "album_${albumName.trim().lowercase()}"
+        override val title: String = albumName
+        override val subtitle: String = formatArtistsDisplay(artist)
+    }
+
+    data class SingleTrackItem(
+        val track: Track,
+        override val timestampSec: Long
+    ) : RecentLibraryItem() {
+        override val key: String = "track_${track.id}"
+        override val title: String = track.title
+        override val subtitle: String = formatArtistsDisplay(track.artist)
+    }
+
+    data class PlaylistItem(
+        val playlist: UserPlaylist,
+        val coverTrack: Track?,
+        override val timestampSec: Long,
+        override val subtitle: String = "Playlist · ${playlist.trackCount}"
+    ) : RecentLibraryItem() {
+        override val key: String = "playlist_${playlist.id}"
+        override val title: String = playlist.name
+    }
+}
+
 enum class LibraryCategory(val title: String, val description: String) {
     ALL_SONGS("Todas as Músicas", "Todas as faixas da biblioteca"),
     FOLDERS("Pastas", "Diretórios de áudio"),
@@ -83,7 +120,7 @@ enum class LibraryCategory(val title: String, val description: String) {
     GENRES("Gêneros", "Estilos musicais"),
     YEARS("Anos", "Faixas por ano de lançamento"),
     COMPOSERS("Compositores", "Autores e compositores"),
-    PLAYLISTS("Listas de Reprodução", "Playlists do usuário"),
+    PLAYLISTS("Playlists", "Playlists do usuário"),
     QUEUE("Fila de Reprodução", "Faixas prioritárias na fila"),
     RECENTLY_ADDED("Adicionadas Recentemente", "Últimas músicas adicionadas"),
     RECENTLY_PLAYED("Tocadas Recentemente", "Histórico de reprodução"),

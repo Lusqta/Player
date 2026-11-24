@@ -370,6 +370,7 @@ fun AuroDrilldownScreen(
                         isSelectionMode = isSelectionMode,
                         isSelected = selectedTrackIds.contains(track.id),
                         showFormatTag = showFileFormat,
+                        showPlayCount = category == LibraryCategory.MOST_PLAYED,
                         onClick = {
                             if (isSelectionMode) {
                                 onToggleSelectTrack(track)

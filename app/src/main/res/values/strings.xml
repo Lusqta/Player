@@ -333,7 +333,7 @@
     <string name="category_genres">Gêneros</string>
     <string name="category_years">Anos</string>
     <string name="category_composers">Compositores</string>
-    <string name="category_playlists">Listas de Reprodução</string>
+    <string name="category_playlists">Playlists</string>
     <string name="category_queue">Fila de Reprodução</string>
     <string name="category_recently_added">Adicionadas Recentemente</string>
     <string name="category_recently_played">Tocadas Recentemente</string>
@@ -415,4 +415,10 @@
     <string name="artist_media_updated">Foto do artista atualizada</string>
     <string name="artist_media_removed">Foto do artista removida</string>
     <string name="artist_see_all">Ver tudo</string>
+
+    <!-- Biblioteca, Busca na Fila e Anos -->
+    <string name="tracks_filtered_count">%1$d de %2$d faixas</string>
+    <string name="search_songs_placeholder">Filtrar músicas, artistas ou álbuns...</string>
+    <string name="year_unknown">Sem ano</string>
+    <string name="recent_playlist_subtitle">Playlist · %s</string>
 </resources>

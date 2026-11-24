@@ -878,10 +878,13 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             }
 
                             is NavScreen.LibraryRoot -> {
+                                val plVersion = playlistsVersionState.intValue
                                 val all = libraryRepo.getAllTracks()
                                 val pinnedKeys = preferencesManager.getPinnedGroups()
                                 val pinnedItems = displayedGroups.filter { pinnedKeys.contains(it.title) }
-                                val recentAdded = libraryRepo.getRecentlyAdded().take(10)
+                                val recentItems = remember(all, plVersion) {
+                                    libraryRepo.getRecentLibraryItems(12)
+                                }
                                 val categoryCounts = remember(all) {
                                     mapOf(
                                         LibraryCategory.ALL_SONGS to all.size,
@@ -902,7 +905,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     listState = getScrollState("library_root"),
                                     pinnedGroups = pinnedKeys,
                                     pinnedItems = pinnedItems,
-                                    recentlyAddedTracks = recentAdded,
+                                    recentLibraryItems = recentItems,
                                     coverTrackFinder = { group -> all.firstOrNull { it.album.equals(group.title, ignoreCase = true) || it.artist.equals(group.title, ignoreCase = true) } },
                                     onShuffleAll = {
                                         val all = libraryRepo.getAllTracks()
@@ -933,6 +936,36 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                             )
                                         )
                                     },
+                                    onRecentItemClick = { item ->
+                                        when (item) {
+                                            is RecentLibraryItem.AlbumItem -> {
+                                                drillDownGroup(LibraryCategory.ALBUMS, item.albumName)
+                                                navController.navigateTo(
+                                                    NavScreen.Drilldown(
+                                                        category = LibraryCategory.ALBUMS,
+                                                        title = item.albumName,
+                                                        subtitle = item.subtitle.ifBlank { getString(R.string.group_subtitle_album) }
+                                                    )
+                                                )
+                                            }
+                                            is RecentLibraryItem.SingleTrackItem -> {
+                                                val allTracksList = libraryRepo.getAllTracks()
+                                                val idx = allTracksList.indexOfFirst { it.id == item.track.id }.takeIf { it != -1 } ?: 0
+                                                playbackService?.playQueue(allTracksList, idx)
+                                                navController.openNowPlaying()
+                                            }
+                                            is RecentLibraryItem.PlaylistItem -> {
+                                                drillDownGroup(LibraryCategory.PLAYLISTS, item.playlist.name)
+                                                navController.navigateTo(
+                                                    NavScreen.Drilldown(
+                                                        category = LibraryCategory.PLAYLISTS,
+                                                        title = item.playlist.name,
+                                                        subtitle = getString(R.string.group_subtitle_playlist)
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    },
                                     onTrackClick = { track ->
                                         val all = libraryRepo.getAllTracks()
                                         val idx = all.indexOfFirst { it.id == track.id }.takeIf { it != -1 } ?: 0
@@ -948,129 +981,205 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             }
 
                             is NavScreen.CategoryList -> {
-                                if (activeScreen.category == LibraryCategory.QUEUE) {
-                                    AuroQueueScreen(
-                                        priorityTracks = priorityQueueState.value,
-                                        regularTracks = regularQueueState.value,
-                                        currentTrackId = currentTrack?.id ?: -1L,
-                                        errorTrackIds = errorTrackIds.toSet(),
-                                        listState = getScrollState("queue"),
-                                        onBackClick = { navController.navigateUp() },
-                                        onTrackClick = { _, index, isPriority ->
-                                            if (isPriority) {
-                                                playbackService?.skipToPriorityIndex(index)
-                                            } else {
-                                                playbackService?.skipToQueueIndex(index)
-                                            }
-                                            navController.openNowPlaying()
-                                        },
-                                        onRemoveTrack = { track ->
-                                            playbackService?.removeTrackFromQueue(track.id)
-                                            playbackService?.let { s ->
-                                                priorityQueueState.value = s.queueManager.getPriorityQueue()
-                                                regularQueueState.value = s.queueManager.getTracks()
-                                            }
-                                            renderCurrentCategory()
-                                        },
-                                        onClearQueue = {
-                                            playbackService?.clearPriorityQueue()
-                                            playbackService?.let { s ->
-                                                priorityQueueState.value = s.queueManager.getPriorityQueue()
-                                                regularQueueState.value = s.queueManager.getTracks()
-                                            }
-                                            renderCurrentCategory()
-                                            snackbarState.show(getString(R.string.snackbar_queue_cleared))
-                                        },
-                                        onShuffleQueue = {
-                                            playbackService?.shuffleCurrentQueue()
-                                            playbackService?.let { s ->
-                                                priorityQueueState.value = s.queueManager.getPriorityQueue()
-                                                regularQueueState.value = s.queueManager.getTracks()
-                                            }
-                                            renderCurrentCategory()
-                                            snackbarState.show(getString(R.string.snackbar_queue_shuffled))
-                                        },
-                                        onMoveItem = { section, from, to ->
-                                            playbackService?.moveQueueItem(section, from, to)
-                                            playbackService?.let { s ->
-                                                priorityQueueState.value = s.queueManager.getPriorityQueue()
-                                                regularQueueState.value = s.queueManager.getTracks()
-                                            }
-                                            renderCurrentCategory()
-                                        },
-                                        showSnackbar = { msg, action, onAction ->
-                                            snackbarState.show(msg, action, onAction)
-                                        },
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                } else {
-                                    AuroCategoryListScreen(
-                                        category = activeScreen.category,
-                                        listState = getScrollState("category_${activeScreen.category.name}"),
-                                        displayedTracks = displayedTracks,
-                                        displayedGroups = displayedGroups,
-                                        currentPlayingId = currentTrack?.id ?: -1L,
-                                        errorTrackIds = errorTrackIds.toSet(),
-                                        isSelectionMode = isSelectionModeState.value,
-                                        selectedTrackIds = selectedTrackIdsState.toSet(),
-                                        onToggleSelectTrack = { track ->
-                                            if (selectedTrackIdsState.contains(track.id)) {
-                                                selectedTrackIdsState.remove(track.id)
-                                            } else {
-                                                selectedTrackIdsState.add(track.id)
-                                            }
-                                        },
-                                        showFileFormat = preferencesManager.isShowFileFormatEnabled(),
-                                        onBackClick = { navController.navigateUp() },
-                                        onTrackClick = { _, position ->
-                                            playbackService?.playQueue(displayedTracks, position)
-                                            navController.openNowPlaying()
-                                        },
-                                        onTrackLongClick = { track ->
-                                            trackContextMenuState.value = track
-                                        },
-                                        onTrackMenuClick = { track ->
-                                            trackContextMenuState.value = track
-                                        },
-                                        onGroupClick = { group ->
-                                            if (activeScreen.category == LibraryCategory.ARTISTS || activeScreen.category == LibraryCategory.ALBUM_ARTISTS) {
-                                                navController.navigateTo(NavScreen.ArtistProfile(group.title))
-                                            } else {
-                                                drillDownGroup(activeScreen.category, group.title)
-                                                navController.navigateTo(
-                                                    NavScreen.Drilldown(
-                                                        category = activeScreen.category,
-                                                        title = group.title,
-                                                        subtitle = group.subtitle
+                                when (activeScreen.category) {
+                                    LibraryCategory.QUEUE -> {
+                                        AuroQueueScreen(
+                                            priorityTracks = priorityQueueState.value,
+                                            regularTracks = regularQueueState.value,
+                                            currentTrackId = currentTrack?.id ?: -1L,
+                                            errorTrackIds = errorTrackIds.toSet(),
+                                            listState = getScrollState("queue"),
+                                            onBackClick = { navController.navigateUp() },
+                                            onTrackClick = { _, index, isPriority ->
+                                                if (isPriority) {
+                                                    playbackService?.skipToPriorityIndex(index)
+                                                } else {
+                                                    playbackService?.skipToQueueIndex(index)
+                                                }
+                                                navController.openNowPlaying()
+                                            },
+                                            onRemoveTrack = { track ->
+                                                playbackService?.removeTrackFromQueue(track.id)
+                                                playbackService?.let { s ->
+                                                    priorityQueueState.value = s.queueManager.getPriorityQueue()
+                                                    regularQueueState.value = s.queueManager.getTracks()
+                                                }
+                                                renderCurrentCategory()
+                                            },
+                                            onClearQueue = {
+                                                playbackService?.clearPriorityQueue()
+                                                playbackService?.let { s ->
+                                                    priorityQueueState.value = s.queueManager.getPriorityQueue()
+                                                    regularQueueState.value = s.queueManager.getTracks()
+                                                }
+                                                renderCurrentCategory()
+                                                snackbarState.show(getString(R.string.snackbar_queue_cleared))
+                                            },
+                                            onShuffleQueue = {
+                                                playbackService?.shuffleCurrentQueue()
+                                                playbackService?.let { s ->
+                                                    priorityQueueState.value = s.queueManager.getPriorityQueue()
+                                                    regularQueueState.value = s.queueManager.getTracks()
+                                                }
+                                                renderCurrentCategory()
+                                                snackbarState.show(getString(R.string.snackbar_queue_shuffled))
+                                            },
+                                            onMoveItem = { section, from, to ->
+                                                playbackService?.moveQueueItem(section, from, to)
+                                                playbackService?.let { s ->
+                                                    priorityQueueState.value = s.queueManager.getPriorityQueue()
+                                                    regularQueueState.value = s.queueManager.getTracks()
+                                                }
+                                                renderCurrentCategory()
+                                            },
+                                            showSnackbar = { msg, action, onAction ->
+                                                snackbarState.show(msg, action, onAction)
+                                            },
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+
+                                    LibraryCategory.YEARS -> {
+                                        AuroYearsScreen(
+                                            currentPlayingId = currentTrack?.id ?: -1L,
+                                            sortMode = currentSortModeState.value,
+                                            dataVersion = totalTracksCount + (currentTrack?.playCount ?: 0).hashCode(),
+                                            onBackClick = { navController.navigateUp() },
+                                            onSortClick = { showSortOrderState.value = true },
+                                            onTrackClick = { tracks, position ->
+                                                if (tracks.isNotEmpty()) {
+                                                    playbackService?.playQueue(tracks, position)
+                                                    navController.openNowPlaying()
+                                                }
+                                            },
+                                            onTrackLongClick = { track ->
+                                                trackContextMenuState.value = track
+                                            },
+                                            onTrackMenuClick = { track ->
+                                                trackContextMenuState.value = track
+                                            },
+                                            onPlayAll = { tracks ->
+                                                if (tracks.isNotEmpty()) {
+                                                    playbackService?.playQueue(tracks, 0)
+                                                    navController.openNowPlaying()
+                                                }
+                                            },
+                                            onShuffleAll = { tracks ->
+                                                if (tracks.isNotEmpty()) {
+                                                    playbackService?.queueManager?.setShuffleMode(ShuffleMode.ALL_TRACKS)
+                                                    shuffleModeState.value = ShuffleMode.ALL_TRACKS
+                                                    playbackService?.playQueue(tracks.shuffled(), 0)
+                                                    navController.openNowPlaying()
+                                                }
+                                            },
+                                            errorTrackIds = errorTrackIds.toSet(),
+                                            isSelectionMode = isSelectionModeState.value,
+                                            selectedTrackIds = selectedTrackIdsState.toSet(),
+                                            onToggleSelectTrack = { track ->
+                                                if (selectedTrackIdsState.contains(track.id)) {
+                                                    selectedTrackIdsState.remove(track.id)
+                                                } else {
+                                                    selectedTrackIdsState.add(track.id)
+                                                }
+                                            },
+                                            showFileFormat = preferencesManager.isShowFileFormatEnabled(),
+                                            listState = getScrollState("category_YEARS"),
+                                            libraryRepository = libraryRepo,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+
+                                    else -> {
+                                        val albumCoverMap = remember(activeScreen.category, displayedGroups, totalTracksCount) {
+                                            if (activeScreen.category == LibraryCategory.ALBUMS) {
+                                                libraryRepo.getAllTracks()
+                                                    .groupBy { it.album.lowercase() }
+                                                    .mapValues { it.value.firstOrNull() }
+                                            } else emptyMap()
+                                        }
+                                        AuroCategoryListScreen(
+                                            category = activeScreen.category,
+                                            listState = getScrollState("category_${activeScreen.category.name}"),
+                                            displayedTracks = displayedTracks,
+                                            displayedGroups = displayedGroups,
+                                            currentPlayingId = currentTrack?.id ?: -1L,
+                                            errorTrackIds = errorTrackIds.toSet(),
+                                            isSelectionMode = isSelectionModeState.value,
+                                            selectedTrackIds = selectedTrackIdsState.toSet(),
+                                            onToggleSelectTrack = { track ->
+                                                if (selectedTrackIdsState.contains(track.id)) {
+                                                    selectedTrackIdsState.remove(track.id)
+                                                } else {
+                                                    selectedTrackIdsState.add(track.id)
+                                                }
+                                            },
+                                            showFileFormat = preferencesManager.isShowFileFormatEnabled(),
+                                            coverTrackFinder = { group -> albumCoverMap[group.title.lowercase()] },
+                                            onBackClick = { navController.navigateUp() },
+                                            onTrackClick = { _, position ->
+                                                playbackService?.playQueue(displayedTracks, position)
+                                                navController.openNowPlaying()
+                                            },
+                                            onPlayTracksList = { tracks, position ->
+                                                if (tracks.isNotEmpty()) {
+                                                    playbackService?.playQueue(tracks, position)
+                                                    navController.openNowPlaying()
+                                                }
+                                            },
+                                            onShuffleTracksList = { tracks ->
+                                                if (tracks.isNotEmpty()) {
+                                                    playbackService?.queueManager?.setShuffleMode(ShuffleMode.ALL_TRACKS)
+                                                    shuffleModeState.value = ShuffleMode.ALL_TRACKS
+                                                    playbackService?.playQueue(tracks.shuffled(), 0)
+                                                    navController.openNowPlaying()
+                                                }
+                                            },
+                                            onTrackLongClick = { track ->
+                                                trackContextMenuState.value = track
+                                            },
+                                            onTrackMenuClick = { track ->
+                                                trackContextMenuState.value = track
+                                            },
+                                            onGroupClick = { group ->
+                                                if (activeScreen.category == LibraryCategory.ARTISTS || activeScreen.category == LibraryCategory.ALBUM_ARTISTS) {
+                                                    navController.navigateTo(NavScreen.ArtistProfile(group.title))
+                                                } else {
+                                                    drillDownGroup(activeScreen.category, group.title)
+                                                    navController.navigateTo(
+                                                        NavScreen.Drilldown(
+                                                            category = activeScreen.category,
+                                                            title = group.title,
+                                                            subtitle = group.subtitle
+                                                        )
                                                     )
-                                                )
-                                            }
-                                        },
-                                        onGroupLongClick = { group ->
-                                            if (activeScreen.category == LibraryCategory.PLAYLISTS) {
-                                                deletePlaylistTargetState.value = group
-                                            }
-                                        },
-                                        onPlayAll = {
-                                            if (displayedTracks.isNotEmpty()) {
-                                                playbackService?.playQueue(displayedTracks, 0)
-                                                navController.openNowPlaying()
-                                            }
-                                        },
-                                        onShuffleAll = {
-                                            if (displayedTracks.isNotEmpty()) {
-                                                playbackService?.queueManager?.setShuffleMode(ShuffleMode.ALL_TRACKS)
-                                                shuffleModeState.value = ShuffleMode.ALL_TRACKS
-                                                playbackService?.playQueue(displayedTracks.shuffled(), 0)
-                                                navController.openNowPlaying()
-                                            }
-                                        },
-                                        onCreatePlaylist = {
-                                            showCreatePlaylistDialogState.value = true
-                                        },
-                                        onSortClick = { showSortOrderState.value = true },
-                                        modifier = Modifier.fillMaxSize()
-                                    )
+                                                }
+                                            },
+                                            onGroupLongClick = { group ->
+                                                if (activeScreen.category == LibraryCategory.PLAYLISTS) {
+                                                    deletePlaylistTargetState.value = group
+                                                }
+                                            },
+                                            onPlayAll = {
+                                                if (displayedTracks.isNotEmpty()) {
+                                                    playbackService?.playQueue(displayedTracks, 0)
+                                                    navController.openNowPlaying()
+                                                }
+                                            },
+                                            onShuffleAll = {
+                                                if (displayedTracks.isNotEmpty()) {
+                                                    playbackService?.queueManager?.setShuffleMode(ShuffleMode.ALL_TRACKS)
+                                                    shuffleModeState.value = ShuffleMode.ALL_TRACKS
+                                                    playbackService?.playQueue(displayedTracks.shuffled(), 0)
+                                                    navController.openNowPlaying()
+                                                }
+                                            },
+                                            onCreatePlaylist = {
+                                                showCreatePlaylistDialogState.value = true
+                                            },
+                                            onSortClick = { showSortOrderState.value = true },
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
                                 }
                             }
 

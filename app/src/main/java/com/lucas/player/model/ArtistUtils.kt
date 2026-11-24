@@ -34,7 +34,9 @@ fun isValidHighlightName(raw: String): Boolean {
         !t.equals("<unknown>", ignoreCase = true) &&
         !t.equals("unknown", ignoreCase = true) &&
         !t.equals("desconhecido", ignoreCase = true) &&
-        !t.equals("sem título", ignoreCase = true)
+        !t.equals("sem título", ignoreCase = true) &&
+        !t.equals("álbum desconhecido", ignoreCase = true) &&
+        !t.equals("unknown album", ignoreCase = true)
 }
 
 fun primaryArtistsOf(track: Track): List<String> {

@@ -1049,6 +1049,7 @@ fun AuroTrackRow(
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
     showFormatTag: Boolean = true,
+    showPlayCount: Boolean = false,
     isAudioPlaying: Boolean = LocalAuroIsPlaying.current
 ) {
     val view = LocalView.current
@@ -1243,6 +1244,18 @@ fun AuroTrackRow(
                 )
             }
             Spacer(modifier = Modifier.width(6.dp))
+        }
+
+        if (showPlayCount && track.playCount > 0) {
+            Text(
+                text = "${track.playCount}×",
+                style = AuroType.MicroLabel.copy(
+                    color = Color.White.copy(alpha = 0.72f),
+                    fontFamily = FontFamily.Monospace,
+                    fontFeatureSettings = "tnum"
+                )
+            )
+            Spacer(modifier = Modifier.width(8.dp))
         }
 
         // Duração da faixa

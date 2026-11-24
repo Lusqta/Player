@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
 import com.lucas.player.model.LibraryCategory
+import com.lucas.player.model.RecentLibraryItem
 import com.lucas.player.model.Track
 import com.lucas.player.model.formatArtistsDisplay
 import com.lucas.player.model.getTitleRes
@@ -66,12 +67,14 @@ fun AuroLibraryRootScreen(
     categoryCounts: Map<LibraryCategory, Int> = emptyMap(),
     pinnedGroups: Set<String> = emptySet(),
     pinnedItems: List<GroupItem> = emptyList(),
+    recentLibraryItems: List<RecentLibraryItem> = emptyList(),
     recentlyAddedTracks: List<Track> = emptyList(),
     coverTrackFinder: (GroupItem) -> Track? = { null },
     onShuffleAll: () -> Unit = {},
     onResumePlayback: () -> Unit = {},
     onSelectCategory: (LibraryCategory) -> Unit,
     onGroupClick: (GroupItem) -> Unit = {},
+    onRecentItemClick: (RecentLibraryItem) -> Unit = {},
     onTrackClick: (Track) -> Unit = {},
     onSortClick: () -> Unit,
     onRescanClick: () -> Unit,
@@ -356,7 +359,7 @@ fun AuroLibraryRootScreen(
                 }
 
                 // Grade 2 colunas: Adicionadas Recentemente
-                if (recentlyAddedTracks.isNotEmpty()) {
+                if (recentLibraryItems.isNotEmpty() || recentlyAddedTracks.isNotEmpty()) {
                     item(key = "recently_added_header") {
                         Text(
                             text = stringResource(R.string.home_recently_added),
@@ -372,80 +375,213 @@ fun AuroLibraryRootScreen(
                         )
                     }
 
-                    val pairs = recentlyAddedTracks.take(10).chunked(2)
-                    items(pairs, key = { "${it.first().id}_${it.getOrNull(1)?.id}" }) { rowPair ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = AuroSpace.ScreenMargin, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            for (track in rowPair) {
-                                val coverBitmap = rememberTrackCover(track, 200)
-
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clickable(
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            indication = null,
-                                            onClick = {
-                                                AuroHaptics.click(view)
-                                                onTrackClick(track)
-                                            }
-                                        )
-                                ) {
-                                    Box(
+                    if (recentLibraryItems.isNotEmpty()) {
+                        val pairs = recentLibraryItems.take(12).chunked(2)
+                        items(pairs, key = { row -> row.joinToString("_") { it.key } }) { rowPair ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AuroSpace.ScreenMargin, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                for (recentItem in rowPair) {
+                                    Column(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .aspectRatio(1f)
-                                            .clip(AuroSquircle)
-                                            .background(AuroColor.SurfaceGrouped),
-                                        contentAlignment = Alignment.Center
+                                            .weight(1f)
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null,
+                                                onClick = {
+                                                    AuroHaptics.click(view)
+                                                    onRecentItemClick(recentItem)
+                                                }
+                                            )
                                     ) {
-                                        if (coverBitmap != null) {
-                                            Image(
-                                                bitmap = coverBitmap.asImageBitmap(),
-                                                contentDescription = track.title,
-                                                contentScale = ContentScale.Crop,
-                                                modifier = Modifier.fillMaxSize()
-                                            )
-                                        } else {
-                                            AuroCoverPlaceholder(
-                                                modifier = Modifier.fillMaxSize(),
-                                                glass = false,
-                                                shape = AuroSquircle
-                                            )
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(1f)
+                                                .clip(AuroSquircle)
+                                                .background(AuroColor.SurfaceGrouped),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            when (recentItem) {
+                                                is RecentLibraryItem.PlaylistItem -> {
+                                                    val coverBitmap = rememberPlaylistCover(
+                                                        recentItem.playlist.coverPath,
+                                                        recentItem.coverTrack,
+                                                        200
+                                                    )
+                                                    if (coverBitmap != null) {
+                                                        Image(
+                                                            bitmap = coverBitmap.asImageBitmap(),
+                                                            contentDescription = recentItem.title,
+                                                            contentScale = ContentScale.Crop,
+                                                            modifier = Modifier.fillMaxSize()
+                                                        )
+                                                    } else {
+                                                        ArtistMonogram(
+                                                            name = recentItem.title,
+                                                            modifier = Modifier.fillMaxSize(),
+                                                            shape = AuroSquircle
+                                                        )
+                                                    }
+                                                }
+                                                is RecentLibraryItem.AlbumItem -> {
+                                                    val coverBitmap = rememberTrackCover(recentItem.coverTrack, 200)
+                                                    if (coverBitmap != null) {
+                                                        Image(
+                                                            bitmap = coverBitmap.asImageBitmap(),
+                                                            contentDescription = recentItem.title,
+                                                            contentScale = ContentScale.Crop,
+                                                            modifier = Modifier.fillMaxSize()
+                                                        )
+                                                    } else {
+                                                        AuroCoverPlaceholder(
+                                                            modifier = Modifier.fillMaxSize(),
+                                                            glass = false,
+                                                            shape = AuroSquircle
+                                                        )
+                                                    }
+                                                }
+                                                is RecentLibraryItem.SingleTrackItem -> {
+                                                    val coverBitmap = rememberTrackCover(recentItem.track, 200)
+                                                    if (coverBitmap != null) {
+                                                        Image(
+                                                            bitmap = coverBitmap.asImageBitmap(),
+                                                            contentDescription = recentItem.title,
+                                                            contentScale = ContentScale.Crop,
+                                                            modifier = Modifier.fillMaxSize()
+                                                        )
+                                                    } else {
+                                                        AuroCoverPlaceholder(
+                                                            modifier = Modifier.fillMaxSize(),
+                                                            glass = false,
+                                                            shape = AuroSquircle
+                                                        )
+                                                    }
+                                                }
+                                            }
                                         }
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+
+                                        Text(
+                                            text = recentItem.title,
+                                            style = AuroType.Body.copy(
+                                                fontSize = 14.sp,
+                                                lineHeight = 18.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+
+                                        val subtitleText = when (recentItem) {
+                                            is RecentLibraryItem.PlaylistItem -> {
+                                                val countStr = pluralStringResource(
+                                                    R.plurals.tracks_count,
+                                                    recentItem.playlist.trackCount,
+                                                    recentItem.playlist.trackCount
+                                                )
+                                                stringResource(R.string.recent_playlist_subtitle, countStr)
+                                            }
+                                            else -> recentItem.subtitle.ifBlank { stringResource(R.string.unknown_artist) }
+                                        }
+
+                                        Text(
+                                            text = subtitleText,
+                                            style = AuroType.Subtitle.copy(
+                                                fontSize = 13.sp,
+                                                lineHeight = 16.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
                                     }
+                                }
 
-                                    Spacer(modifier = Modifier.height(6.dp))
-
-                                    Text(
-                                        text = track.title,
-                                        style = AuroType.Body.copy(
-                                            fontSize = 14.sp,
-                                            lineHeight = 18.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        ),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-
-                                    Text(
-                                        text = formatArtistsDisplay(track.artist, stringResource(R.string.unknown_artist)),
-                                        style = AuroType.Subtitle.copy(
-                                            fontSize = 13.sp,
-                                            lineHeight = 16.sp
-                                        ),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                if (rowPair.size == 1) {
+                                    Spacer(modifier = Modifier.weight(1f))
                                 }
                             }
+                        }
+                    } else {
+                        val pairs = recentlyAddedTracks.take(10).chunked(2)
+                        items(pairs, key = { "${it.first().id}_${it.getOrNull(1)?.id}" }) { rowPair ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AuroSpace.ScreenMargin, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                for (track in rowPair) {
+                                    val coverBitmap = rememberTrackCover(track, 200)
 
-                            if (rowPair.size == 1) {
-                                Spacer(modifier = Modifier.weight(1f))
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null,
+                                                onClick = {
+                                                    AuroHaptics.click(view)
+                                                    onTrackClick(track)
+                                                }
+                                            )
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(1f)
+                                                .clip(AuroSquircle)
+                                                .background(AuroColor.SurfaceGrouped),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (coverBitmap != null) {
+                                                Image(
+                                                    bitmap = coverBitmap.asImageBitmap(),
+                                                    contentDescription = track.title,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            } else {
+                                                AuroCoverPlaceholder(
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    glass = false,
+                                                    shape = AuroSquircle
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+
+                                        Text(
+                                            text = track.title,
+                                            style = AuroType.Body.copy(
+                                                fontSize = 14.sp,
+                                                lineHeight = 18.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+
+                                        Text(
+                                            text = formatArtistsDisplay(track.artist, stringResource(R.string.unknown_artist)),
+                                            style = AuroType.Subtitle.copy(
+                                                fontSize = 13.sp,
+                                                lineHeight = 16.sp
+                                            ),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+
+                                if (rowPair.size == 1) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
                             }
                         }
                     }

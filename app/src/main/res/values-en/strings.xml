@@ -414,4 +414,10 @@
     <string name="artist_media_updated">Artist photo updated</string>
     <string name="artist_media_removed">Artist photo removed</string>
     <string name="artist_see_all">See all</string>
+
+    <!-- Library, Queue Search & Years -->
+    <string name="tracks_filtered_count">%1$d of %2$d tracks</string>
+    <string name="search_songs_placeholder">Filter songs, artists or albums...</string>
+    <string name="year_unknown">Unknown year</string>
+    <string name="recent_playlist_subtitle">Playlist · %s</string>
 </resources>

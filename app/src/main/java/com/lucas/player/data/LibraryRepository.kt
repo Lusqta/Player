@@ -399,6 +399,90 @@ class LibraryRepository() {
         return getAllTracks().sortedByDescending { it.dateAddedSec }
     }
 
+    fun getRecentLibraryItems(limit: Int = 12): List<RecentLibraryItem> {
+        val playlists = getUserPlaylists()
+        val playlistCoverTracks = playlists.associate { pl ->
+            pl.id to getTracksForUserPlaylist(pl.id).firstOrNull()
+        }
+        return buildRecentLibraryItems(
+            tracks = getAllTracks(),
+            playlists = playlists,
+            playlistCoverTracks = playlistCoverTracks,
+            limit = limit
+        )
+    }
+
+    internal fun buildRecentLibraryItems(
+        tracks: List<Track>,
+        playlists: List<UserPlaylist> = emptyList(),
+        playlistCoverTracks: Map<Long, Track?> = emptyMap(),
+        limit: Int = 12
+    ): List<RecentLibraryItem> {
+        val items = mutableListOf<RecentLibraryItem>()
+        val validTracks = tracks.filterNot { isJunkAudio(it) }
+
+        val groupedByAlbum = validTracks.groupBy { track ->
+            val trimmed = track.album.trim()
+            if (isValidHighlightName(trimmed)) {
+                "album:${trimmed.lowercase()}"
+            } else {
+                "single:${track.id}"
+            }
+        }
+
+        for ((groupKey, group) in groupedByAlbum) {
+            if (groupKey.startsWith("album:") || group.size >= 2) {
+                val representative = group.maxByOrNull { it.dateAddedSec } ?: group.first()
+                val albumName = group.first().album.trim()
+                val artist = group.firstNotNullOfOrNull { it.albumArtist.ifBlank { null } }
+                    ?: representative.artist
+                val latestTs = group.maxOf { it.dateAddedSec }
+                items.add(
+                    RecentLibraryItem.AlbumItem(
+                        albumName = albumName,
+                        artist = artist,
+                        coverTrack = group.first(),
+                        timestampSec = latestTs
+                    )
+                )
+            } else {
+                val track = group.first()
+                items.add(
+                    RecentLibraryItem.SingleTrackItem(
+                        track = track,
+                        timestampSec = track.dateAddedSec
+                    )
+                )
+            }
+        }
+
+        for (playlist in playlists) {
+            val countStr = appContext?.resources?.getQuantityString(
+                com.lucas.player.R.plurals.tracks_count,
+                playlist.trackCount,
+                playlist.trackCount
+            ) ?: "${playlist.trackCount} faixas"
+            val subtitle = appContext?.getString(com.lucas.player.R.string.recent_playlist_subtitle, countStr)
+                ?: "Playlist · $countStr"
+
+            items.add(
+                RecentLibraryItem.PlaylistItem(
+                    playlist = playlist,
+                    coverTrack = playlistCoverTracks[playlist.id],
+                    timestampSec = playlist.createdMs / 1000L,
+                    subtitle = subtitle
+                )
+            )
+        }
+
+        return items
+            .sortedWith(
+                compareByDescending<RecentLibraryItem> { it.timestampSec }
+                    .thenBy { it.title.lowercase() }
+            )
+            .take(limit)
+    }
+
     fun getRecentlyPlayed(): List<Track> {
         return getAllTracks()
             .filter { it.lastPlayedTimestamp > 0 }

@@ -2,7 +2,9 @@ package com.lucas.player.ui.screens
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -14,6 +16,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -23,24 +30,29 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.lucas.player.ui.theme.AuroMotion
+import com.lucas.player.ui.theme.AuroSquircle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
 import com.lucas.player.model.LibraryCategory
 import com.lucas.player.model.Track
+import com.lucas.player.model.formatArtistsDisplay
 import com.lucas.player.model.getTitleRes
 import com.lucas.player.ui.GroupItem
 import com.lucas.player.ui.components.*
@@ -71,6 +83,9 @@ fun AuroCategoryListScreen(
     onPlayAll: () -> Unit = {},
     onShuffleAll: () -> Unit = {},
     onCreatePlaylist: () -> Unit = {},
+    coverTrackFinder: (GroupItem) -> Track? = { null },
+    onPlayTracksList: ((List<Track>, Int) -> Unit)? = null,
+    onShuffleTracksList: ((List<Track>) -> Unit)? = null,
     listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
     onSortClick: () -> Unit,
     errorTrackIds: Set<Long> = emptySet(),
@@ -80,12 +95,33 @@ fun AuroCategoryListScreen(
     onToggleSelectTrack: (Track) -> Unit = {},
     showFileFormat: Boolean = true
 ) {
+    val view = LocalView.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val isTrackListCategory = category == LibraryCategory.ALL_SONGS ||
             category == LibraryCategory.MOST_PLAYED ||
             category == LibraryCategory.RECENTLY_ADDED ||
             category == LibraryCategory.RECENTLY_PLAYED ||
             category == LibraryCategory.TOP_RATED
     val isPlaylists = category == LibraryCategory.PLAYLISTS
+    val isAlbumsGrid = category == LibraryCategory.ALBUMS
+
+    var searchQuery by remember(category) { mutableStateOf("") }
+    val trimmedQuery = if (category == LibraryCategory.ALL_SONGS) searchQuery.trim() else ""
+
+    val filteredTracks = remember(displayedTracks, trimmedQuery) {
+        if (trimmedQuery.isEmpty()) displayedTracks
+        else displayedTracks.filter { track ->
+            track.title.contains(trimmedQuery, ignoreCase = true) ||
+                track.artist.contains(trimmedQuery, ignoreCase = true) ||
+                track.album.contains(trimmedQuery, ignoreCase = true)
+        }
+    }
+
+    LaunchedEffect(listState.isScrollInProgress, category) {
+        if (category == LibraryCategory.ALL_SONGS && listState.isScrollInProgress) {
+            keyboardController?.hide()
+        }
+    }
 
     Column(
         modifier = modifier
@@ -94,10 +130,13 @@ fun AuroCategoryListScreen(
     ) {
         AuroTopBar(
             title = stringResource(category.getTitleRes()),
-            subtitle = if (isTrackListCategory) {
-                pluralStringResource(R.plurals.tracks_count, displayedTracks.size, displayedTracks.size)
-            } else {
-                pluralStringResource(R.plurals.items_count, displayedGroups.size, displayedGroups.size)
+            subtitle = when {
+                category == LibraryCategory.ALL_SONGS && trimmedQuery.isNotEmpty() ->
+                    stringResource(R.string.tracks_filtered_count, filteredTracks.size, displayedTracks.size)
+                isTrackListCategory ->
+                    pluralStringResource(R.plurals.tracks_count, displayedTracks.size, displayedTracks.size)
+                else ->
+                    pluralStringResource(R.plurals.items_count, displayedGroups.size, displayedGroups.size)
             },
             canGoBack = true,
             onBackClick = onBackClick,
@@ -113,8 +152,84 @@ fun AuroCategoryListScreen(
             }
         )
 
+        // Campo de busca interna em "Todas as músicas"
+        if (category == LibraryCategory.ALL_SONGS) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = AuroSpace.ScreenMargin, vertical = 6.dp)
+                    .height(44.dp)
+                    .clip(CircleShape)
+                    .background(AuroColor.SurfaceCard)
+                    .border(0.5.dp, Color.White.copy(alpha = 0.08f), CircleShape)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Search,
+                        contentDescription = null,
+                        tint = AuroColor.TextSecondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    CompositionLocalProvider(
+                        LocalTextSelectionColors provides TextSelectionColors(
+                            handleColor = Color.White,
+                            backgroundColor = Color.White.copy(alpha = 0.25f)
+                        )
+                    ) {
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier.weight(1f),
+                            textStyle = AuroType.Body.copy(color = AuroColor.TextPrimary),
+                            cursorBrush = SolidColor(Color.White),
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            keyboardActions = KeyboardActions(
+                                onSearch = { keyboardController?.hide() }
+                            ),
+                            decorationBox = { innerTextField ->
+                                Box(contentAlignment = Alignment.CenterStart) {
+                                    if (searchQuery.isEmpty()) {
+                                        Text(
+                                            text = stringResource(R.string.search_songs_placeholder),
+                                            style = AuroType.Body.copy(color = AuroColor.TextTertiary),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
+                        )
+                    }
+
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(
+                            onClick = { searchQuery = "" },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Close,
+                                contentDescription = stringResource(R.string.cd_clear_search),
+                                tint = AuroColor.TextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // Banner de Ações Rápidas em categorias baseadas em faixas
-        if (isTrackListCategory && displayedTracks.isNotEmpty()) {
+        if (isTrackListCategory && filteredTracks.isNotEmpty()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -128,7 +243,13 @@ fun AuroCategoryListScreen(
                         .height(48.dp)
                         .clip(CircleShape)
                         .background(AuroColor.SurfaceGrouped)
-                        .clickable { onPlayAll() },
+                        .clickable {
+                            if (onPlayTracksList != null) {
+                                onPlayTracksList(filteredTracks, 0)
+                            } else {
+                                onPlayAll()
+                            }
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
@@ -159,7 +280,13 @@ fun AuroCategoryListScreen(
                         .height(48.dp)
                         .clip(CircleShape)
                         .background(AuroColor.SurfaceGrouped)
-                        .clickable { onShuffleAll() },
+                        .clickable {
+                            if (onShuffleTracksList != null) {
+                                onShuffleTracksList(filteredTracks)
+                            } else {
+                                onShuffleAll()
+                            }
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     Row(
@@ -216,22 +343,33 @@ fun AuroCategoryListScreen(
 
         Box(modifier = Modifier.fillMaxSize()) {
             if (isTrackListCategory) {
-                if (displayedTracks.isEmpty()) {
-                    AuroEmptyState(
-                        icon = Icons.Rounded.MusicOff,
-                        title = stringResource(R.string.empty_library_title),
-                        message = stringResource(R.string.empty_library_message),
-                        actionLabel = stringResource(R.string.empty_library_action),
-                        onAction = onBackClick,
-                        modifier = Modifier.padding(bottom = 0.dp)
-                    )
+                if (filteredTracks.isEmpty()) {
+                    if (displayedTracks.isNotEmpty() && trimmedQuery.isNotEmpty()) {
+                        AuroEmptyState(
+                            icon = Icons.Rounded.SearchOff,
+                            title = stringResource(R.string.empty_search_title, trimmedQuery),
+                            message = stringResource(R.string.empty_search_message),
+                            actionLabel = stringResource(R.string.cd_clear_search),
+                            onAction = { searchQuery = "" },
+                            modifier = Modifier.padding(bottom = 0.dp)
+                        )
+                    } else {
+                        AuroEmptyState(
+                            icon = Icons.Rounded.MusicOff,
+                            title = stringResource(R.string.empty_library_title),
+                            message = stringResource(R.string.empty_library_message),
+                            actionLabel = stringResource(R.string.empty_library_action),
+                            onAction = onBackClick,
+                            modifier = Modifier.padding(bottom = 0.dp)
+                        )
+                    }
                 } else {
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp, end = if (displayedTracks.size > 15) 28.dp else 0.dp)
+                        contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp, end = if (filteredTracks.size > 15) 28.dp else 0.dp)
                     ) {
-                        itemsIndexed(displayedTracks, key = { _, t -> t.id }) { index, track ->
+                        itemsIndexed(filteredTracks, key = { _, t -> t.id }) { index, track ->
                             AuroTrackRow(
                                 modifier = Modifier.animateItem(),
                                 track = track,
@@ -241,9 +379,12 @@ fun AuroCategoryListScreen(
                                 isSelectionMode = isSelectionMode,
                                 isSelected = selectedTrackIds.contains(track.id),
                                 showFormatTag = showFileFormat,
+                                showPlayCount = category == LibraryCategory.MOST_PLAYED,
                                 onClick = {
                                     if (isSelectionMode) {
                                         onToggleSelectTrack(track)
+                                    } else if (onPlayTracksList != null) {
+                                        onPlayTracksList(filteredTracks, index)
                                     } else {
                                         onTrackClick(track, index)
                                     }
@@ -254,16 +395,16 @@ fun AuroCategoryListScreen(
                         }
                     }
 
-                    if (displayedTracks.size > 15) {
+                    if (filteredTracks.size > 15) {
                         AuroAlphabetFastScroller(
                             modifier = Modifier
                                 .align(Alignment.CenterEnd)
                                 .padding(bottom = 0.dp),
                             onLetterSelected = { letter ->
                                 val targetIndex = if (letter == '#') {
-                                    displayedTracks.indexOfFirst { it.title.firstOrNull()?.isLetter() == false }
+                                    filteredTracks.indexOfFirst { it.title.firstOrNull()?.isLetter() == false }
                                 } else {
-                                    displayedTracks.indexOfFirst { matchesFirstLetter(it.title, letter) }
+                                    filteredTracks.indexOfFirst { matchesFirstLetter(it.title, letter) }
                                 }
                                 if (targetIndex >= 0) {
                                     coroutineScope.launch { listState.scrollToItem(targetIndex) }
@@ -289,6 +430,129 @@ fun AuroCategoryListScreen(
                             title = stringResource(R.string.empty_library_title),
                             message = stringResource(R.string.empty_library_message),
                             modifier = Modifier.padding(bottom = 0.dp)
+                        )
+                    }
+                } else if (isAlbumsGrid) {
+                    val albumPairs = remember(displayedGroups) { displayedGroups.chunked(2) }
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            start = AuroSpace.ScreenMargin,
+                            end = if (displayedGroups.size > 15) 32.dp else AuroSpace.ScreenMargin,
+                            top = 8.dp,
+                            bottom = LocalAuroBottomInset.current + 24.dp
+                        )
+                    ) {
+                        items(albumPairs, key = { pair -> pair.joinToString("_") { it.title } }) { pair ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                for (group in pair) {
+                                    val coverTrack = remember(group.title) { coverTrackFinder(group) }
+                                    val coverBitmap = rememberTrackCover(coverTrack, 220)
+                                    val groupInteraction = remember { MutableInteractionSource() }
+                                    val isGroupPressed by groupInteraction.collectIsPressedAsState()
+                                    val groupScale by animateFloatAsState(
+                                        targetValue = if (isGroupPressed) 0.98f else 1f,
+                                        animationSpec = AuroMotion.press(),
+                                        label = "album_grid_press_scale"
+                                    )
+
+                                    Column(
+                                        modifier = Modifier
+                                            .animateItem()
+                                            .weight(1f)
+                                            .graphicsLayer {
+                                                scaleX = groupScale
+                                                scaleY = groupScale
+                                            }
+                                            .combinedClickable(
+                                                interactionSource = groupInteraction,
+                                                indication = null,
+                                                onClick = {
+                                                    AuroHaptics.click(view)
+                                                    onGroupClick(group)
+                                                },
+                                                onLongClick = {
+                                                    AuroHaptics.longPress(view)
+                                                    onGroupLongClick(group)
+                                                }
+                                            )
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(1f)
+                                                .clip(AuroSquircle)
+                                                .background(AuroColor.SurfaceCard)
+                                                .border(0.5.dp, Color.White.copy(alpha = 0.08f), AuroSquircle),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (coverBitmap != null) {
+                                                Image(
+                                                    bitmap = coverBitmap.asImageBitmap(),
+                                                    contentDescription = group.title,
+                                                    contentScale = ContentScale.Crop,
+                                                    modifier = Modifier.fillMaxSize()
+                                                )
+                                            } else {
+                                                AuroCoverPlaceholder(
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    glass = false,
+                                                    shape = AuroSquircle
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+
+                                        Text(
+                                            text = group.title,
+                                            style = AuroType.CardTitle,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+
+                                        val artistDisplay = formatArtistsDisplay(
+                                            coverTrack?.artist ?: group.subtitle,
+                                            stringResource(R.string.unknown_artist)
+                                        )
+                                        Text(
+                                            text = artistDisplay,
+                                            style = AuroType.Subtitle,
+                                            color = AuroColor.TextSecondary,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+
+                                if (pair.size == 1) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+
+                    if (displayedGroups.size > 15) {
+                        AuroAlphabetFastScroller(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(bottom = 0.dp),
+                            onLetterSelected = { letter ->
+                                val targetIndex = if (letter == '#') {
+                                    displayedGroups.indexOfFirst { it.title.firstOrNull()?.isLetter() == false }
+                                } else {
+                                    displayedGroups.indexOfFirst { matchesFirstLetter(it.title, letter) }
+                                }
+                                if (targetIndex >= 0) {
+                                    coroutineScope.launch { listState.scrollToItem(targetIndex / 2) }
+                                }
+                            }
                         )
                     }
                 } else {
