@@ -47,17 +47,26 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -369,9 +378,8 @@ fun rememberPlaylistCover(coverPath: String?, fallbackTrack: Track?, size: Int =
 
 /**
  * EDITORIAL FLOATING NAVBAR (Editorial Dark OLED)
- * Pílula flutuante (altura 56dp, CircleShape, margem lateral 24dp).
  * 4 abas minimalistas com apenas ícones: Início, Buscar, Biblioteca, Ajustes/Áudio.
- * Fundo #161618 @ 88% + borda 0.5dp White 8%.
+ * Blur gradiente progressivo (API 31+): suave/ralo no topo até intenso/forçado embaixo.
  */
 @Composable
 fun EditorialFloatingNavbar(
@@ -380,11 +388,21 @@ fun EditorialFloatingNavbar(
     onSearchClick: () -> Unit,
     onLibraryClick: () -> Unit,
     onTuneClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    backdropLayer: GraphicsLayer? = null,
+    backdropOrigin: Offset = Offset.Zero,
+    isBackdropReady: () -> Boolean = { true }
 ) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    var navPosition by remember { mutableStateOf(Offset.Zero) }
+    val blurLightPx = remember(density) { with(density) { 6.dp.toPx() } }
+    val blurMidPx = remember(density) { with(density) { 16.dp.toPx() } }
+    val blurStrongPx = remember(density) { with(density) { 32.dp.toPx() } }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .onGloballyPositioned { navPosition = it.positionInRoot() }
             // Bloqueia cliques e arrastos nos espaços vazios para não atravessarem para a lista atrás
             .pointerInput(Unit) {
                 awaitPointerEventScope {
@@ -396,16 +414,86 @@ fun EditorialFloatingNavbar(
             }
             .clipToBounds()
     ) {
+        // Blur gradiente progressivo real (API 31+): no topo mais ralo, até o final embaixo mais forçado
+        val hasRealBlur = backdropLayer != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+        if (hasRealBlur && backdropLayer != null) {
+            // Camada 1 (Topo): blur leve / ralo entrando suavemente
+            ProgressiveBlurTier(
+                backdropLayer = backdropLayer,
+                backdropOrigin = backdropOrigin,
+                navPosition = navPosition,
+                isBackdropReady = isBackdropReady,
+                blurRadiusPx = blurLightPx,
+                maxBlurPx = blurStrongPx,
+                maskBrush = remember {
+                    Brush.verticalGradient(
+                        0.00f to Color.Black.copy(alpha = 0.22f),
+                        0.32f to Color.Black.copy(alpha = 0.85f),
+                        0.65f to Color.Black,
+                        1.00f to Color.Black
+                    )
+                }
+            )
+            // Camada 2 (Meio): blur intermediário ganhando corpo
+            ProgressiveBlurTier(
+                backdropLayer = backdropLayer,
+                backdropOrigin = backdropOrigin,
+                navPosition = navPosition,
+                isBackdropReady = isBackdropReady,
+                blurRadiusPx = blurMidPx,
+                maxBlurPx = blurStrongPx,
+                maskBrush = remember {
+                    Brush.verticalGradient(
+                        0.00f to Color.Transparent,
+                        0.18f to Color.Black.copy(alpha = 0.28f),
+                        0.55f to Color.Black.copy(alpha = 0.90f),
+                        1.00f to Color.Black
+                    )
+                }
+            )
+            // Camada 3 (Base até embaixo): blur intenso / forçado
+            ProgressiveBlurTier(
+                backdropLayer = backdropLayer,
+                backdropOrigin = backdropOrigin,
+                navPosition = navPosition,
+                isBackdropReady = isBackdropReady,
+                blurRadiusPx = blurStrongPx,
+                maxBlurPx = blurStrongPx,
+                maskBrush = remember {
+                    Brush.verticalGradient(
+                        0.00f to Color.Transparent,
+                        0.36f to Color.Transparent,
+                        0.72f to Color.Black.copy(alpha = 0.78f),
+                        1.00f to Color.Black
+                    )
+                }
+            )
+        }
+
+        // Gradiente escuro translúcido progressivo sobre o blur (mais ralo no topo, mais denso embaixo)
+        val tintGradient = remember(hasRealBlur) {
+            if (hasRealBlur) {
+                Brush.verticalGradient(
+                    0.00f to Color(0x140A0A0C),
+                    0.38f to Color(0x660B0B0D),
+                    0.75f to Color(0xBD08080A),
+                    1.00f to Color(0xE0050507)
+                )
+            } else {
+                Brush.verticalGradient(
+                    0.00f to Color(0x380A0A0C),
+                    0.42f to Color(0xA80D0D10),
+                    1.00f to Color(0xF508080A)
+                )
+            }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xF2121214))
+                .background(tintGradient)
                 .navigationBarsPadding()
         ) {
-            HorizontalDivider(
-                thickness = 0.5.dp,
-                color = Color.White.copy(alpha = 0.10f)
-            )
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -450,6 +538,61 @@ fun EditorialFloatingNavbar(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun BoxScope.ProgressiveBlurTier(
+    backdropLayer: GraphicsLayer,
+    backdropOrigin: Offset,
+    navPosition: Offset,
+    isBackdropReady: () -> Boolean,
+    blurRadiusPx: Float,
+    maxBlurPx: Float,
+    maskBrush: Brush
+) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+    Box(
+        modifier = Modifier
+            .matchParentSize()
+            .clipToBounds()
+            .graphicsLayer {
+                compositingStrategy = CompositingStrategy.Offscreen
+            }
+            .drawWithContent {
+                drawContent()
+                drawRect(
+                    brush = maskBrush,
+                    blendMode = BlendMode.DstIn
+                )
+            }
+    ) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .graphicsLayer {
+                    renderEffect = BlurEffect(
+                        radiusX = blurRadiusPx,
+                        radiusY = blurRadiusPx,
+                        edgeTreatment = TileMode.Clamp
+                    )
+                }
+                .drawBehind {
+                    if (!isBackdropReady()) return@drawBehind
+                    val dx = navPosition.x - backdropOrigin.x
+                    val dy = navPosition.y - backdropOrigin.y
+                    clipRect(
+                        left = 0f,
+                        top = -maxBlurPx,
+                        right = size.width,
+                        bottom = size.height
+                    ) {
+                        translate(left = -dx, top = -dy) {
+                            drawLayer(backdropLayer)
+                        }
+                    }
+                }
+        )
     }
 }
 

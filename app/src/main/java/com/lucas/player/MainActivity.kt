@@ -35,9 +35,15 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -447,6 +453,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         startAndBindService()
 
         setContent {
+            val backdropLayer = rememberGraphicsLayer()
+            val isBackdropRecorded = remember { booleanArrayOf(false) }
+            var contentRootOffset by remember { mutableStateOf(Offset.Zero) }
             val libraryAccess by libraryAccessState
             val isLoadingLibrary by isLoadingLibraryState
             val loadingTracksCount by loadingTracksCountState
@@ -785,7 +794,21 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                     // Conteúdo Principal de Acordo com a Tela Ativa (Fase 5.4: insets medidos via LocalAuroBottomInset)
                     Box(
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .onGloballyPositioned { contentRootOffset = it.positionInRoot() }
+                            .drawWithContent {
+                                if (size.width > 0f && size.height > 0f) {
+                                    backdropLayer.record {
+                                        drawRect(AuroColor.Canvas)
+                                        this@drawWithContent.drawContent()
+                                    }
+                                    isBackdropRecorded[0] = true
+                                    drawLayer(backdropLayer)
+                                } else {
+                                    drawContent()
+                                }
+                            }
                     ) {
                         AnimatedContent(
                             targetState = currentScreen,
@@ -1773,7 +1796,10 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 onHomeClick = { navController.toggleHome() },
                                 onSearchClick = { navController.toggleSearch() },
                                 onLibraryClick = { navController.toggleLibrary() },
-                                onTuneClick = { showMenuSheetState.value = true }
+                                onTuneClick = { showMenuSheetState.value = true },
+                                backdropLayer = backdropLayer,
+                                backdropOrigin = contentRootOffset,
+                                isBackdropReady = { isBackdropRecorded[0] && !backdropLayer.isReleased }
                             )
                         }
                     }
