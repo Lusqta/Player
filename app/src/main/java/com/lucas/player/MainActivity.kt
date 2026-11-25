@@ -110,6 +110,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         is NavScreen.Home -> 0
         is NavScreen.LibraryRoot -> 1
         is NavScreen.CategoryList,
+        is NavScreen.MostPlayed,
         is NavScreen.Search,
         is NavScreen.Equalizer,
         is NavScreen.Queue,
@@ -902,15 +903,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     onOpenSettings = { showMenuSheetState.value = true },
                                     onOpenLibrary = { navController.toggleLibrary() },
                                     onOpenMostPlayed = {
-                                        val title = getString(R.string.home_mix_most_played)
-                                        drillDownGroup(LibraryCategory.MOST_PLAYED, title)
-                                        navController.navigateTo(
-                                            NavScreen.Drilldown(
-                                                category = LibraryCategory.MOST_PLAYED,
-                                                title = title,
-                                                subtitle = getString(R.string.group_subtitle_smart_playlist)
-                                            )
-                                        )
+                                        navController.navigateTo(NavScreen.MostPlayed)
                                     },
                                     onOpenFavorites = {
                                         val title = getString(R.string.home_mix_favorites)
@@ -990,8 +983,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         }
                                     },
                                     onSelectCategory = { cat ->
-                                        selectCategory(cat)
-                                        navController.navigateTo(NavScreen.CategoryList(cat))
+                                        if (cat == LibraryCategory.MOST_PLAYED) {
+                                            navController.navigateTo(NavScreen.MostPlayed)
+                                        } else {
+                                            selectCategory(cat)
+                                            navController.navigateTo(NavScreen.CategoryList(cat))
+                                        }
                                     },
                                     onGroupClick = { group ->
                                         drillDownGroup(LibraryCategory.ALBUMS, group.title)
@@ -1738,6 +1735,57 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         playbackService?.let { s -> s.queueManager.currentTrack?.let { s.applyEffectivePreamp(it) } }
                                         renderCurrentCategory()
                                     },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+
+                            is NavScreen.MostPlayed -> {
+                                AuroMostPlayedScreen(
+                                    onBack = { navController.navigateUp() },
+                                    onTrackClick = { tracks, index ->
+                                        if (tracks.isNotEmpty()) {
+                                            playbackService?.playQueue(tracks, index)
+                                            navController.openNowPlaying()
+                                        }
+                                    },
+                                    onTrackLongClick = { track ->
+                                        trackContextMenuState.value = track
+                                    },
+                                    onTrackMenuClick = { track ->
+                                        trackContextMenuState.value = track
+                                    },
+                                    onPlayAll = { tracks ->
+                                        if (tracks.isNotEmpty()) {
+                                            playbackService?.playQueue(tracks, 0)
+                                            navController.openNowPlaying()
+                                        }
+                                    },
+                                    onShuffleAll = { tracks ->
+                                        if (tracks.isNotEmpty()) {
+                                            playbackService?.queueManager?.setShuffleMode(ShuffleMode.ALL_TRACKS)
+                                            shuffleModeState.value = ShuffleMode.ALL_TRACKS
+                                            playbackService?.playQueue(tracks.shuffled(), 0)
+                                            navController.openNowPlaying()
+                                        }
+                                    },
+                                    onAlbumClick = { albumName ->
+                                        drillDownGroup(LibraryCategory.ALBUMS, albumName)
+                                        navController.navigateTo(
+                                            NavScreen.Drilldown(
+                                                category = LibraryCategory.ALBUMS,
+                                                title = albumName,
+                                                subtitle = getString(R.string.group_subtitle_album)
+                                            )
+                                        )
+                                    },
+                                    onArtistClick = { artistName ->
+                                        navController.navigateTo(NavScreen.ArtistProfile(artistName))
+                                    },
+                                    currentPlayingId = currentTrack?.id ?: -1L,
+                                    libraryVersion = libraryVersion,
+                                    artistMediaMap = artistMediaMap,
+                                    showFileFormat = preferencesManager.isShowFileFormatEnabled(),
+                                    libraryRepository = libraryRepo,
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }

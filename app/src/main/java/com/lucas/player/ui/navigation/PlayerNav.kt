@@ -27,6 +27,7 @@ sealed class NavScreen {
     object Equalizer : NavScreen()
     object Search : NavScreen()
     object Queue : NavScreen()
+    object MostPlayed : NavScreen()
     object Settings : NavScreen()
 }
 
@@ -95,7 +96,8 @@ class PlayerNavController(initialScreen: NavScreen = NavScreen.Home) {
         when (val curr = currentScreen) {
             is NavScreen.ArtistProfile,
             is NavScreen.ArtistTracks,
-            is NavScreen.ArtistDiscography -> {
+            is NavScreen.ArtistDiscography,
+            is NavScreen.MostPlayed -> {
                 navigateTo(NavScreen.LibraryRoot)
             }
             is NavScreen.Drilldown -> {

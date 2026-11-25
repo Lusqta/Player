@@ -75,3 +75,34 @@ data class ArtistRelease(
     val coverTrack: Track,
     val isAlbum: Boolean
 )
+
+enum class MostPlayedPeriod {
+    WEEK,
+    MONTH,
+    YEAR,
+    ALL
+}
+
+enum class MostPlayedType {
+    TRACKS,
+    ALBUMS,
+    ARTISTS
+}
+
+data class RankedTrack(
+    val track: Track,
+    val plays: Int
+)
+
+data class RankedAlbum(
+    val albumName: String,
+    val artist: String,
+    val coverTrack: Track,
+    val plays: Int
+)
+
+data class RankedArtist(
+    val artistName: String,
+    val fallbackTrack: Track?,
+    val plays: Int
+)

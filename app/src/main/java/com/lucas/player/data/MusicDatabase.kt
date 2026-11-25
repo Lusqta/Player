@@ -99,6 +99,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         createCachedTracksTable(db)
         createPlaybackHistoryTable(db)
         createArtistMediaTable(db)
+        createPlayEventsTable(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -124,6 +125,22 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         if (oldVersion < 7) {
             createArtistMediaTable(db)
         }
+        if (oldVersion < 8) {
+            createPlayEventsTable(db)
+        }
+    }
+
+    private fun createPlayEventsTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_PLAY_EVENTS (
+                $COL_PLAY_EVENT_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COL_PLAY_EVENT_TRACK_ID INTEGER NOT NULL,
+                $COL_PLAY_EVENT_PLAYED_AT INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_play_events_time ON $TABLE_PLAY_EVENTS($COL_PLAY_EVENT_PLAYED_AT)")
     }
 
     private fun createArtistMediaTable(db: SQLiteDatabase) {
@@ -229,6 +246,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
 
     fun incrementPlayCount(trackId: Long) {
         val db = writableDatabase
+        val now = System.currentTimeMillis()
         db.execSQL(
             """
             INSERT INTO $TABLE_STATS ($COL_TRACK_ID, $COL_PLAY_COUNT, $COL_LAST_PLAYED, $COL_RATING)
@@ -237,8 +255,33 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
                 $COL_PLAY_COUNT = $COL_PLAY_COUNT + 1,
                 $COL_LAST_PLAYED = ?
             """.trimIndent(),
-            arrayOf(trackId, System.currentTimeMillis(), System.currentTimeMillis())
+            arrayOf(trackId, now, now)
         )
+        try {
+            val eventValues = ContentValues().apply {
+                put(COL_PLAY_EVENT_TRACK_ID, trackId)
+                put(COL_PLAY_EVENT_PLAYED_AT, now)
+            }
+            db.insert(TABLE_PLAY_EVENTS, null, eventValues)
+        } catch (_: Exception) {}
+    }
+
+    fun getPlayCountsSince(sinceMs: Long): Map<Long, Int> {
+        val counts = LinkedHashMap<Long, Int>()
+        val db = readableDatabase
+        try {
+            db.rawQuery(
+                "SELECT $COL_PLAY_EVENT_TRACK_ID, COUNT(*) AS cnt FROM $TABLE_PLAY_EVENTS WHERE $COL_PLAY_EVENT_PLAYED_AT >= ? GROUP BY $COL_PLAY_EVENT_TRACK_ID ORDER BY cnt DESC",
+                arrayOf(sinceMs.toString())
+            ).use { cursor ->
+                val trackIdCol = cursor.getColumnIndexOrThrow(COL_PLAY_EVENT_TRACK_ID)
+                val cntCol = cursor.getColumnIndexOrThrow("cnt")
+                while (cursor.moveToNext()) {
+                    counts[cursor.getLong(trackIdCol)] = cursor.getInt(cntCol)
+                }
+            }
+        } catch (_: Exception) {}
+        return counts
     }
 
     fun setRating(trackId: Long, rating: Int) {
@@ -747,7 +790,12 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
 
     companion object {
         const val DATABASE_NAME = "poweramp_library.db"
-        const val DATABASE_VERSION = 7
+        const val DATABASE_VERSION = 8
+
+        const val TABLE_PLAY_EVENTS = "play_events"
+        const val COL_PLAY_EVENT_ID = "id"
+        const val COL_PLAY_EVENT_TRACK_ID = "track_id"
+        const val COL_PLAY_EVENT_PLAYED_AT = "played_at_ms"
 
         const val TABLE_ARTIST_MEDIA = "artist_media"
         const val COL_ARTIST_KEY = "artist_key"

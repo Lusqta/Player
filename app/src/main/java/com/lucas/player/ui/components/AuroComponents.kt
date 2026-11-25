@@ -523,6 +523,7 @@ fun EditorialFloatingNavbar(
                     isActive = currentScreen is NavScreen.LibraryRoot ||
                         currentScreen is NavScreen.CategoryList ||
                         currentScreen is NavScreen.Drilldown ||
+                        currentScreen is NavScreen.MostPlayed ||
                         currentScreen is NavScreen.ArtistProfile ||
                         currentScreen is NavScreen.ArtistTracks ||
                         currentScreen is NavScreen.ArtistDiscography,

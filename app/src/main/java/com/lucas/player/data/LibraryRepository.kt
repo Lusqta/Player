@@ -504,13 +504,222 @@ class LibraryRepository() {
     }
 
     fun getTop50MostPlayed(): List<Track> {
-        return getAllTracks()
-            .filter { it.playCount > 0 && !isJunkAudio(it) }
+        return getMostPlayedTracks(MostPlayedPeriod.ALL, limit = 50).map { it.track }
+    }
+
+    fun hasPlayEvents(period: MostPlayedPeriod = MostPlayedPeriod.MONTH, nowMs: Long = System.currentTimeMillis()): Boolean {
+        if (period == MostPlayedPeriod.ALL) return getAllTracks().any { !isJunkAudio(it) && it.playCount > 0 }
+        val sinceMs = periodStartMs(period, nowMs)
+        return (getOrCreateDb()?.getPlayCountsSince(sinceMs) ?: emptyMap()).values.any { it > 0 }
+    }
+
+    fun getMostPlayedTracks(
+        period: MostPlayedPeriod,
+        limit: Int = 50,
+        nowMs: Long = System.currentTimeMillis()
+    ): List<RankedTrack> {
+        val periodCounts = if (period == MostPlayedPeriod.ALL) {
+            emptyMap()
+        } else {
+            getOrCreateDb()?.getPlayCountsSince(periodStartMs(period, nowMs)) ?: emptyMap()
+        }
+        return buildMostPlayedTracks(
+            tracks = getAllTracks(),
+            period = period,
+            periodCounts = periodCounts,
+            limit = limit
+        )
+    }
+
+    fun getMostPlayedAlbums(
+        period: MostPlayedPeriod,
+        limit: Int = 30,
+        nowMs: Long = System.currentTimeMillis()
+    ): List<RankedAlbum> {
+        val periodCounts = if (period == MostPlayedPeriod.ALL) {
+            emptyMap()
+        } else {
+            getOrCreateDb()?.getPlayCountsSince(periodStartMs(period, nowMs)) ?: emptyMap()
+        }
+        return buildMostPlayedAlbums(
+            tracks = getAllTracks(),
+            period = period,
+            periodCounts = periodCounts,
+            limit = limit
+        )
+    }
+
+    fun getMostPlayedArtists(
+        period: MostPlayedPeriod,
+        limit: Int = 30,
+        nowMs: Long = System.currentTimeMillis()
+    ): List<RankedArtist> {
+        val periodCounts = if (period == MostPlayedPeriod.ALL) {
+            emptyMap()
+        } else {
+            getOrCreateDb()?.getPlayCountsSince(periodStartMs(period, nowMs)) ?: emptyMap()
+        }
+        return buildMostPlayedArtists(
+            tracks = getAllTracks(),
+            period = period,
+            periodCounts = periodCounts,
+            limit = limit
+        )
+    }
+
+    internal fun periodStartMs(period: MostPlayedPeriod, nowMs: Long = System.currentTimeMillis()): Long {
+        val dayMs = 24L * 60L * 60L * 1000L
+        return when (period) {
+            MostPlayedPeriod.WEEK -> (nowMs - 7L * dayMs).coerceAtLeast(0L)
+            MostPlayedPeriod.MONTH -> (nowMs - 30L * dayMs).coerceAtLeast(0L)
+            MostPlayedPeriod.YEAR -> (nowMs - 365L * dayMs).coerceAtLeast(0L)
+            MostPlayedPeriod.ALL -> 0L
+        }
+    }
+
+    internal fun aggregatePlayEvents(
+        events: List<Pair<Long, Long>>,
+        period: MostPlayedPeriod,
+        nowMs: Long = System.currentTimeMillis()
+    ): Map<Long, Int> {
+        val sinceMs = periodStartMs(period, nowMs)
+        val counts = mutableMapOf<Long, Int>()
+        for ((trackId, playedAtMs) in events) {
+            if (playedAtMs >= sinceMs) {
+                counts[trackId] = (counts[trackId] ?: 0) + 1
+            }
+        }
+        return counts
+    }
+
+    internal fun buildMostPlayedTracks(
+        tracks: List<Track>,
+        period: MostPlayedPeriod,
+        periodCounts: Map<Long, Int>,
+        limit: Int = 50
+    ): List<RankedTrack> {
+        val cleanTracks = tracks.filterNot { isJunkAudio(it) }
+        return if (period == MostPlayedPeriod.ALL) {
+            cleanTracks
+                .filter { it.playCount > 0 }
+                .sortedWith(
+                    compareByDescending<Track> { it.playCount }
+                        .thenByDescending { it.lastPlayedTimestamp }
+                )
+                .take(limit)
+                .map { RankedTrack(track = it, plays = it.playCount) }
+        } else {
+            cleanTracks
+                .mapNotNull { track ->
+                    val count = periodCounts[track.id] ?: 0
+                    if (count > 0) RankedTrack(track = track, plays = count) else null
+                }
+                .sortedWith(
+                    compareByDescending<RankedTrack> { it.plays }
+                        .thenByDescending { it.track.lastPlayedTimestamp }
+                        .thenBy { it.track.title.lowercase() }
+                )
+                .take(limit)
+        }
+    }
+
+    internal fun buildMostPlayedAlbums(
+        tracks: List<Track>,
+        period: MostPlayedPeriod,
+        periodCounts: Map<Long, Int>,
+        limit: Int = 30
+    ): List<RankedAlbum> {
+        val rankedTracks = buildMostPlayedTracks(
+            tracks = tracks,
+            period = period,
+            periodCounts = periodCounts,
+            limit = Int.MAX_VALUE
+        )
+        val grouped = rankedTracks
+            .filter { isValidHighlightName(it.track.album) }
+            .groupBy { it.track.album.trim().lowercase() }
+
+        return grouped.values
+            .map { group ->
+                val totalPlays = group.sumOf { it.plays }
+                val topTrackEntry = group.maxWithOrNull(
+                    compareBy<RankedTrack> { it.plays }
+                        .thenByDescending { it.track.lastPlayedTimestamp }
+                ) ?: group.first()
+                val coverTrack = topTrackEntry.track
+                val albumName = group.first().track.album.trim()
+                val artist = group.firstNotNullOfOrNull { it.track.albumArtist.ifBlank { null } }
+                    ?: coverTrack.artist
+                RankedAlbum(
+                    albumName = albumName,
+                    artist = artist,
+                    coverTrack = coverTrack,
+                    plays = totalPlays
+                )
+            }
             .sortedWith(
-                compareByDescending<Track> { it.playCount }
-                    .thenByDescending { it.lastPlayedTimestamp }
+                compareByDescending<RankedAlbum> { it.plays }
+                    .thenBy { it.albumName.lowercase() }
             )
-            .take(50)
+            .take(limit)
+    }
+
+    internal fun buildMostPlayedArtists(
+        tracks: List<Track>,
+        period: MostPlayedPeriod,
+        periodCounts: Map<Long, Int>,
+        limit: Int = 30
+    ): List<RankedArtist> {
+        val cleanTracks = tracks.filterNot { isJunkAudio(it) }
+        val rankedTracks = buildMostPlayedTracks(
+            tracks = cleanTracks,
+            period = period,
+            periodCounts = periodCounts,
+            limit = Int.MAX_VALUE
+        )
+
+        val playsByKey = mutableMapOf<String, Int>()
+        val casingCounts = mutableMapOf<String, MutableMap<String, Int>>()
+
+        for (entry in rankedTracks) {
+            val primary = primaryArtistsOf(entry.track)
+            val credited = (if (primary.isNotEmpty()) primary else splitArtists(entry.track.artist))
+                .distinctBy { it.trim().lowercase() }
+            for (rawName in credited) {
+                val trimmed = rawName.trim()
+                if (!isValidHighlightName(trimmed)) continue
+                val key = trimmed.lowercase()
+                playsByKey[key] = (playsByKey[key] ?: 0) + entry.plays
+                val cases = casingCounts.getOrPut(key) { mutableMapOf() }
+                cases[trimmed] = (cases[trimmed] ?: 0) + 1
+            }
+        }
+
+        return playsByKey.map { (key, totalPlays) ->
+            val displayName = casingCounts[key]?.maxByOrNull { it.value }?.key ?: key
+            val primaryTracks = cleanTracks.filter { isPrimaryArtistTrack(it, displayName) }
+            val fallbackTrack = if (primaryTracks.isNotEmpty()) {
+                val validAlbumTracks = primaryTracks.filter { isValidHighlightName(it.album) }
+                val pool = validAlbumTracks.ifEmpty { primaryTracks }
+                pool.maxWithOrNull(
+                    compareBy<Track> { if (period == MostPlayedPeriod.ALL) it.playCount else (periodCounts[it.id] ?: 0) }
+                        .thenBy { it.playCount }
+                        .thenBy { it.dateAddedSec }
+                )
+            } else {
+                null
+            }
+            RankedArtist(
+                artistName = displayName,
+                fallbackTrack = fallbackTrack,
+                plays = totalPlays
+            )
+        }
+            .sortedWith(
+                compareByDescending<RankedArtist> { it.plays }
+                    .thenBy { it.artistName.lowercase() }
+            )
+            .take(limit)
     }
 
     fun getTopRated(): List<Track> {

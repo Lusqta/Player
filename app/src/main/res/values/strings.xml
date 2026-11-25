@@ -423,4 +423,14 @@
     <string name="search_songs_placeholder">Filtrar músicas, artistas ou álbuns...</string>
     <string name="year_unknown">Sem ano</string>
     <string name="recent_playlist_subtitle">Playlist · %s</string>
+
+    <!-- Tela Mais Tocadas (Período & Tipo) -->
+    <string name="most_played_period_week">Última semana</string>
+    <string name="most_played_period_month">Último mês</string>
+    <string name="most_played_period_year">Último ano</string>
+    <string name="most_played_period_all">Tudo</string>
+    <string name="most_played_type_tracks">Faixas</string>
+    <string name="most_played_type_albums">Álbuns</string>
+    <string name="most_played_type_artists">Artistas</string>
+    <string name="most_played_empty_period">Nenhuma reprodução neste período</string>
 </resources>

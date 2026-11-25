@@ -422,4 +422,14 @@
     <string name="search_songs_placeholder">Filter songs, artists or albums...</string>
     <string name="year_unknown">Unknown year</string>
     <string name="recent_playlist_subtitle">Playlist · %s</string>
+
+    <!-- Most Played Screen (Period & Type) -->
+    <string name="most_played_period_week">Last week</string>
+    <string name="most_played_period_month">Last month</string>
+    <string name="most_played_period_year">Last year</string>
+    <string name="most_played_period_all">All time</string>
+    <string name="most_played_type_tracks">Tracks</string>
+    <string name="most_played_type_albums">Albums</string>
+    <string name="most_played_type_artists">Artists</string>
+    <string name="most_played_empty_period">No plays in this period</string>
 </resources>
