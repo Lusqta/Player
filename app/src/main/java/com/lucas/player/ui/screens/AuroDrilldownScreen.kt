@@ -1,18 +1,26 @@
 package com.lucas.player.ui.screens
 
 import android.graphics.Bitmap
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.MoreVert
@@ -32,7 +40,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -45,11 +57,15 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
+import com.lucas.player.data.CoverArtLoader
+import com.lucas.player.data.MusicDatabase
 import com.lucas.player.model.LibraryCategory
 import com.lucas.player.model.Track
 import com.lucas.player.model.getTitleRes
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.*
+import java.io.File
+import kotlin.math.abs
 import kotlinx.coroutines.launch
 
 /**
@@ -82,25 +98,54 @@ fun AuroDrilldownScreen(
     onToggleSelectTrack: (Track) -> Unit = {},
     showFileFormat: Boolean = true,
     playlistCoverPath: String? = null,
+    albumMeta: MusicDatabase.AlbumMeta? = null,
+    albumMediaVersion: Int = 0,
     onAddTracksToPlaylist: (() -> Unit)? = null,
     onEditPlaylist: (() -> Unit)? = null,
-    onDeletePlaylist: (() -> Unit)? = null
+    onDeletePlaylist: (() -> Unit)? = null,
+    onChangeAlbumCover: (() -> Unit)? = null,
+    onRemoveAlbumCover: (() -> Unit)? = null,
+    onSaveAlbumNotes: ((String) -> Unit)? = null
 ) {
     val view = LocalView.current
     val bottomInset = LocalAuroBottomInset.current
     val coroutineScope = rememberCoroutineScope()
+    val reduceMotion = rememberReduceMotion()
     val totalDurationMs = remember(tracks) { tracks.sumOf { it.durationMs } }
 
     val firstTrack = tracks.firstOrNull()
+    val customAlbumPath = if (category == LibraryCategory.ALBUMS) {
+        albumMeta?.mediaPath?.takeIf { it.isNotBlank() }
+    } else null
+    val isAlbumGif = category == LibraryCategory.ALBUMS && (albumMeta?.isGif ?: false)
+    val albumMediaStamp = remember(customAlbumPath, albumMediaVersion) {
+        customAlbumPath?.let { File(it).takeIf(File::exists)?.lastModified() } ?: 0L
+    }
+    var customAlbumBitmap by remember(customAlbumPath, albumMediaStamp) {
+        mutableStateOf(
+            if (customAlbumPath != null) CoverArtLoader.getCachedAlbumStaticBitmap(customAlbumPath) else null
+        )
+    }
+    LaunchedEffect(customAlbumPath, albumMediaStamp) {
+        if (customAlbumPath == null) {
+            customAlbumBitmap = null
+        } else {
+            CoverArtLoader.loadAlbumStaticBitmap(customAlbumPath, 400) { loaded ->
+                customAlbumBitmap = loaded
+            }
+        }
+    }
+
     val heroCover = if (category == LibraryCategory.PLAYLISTS) {
         rememberPlaylistCover(playlistCoverPath, firstTrack, 400)
     } else {
         rememberTrackCover(firstTrack, 400)
     }
     var groupAccent by remember { mutableStateOf(AuroAccent.Neutral) }
-    LaunchedEffect(heroCover, category) {
-        groupAccent = if (heroCover != null) {
-            CoverGlow.from(heroCover)
+    LaunchedEffect(customAlbumBitmap, heroCover, category) {
+        val effectiveCover = customAlbumBitmap ?: heroCover
+        groupAccent = if (effectiveCover != null) {
+            CoverGlow.from(effectiveCover)
         } else if (category == LibraryCategory.TOP_RATED) {
             AuroAccent(mesh1 = Color(0xFFD04565), mesh2 = Color(0xFF6A1A34), a = Color(0xFFD04565), b = Color(0xFF6A1A34))
         } else if (category == LibraryCategory.MOST_PLAYED) {
@@ -109,6 +154,15 @@ fun AuroDrilldownScreen(
             AuroAccent.Neutral
         }
     }
+
+    val canFlip = category == LibraryCategory.ALBUMS
+    var isFlipped by remember(groupTitle, category) { mutableStateOf(false) }
+    var showNotesDialog by remember { mutableStateOf(false) }
+    val flipRotation by animateFloatAsState(
+        targetValue = if (canFlip && isFlipped) 180f else 0f,
+        animationSpec = if (reduceMotion) snap() else spring(dampingRatio = 0.82f, stiffness = 320f),
+        label = "albumFlipRotation"
+    )
 
     BoxWithConstraints(
         modifier = modifier
@@ -184,7 +238,7 @@ fun AuroDrilldownScreen(
                             .padding(top = 52.dp, bottom = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Hero quadrado (aspectRatio 1f, padding lateral AuroSpace.ScreenMargin)
+                        // Hero quadrado (aspectRatio 1f, padding lateral AuroSpace.ScreenMargin, flip 3D em álbuns)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -194,76 +248,207 @@ fun AuroDrilldownScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .aspectRatio(1f)
-                                    .clip(AuroSquircle)
+                                    .then(
+                                        if (canFlip) {
+                                            Modifier.pointerInput(groupTitle) {
+                                                var totalDragX = 0f
+                                                detectHorizontalDragGestures(
+                                                    onDragStart = { totalDragX = 0f },
+                                                    onHorizontalDrag = { change, dragAmount ->
+                                                        change.consume()
+                                                        totalDragX += dragAmount
+                                                    },
+                                                    onDragEnd = {
+                                                        if (abs(totalDragX) > 36f) {
+                                                            AuroHaptics.click(view)
+                                                            isFlipped = !isFlipped
+                                                        }
+                                                    }
+                                                )
+                                            }
+                                        } else Modifier
+                                    )
+                                    .graphicsLayer {
+                                        rotationY = flipRotation
+                                        cameraDistance = 12f * density.density
+                                    }
+                                    .clip(RectangleShape)
                                     .background(AuroColor.SurfaceCard)
                             ) {
-                                if (heroCover != null) {
-                                    Image(
-                                        bitmap = heroCover.asImageBitmap(),
-                                        contentDescription = groupTitle,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                } else if (category == LibraryCategory.TOP_RATED) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(
-                                                Brush.radialGradient(
-                                                    colors = listOf(Color(0xFFD04565), Color(0xFF2A0E18))
-                                                )
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Favorite,
-                                            contentDescription = null,
-                                            tint = Color.White.copy(alpha = 0.85f),
-                                            modifier = Modifier.size(64.dp)
-                                        )
+                                if (canFlip && flipRotation > 90f) {
+                                    // Verso do Álbum com Anotações
+                                    val albumYear = remember(tracks) {
+                                        tracks.mapNotNull { t -> t.year.takeIf { it > 0 } }.minOrNull() ?: 0
                                     }
-                                } else if (category == LibraryCategory.MOST_PLAYED) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .background(
-                                                Brush.radialGradient(
-                                                    colors = listOf(Color(0xFF6F4BF0), Color(0xFF1A1340))
-                                                )
-                                            ),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Whatshot,
-                                            contentDescription = null,
-                                            tint = Color.White.copy(alpha = 0.85f),
-                                            modifier = Modifier.size(64.dp)
-                                        )
+                                    val albumFormat = remember(tracks) {
+                                        tracks.firstOrNull { it.formatTag.isNotBlank() }?.formatTag ?: ""
                                     }
-                                } else if (category == LibraryCategory.ARTISTS || category == LibraryCategory.ALBUM_ARTISTS || category == LibraryCategory.PLAYLISTS) {
-                                    ArtistMonogram(
-                                        name = groupTitle,
-                                        modifier = Modifier.fillMaxSize(),
-                                        shape = AuroSquircle
-                                    )
-                                } else {
-                                    AuroCoverPlaceholder(
-                                        modifier = Modifier.fillMaxSize(),
-                                        glass = false,
-                                        shape = AuroSquircle
-                                    )
-                                }
+                                    val footerInfo = remember(albumYear, albumFormat, totalDurationMs) {
+                                        listOfNotNull(
+                                            albumYear.takeIf { it > 0 }?.toString(),
+                                            albumFormat.takeIf { it.isNotBlank() },
+                                            totalDurationMs.takeIf { it > 0 }?.let { formatTimeMs(it) }
+                                        ).joinToString("  ·  ")
+                                    }
+                                    val savedNotes = albumMeta?.notes?.trim().orEmpty()
 
-                                if (tracks.isNotEmpty()) {
-                                    TranslucentPlayButton(
-                                        isPlaying = false,
-                                        size = 56.dp,
-                                        containerColor = Color(0xBD121215),
-                                        onClick = onPlayAll,
+                                    Column(
                                         modifier = Modifier
-                                            .align(Alignment.BottomEnd)
-                                            .padding(14.dp)
-                                    )
+                                            .fillMaxSize()
+                                            .graphicsLayer { rotationY = 180f }
+                                            .background(Color(0xFF141416))
+                                            .border(0.75.dp, Color(0xFF242428), RectangleShape)
+                                            .padding(20.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = stringResource(R.string.album_notes_title),
+                                                style = AuroType.MicroLabel.copy(
+                                                    color = AuroColor.TextSecondary,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    letterSpacing = 0.6.sp
+                                                )
+                                            )
+                                            IconButton(
+                                                onClick = {
+                                                    AuroHaptics.click(view)
+                                                    showNotesDialog = true
+                                                },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Outlined.Edit,
+                                                    contentDescription = stringResource(R.string.album_notes_action),
+                                                    tint = AuroColor.TextSecondary,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    AuroHaptics.click(view)
+                                                    showNotesDialog = true
+                                                }
+                                                .padding(vertical = 8.dp)
+                                                .verticalScroll(rememberScrollState())
+                                        ) {
+                                            Text(
+                                                text = if (savedNotes.isNotEmpty()) {
+                                                    savedNotes
+                                                } else {
+                                                    stringResource(R.string.album_notes_placeholder)
+                                                },
+                                                style = AuroType.Body.copy(
+                                                    fontSize = 14.sp,
+                                                    lineHeight = 20.sp,
+                                                    color = if (savedNotes.isNotEmpty()) AuroColor.TextPrimary else AuroColor.TextTertiary
+                                                )
+                                            )
+                                        }
+
+                                        if (footerInfo.isNotEmpty()) {
+                                            Text(
+                                                text = footerInfo,
+                                                style = AuroType.MicroLabel.copy(
+                                                    color = AuroColor.TextTertiary,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontFeatureSettings = "tnum"
+                                                ),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    // Frente da Capa
+                                    if (category == LibraryCategory.ALBUMS) {
+                                        AlbumArtworkImage(
+                                            albumName = groupTitle,
+                                            customMediaPath = customAlbumPath,
+                                            isGif = isAlbumGif,
+                                            fallbackTrack = firstTrack,
+                                            shape = RectangleShape,
+                                            mediaStamp = albumMediaStamp,
+                                            targetSizeDp = 600,
+                                            preloadedFallbackBitmap = heroCover,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else if (heroCover != null) {
+                                        Image(
+                                            bitmap = heroCover.asImageBitmap(),
+                                            contentDescription = groupTitle,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else if (category == LibraryCategory.TOP_RATED) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(
+                                                    Brush.radialGradient(
+                                                        colors = listOf(Color(0xFFD04565), Color(0xFF2A0E18))
+                                                    )
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Favorite,
+                                                contentDescription = null,
+                                                tint = Color.White.copy(alpha = 0.85f),
+                                                modifier = Modifier.size(64.dp)
+                                            )
+                                        }
+                                    } else if (category == LibraryCategory.MOST_PLAYED) {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(
+                                                    Brush.radialGradient(
+                                                        colors = listOf(Color(0xFF6F4BF0), Color(0xFF1A1340))
+                                                    )
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.Whatshot,
+                                                contentDescription = null,
+                                                tint = Color.White.copy(alpha = 0.85f),
+                                                modifier = Modifier.size(64.dp)
+                                            )
+                                        }
+                                    } else if (category == LibraryCategory.ARTISTS || category == LibraryCategory.ALBUM_ARTISTS || category == LibraryCategory.PLAYLISTS) {
+                                        ArtistMonogram(
+                                            name = groupTitle,
+                                            modifier = Modifier.fillMaxSize(),
+                                            shape = AuroSquircle
+                                        )
+                                    } else {
+                                        AuroCoverPlaceholder(
+                                            modifier = Modifier.fillMaxSize(),
+                                            glass = false,
+                                            shape = AuroSquircle
+                                        )
+                                    }
+
+                                    if (tracks.isNotEmpty()) {
+                                        TranslucentPlayButton(
+                                            isPlaying = false,
+                                            size = 56.dp,
+                                            containerColor = Color(0xBD121215),
+                                            onClick = onPlayAll,
+                                            modifier = Modifier
+                                                .align(Alignment.BottomEnd)
+                                                .padding(14.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -431,7 +616,7 @@ fun AuroDrilldownScreen(
                     )
                 }
 
-                if (category == LibraryCategory.PLAYLISTS) {
+                if (category == LibraryCategory.PLAYLISTS || category == LibraryCategory.ALBUMS) {
                     var showMenu by remember { mutableStateOf(false) }
                     Box {
                         IconButton(
@@ -453,46 +638,145 @@ fun AuroDrilldownScreen(
                             onDismissRequest = { showMenu = false },
                             modifier = Modifier.background(AuroColor.SurfaceGrouped)
                         ) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = stringResource(R.string.playlist_add_tracks),
-                                        style = AuroType.Body,
-                                        color = AuroColor.TextPrimary
+                            if (category == LibraryCategory.PLAYLISTS) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = stringResource(R.string.playlist_add_tracks),
+                                            style = AuroType.Body,
+                                            color = AuroColor.TextPrimary
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        onAddTracksToPlaylist?.invoke()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = stringResource(R.string.playlist_edit_action),
+                                            style = AuroType.Body,
+                                            color = AuroColor.TextPrimary
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        onEditPlaylist?.invoke()
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = stringResource(R.string.playlist_delete_action),
+                                            style = AuroType.Body,
+                                            color = AuroColor.Danger
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        onDeletePlaylist?.invoke()
+                                    }
+                                )
+                            } else if (category == LibraryCategory.ALBUMS) {
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = stringResource(R.string.album_change_cover),
+                                            style = AuroType.Body,
+                                            color = AuroColor.TextPrimary
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        onChangeAlbumCover?.invoke()
+                                    }
+                                )
+                                if (customAlbumPath != null) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = stringResource(R.string.album_remove_cover),
+                                                style = AuroType.Body,
+                                                color = AuroColor.Danger
+                                            )
+                                        },
+                                        onClick = {
+                                            showMenu = false
+                                            onRemoveAlbumCover?.invoke()
+                                        }
                                     )
-                                },
-                                onClick = {
-                                    showMenu = false
-                                    onAddTracksToPlaylist?.invoke()
                                 }
-                            )
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = stringResource(R.string.playlist_edit_action),
-                                        style = AuroType.Body,
-                                        color = AuroColor.TextPrimary
-                                    )
-                                },
-                                onClick = {
-                                    showMenu = false
-                                    onEditPlaylist?.invoke()
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        text = stringResource(R.string.playlist_delete_action),
-                                        style = AuroType.Body,
-                                        color = AuroColor.Danger
-                                    )
-                                },
-                                onClick = {
-                                    showMenu = false
-                                    onDeletePlaylist?.invoke()
-                                }
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = stringResource(R.string.album_notes_action),
+                                            style = AuroType.Body,
+                                            color = AuroColor.TextPrimary
+                                        )
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        isFlipped = true
+                                        showNotesDialog = true
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (showNotesDialog && category == LibraryCategory.ALBUMS) {
+            var draftNotes by remember(albumMeta?.notes) { mutableStateOf(albumMeta?.notes ?: "") }
+            AuroOverlay(
+                visible = true,
+                onDismiss = { showNotesDialog = false },
+                type = AuroOverlayType.Dialog
+            ) {
+                AuroDialogContainer(
+                    title = stringResource(R.string.album_notes_action),
+                    onDismiss = { showNotesDialog = false },
+                    actions = {
+                        AuroDialogTextButton(
+                            text = stringResource(R.string.cancel),
+                            onClick = { showNotesDialog = false }
+                        )
+                        AuroDialogTextButton(
+                            text = stringResource(R.string.save),
+                            onClick = {
+                                showNotesDialog = false
+                                onSaveAlbumNotes?.invoke(draftNotes.trim())
+                            }
+                        )
+                    }
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 120.dp, max = 220.dp)
+                            .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+                            .padding(14.dp)
+                    ) {
+                        if (draftNotes.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.album_notes_hint),
+                                style = AuroType.Body.copy(color = AuroColor.TextTertiary)
                             )
                         }
+                        BasicTextField(
+                            value = draftNotes,
+                            onValueChange = { draftNotes = it },
+                            textStyle = AuroType.Body.copy(
+                                color = AuroColor.TextPrimary,
+                                lineHeight = 20.sp
+                            ),
+                            cursorBrush = SolidColor(Color.White),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
+                        )
                     }
                 }
             }

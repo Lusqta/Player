@@ -432,4 +432,15 @@
     <string name="most_played_type_albums">Albums</string>
     <string name="most_played_type_artists">Artists</string>
     <string name="most_played_empty_period">No plays in this period</string>
+
+    <!-- Album: Custom Cover/GIF & Flippable Back Notes -->
+    <string name="album_change_cover">Change cover / GIF</string>
+    <string name="album_remove_cover">Remove custom cover</string>
+    <string name="album_cover_updated">Album cover updated</string>
+    <string name="album_cover_removed">Custom cover removed</string>
+    <string name="album_notes_action">Album notes</string>
+    <string name="album_notes_title">Notes</string>
+    <string name="album_notes_placeholder">Tap to write notes about this album</string>
+    <string name="album_notes_hint">Write your notes about this album...</string>
+    <string name="album_notes_saved">Notes saved</string>
 </resources>

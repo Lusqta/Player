@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
+import com.lucas.player.data.MusicDatabase
 import com.lucas.player.model.LibraryCategory
 import com.lucas.player.model.Track
 import com.lucas.player.model.formatArtistsDisplay
@@ -93,7 +94,9 @@ fun AuroCategoryListScreen(
     isSelectionMode: Boolean = false,
     selectedTrackIds: Set<Long> = emptySet(),
     onToggleSelectTrack: (Track) -> Unit = {},
-    showFileFormat: Boolean = true
+    showFileFormat: Boolean = true,
+    albumMetaMap: Map<String, MusicDatabase.AlbumMeta> = emptyMap(),
+    albumMediaVersion: Int = 0
 ) {
     val view = LocalView.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -453,7 +456,7 @@ fun AuroCategoryListScreen(
                             ) {
                                 for (group in pair) {
                                     val coverTrack = remember(group.title) { coverTrackFinder(group) }
-                                    val coverBitmap = rememberTrackCover(coverTrack, 220)
+                                    val albumMeta = albumMetaMap[group.title.trim().lowercase()]
                                     val groupInteraction = remember { MutableInteractionSource() }
                                     val isGroupPressed by groupInteraction.collectIsPressedAsState()
                                     val groupScale by animateFloatAsState(
@@ -492,20 +495,16 @@ fun AuroCategoryListScreen(
                                                 .border(0.5.dp, Color.White.copy(alpha = 0.08f), AuroSquircle),
                                             contentAlignment = Alignment.Center
                                         ) {
-                                            if (coverBitmap != null) {
-                                                Image(
-                                                    bitmap = coverBitmap.asImageBitmap(),
-                                                    contentDescription = group.title,
-                                                    contentScale = ContentScale.Crop,
-                                                    modifier = Modifier.fillMaxSize()
-                                                )
-                                            } else {
-                                                AuroCoverPlaceholder(
-                                                    modifier = Modifier.fillMaxSize(),
-                                                    glass = false,
-                                                    shape = AuroSquircle
-                                                )
-                                            }
+                                            AlbumArtworkImage(
+                                                albumName = group.title,
+                                                customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
+                                                isGif = albumMeta?.isGif ?: false,
+                                                fallbackTrack = coverTrack,
+                                                shape = AuroSquircle,
+                                                mediaStamp = albumMediaVersion.toLong(),
+                                                targetSizeDp = 220,
+                                                modifier = Modifier.fillMaxSize()
+                                            )
                                         }
 
                                         Spacer(modifier = Modifier.height(6.dp))

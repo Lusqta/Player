@@ -342,6 +342,156 @@ object CoverArtLoader {
         }
     }
 
+    // --- Mídia Customizada de Álbum (Capa / GIF) ---
+
+    fun saveAlbumMedia(context: Context, albumName: String, sourceUri: Uri): Pair<String, Boolean>? {
+        return try {
+            val cleanName = albumName.trim().lowercase()
+            if (cleanName.isEmpty()) return null
+            val hash = cleanName.hashCode().toString().replace("-", "n")
+            val dir = File(context.filesDir, "album_covers")
+            if (!dir.exists()) {
+                dir.mkdirs()
+            }
+
+            val resolver = context.contentResolver
+            val mimeType = resolver.getType(sourceUri)?.lowercase() ?: ""
+            val uriStr = sourceUri.toString().lowercase()
+            val isGif = mimeType == "image/gif" || uriStr.endsWith(".gif")
+
+            if (isGif) {
+                val targetFile = File(dir, "alb_${hash}.gif")
+                val oldJpg = File(dir, "alb_${hash}.jpg")
+                if (oldJpg.exists()) oldJpg.delete()
+
+                resolver.openInputStream(sourceUri)?.use { input ->
+                    FileOutputStream(targetFile).use { out ->
+                        input.copyTo(out)
+                    }
+                } ?: return null
+
+                deleteAlbumMediaCache(targetFile.absolutePath)
+                deleteAlbumMediaCache(oldJpg.absolutePath)
+                Pair(targetFile.absolutePath, true)
+            } else {
+                val targetFile = File(dir, "alb_${hash}.jpg")
+                val oldGif = File(dir, "alb_${hash}.gif")
+                if (oldGif.exists()) oldGif.delete()
+
+                val options = BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                }
+                resolver.openInputStream(sourceUri)?.use { input ->
+                    BitmapFactory.decodeStream(input, null, options)
+                }
+
+                options.inSampleSize = calculateInSampleSize(options, 600, 600)
+                options.inJustDecodeBounds = false
+                options.inPreferredConfig = Bitmap.Config.RGB_565
+
+                val decodedBitmap = resolver.openInputStream(sourceUri)?.use { input ->
+                    BitmapFactory.decodeStream(input, null, options)
+                } ?: return null
+
+                val w = decodedBitmap.width
+                val h = decodedBitmap.height
+                val size = minOf(w, h)
+                val x = (w - size) / 2
+                val y = (h - size) / 2
+                val squareBitmap = if (w == h) decodedBitmap else Bitmap.createBitmap(decodedBitmap, x, y, size, size)
+
+                val finalBitmap = if (squareBitmap.width > 600) {
+                    Bitmap.createScaledBitmap(squareBitmap, 600, 600, true)
+                } else {
+                    squareBitmap
+                }
+
+                FileOutputStream(targetFile).use { out ->
+                    finalBitmap.compress(Bitmap.CompressFormat.JPEG, 88, out)
+                }
+
+                deleteAlbumMediaCache(targetFile.absolutePath)
+                deleteAlbumMediaCache(oldGif.absolutePath)
+                Pair(targetFile.absolutePath, false)
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun deleteAlbumMedia(path: String?) {
+        if (path.isNullOrBlank()) return
+        try {
+            val file = File(path)
+            if (file.exists()) {
+                file.delete()
+            }
+            deleteAlbumMediaCache(path)
+        } catch (_: Exception) {}
+    }
+
+    private fun deleteAlbumMediaCache(path: String) {
+        val snapshot = memoryCache.snapshot()
+        for (key in snapshot.keys) {
+            if (key.startsWith("alb_${path}")) {
+                memoryCache.remove(key)
+            }
+        }
+    }
+
+    fun getCachedAlbumStaticBitmap(path: String?): Bitmap? {
+        if (path.isNullOrBlank()) return null
+        val file = File(path)
+        if (!file.exists()) return null
+        val cacheKey = "alb_${path}_${file.lastModified()}"
+        return memoryCache.get(cacheKey)
+    }
+
+    fun loadAlbumStaticBitmap(
+        path: String?,
+        targetSizePx: Int = 600,
+        onLoaded: (Bitmap?) -> Unit
+    ) {
+        if (path.isNullOrBlank()) {
+            onLoaded(null)
+            return
+        }
+        val file = File(path)
+        if (!file.exists()) {
+            onLoaded(null)
+            return
+        }
+        val cacheKey = "alb_${path}_${file.lastModified()}"
+        val cached = memoryCache.get(cacheKey)
+        if (cached != null) {
+            onLoaded(cached)
+            return
+        }
+
+        executor.execute {
+            val bitmap = try {
+                val options = BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                }
+                BitmapFactory.decodeFile(path, options)
+                options.inSampleSize = calculateInSampleSize(options, targetSizePx, targetSizePx)
+                options.inJustDecodeBounds = false
+                options.inPreferredConfig = Bitmap.Config.RGB_565
+                BitmapFactory.decodeFile(path, options)
+            } catch (_: Exception) {
+                null
+            }
+
+            if (bitmap != null) {
+                memoryCache.put(cacheKey, bitmap)
+            }
+
+            mainHandler.post {
+                onLoaded(bitmap)
+            }
+        }
+    }
+
     private fun extractCoverBitmap(context: Context, uri: Uri, targetSizeDp: Int): Bitmap? {
         val resolver: ContentResolver = context.contentResolver
 

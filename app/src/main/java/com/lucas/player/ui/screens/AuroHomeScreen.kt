@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
 import com.lucas.player.data.LibraryRepository
+import com.lucas.player.data.MusicDatabase
 import com.lucas.player.model.Track
 import com.lucas.player.model.formatArtistsDisplay
 import com.lucas.player.model.isJunkAudio
@@ -103,6 +104,8 @@ fun AuroHomeScreen(
     onPlaylistClick: (String) -> Unit = {},
     onCreatePlaylist: () -> Unit = {},
     artistMediaMap: Map<String, Pair<String, Boolean>> = emptyMap(),
+    albumMetaMap: Map<String, MusicDatabase.AlbumMeta> = emptyMap(),
+    albumMediaVersion: Int = 0,
     libraryRepository: LibraryRepository = LibraryRepository.getInstance(),
     listState: LazyListState = rememberLazyListState(),
     modifier: Modifier = Modifier
@@ -293,10 +296,14 @@ fun AuroHomeScreen(
                                 horizontalArrangement = Arrangement.spacedBy(14.dp)
                             ) {
                                 items(topAlbums, key = { it.album }) { t ->
+                                    val albumMeta = albumMetaMap[t.album.trim().lowercase()]
                                     WideAlbumCard(
                                         coverTrack = t,
                                         album = t.album,
                                         artist = formatArtistsDisplay(t.artist, stringResource(R.string.unknown_artist)),
+                                        customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
+                                        isGif = albumMeta?.isGif ?: false,
+                                        mediaStamp = albumMediaVersion.toLong(),
                                         onClick = { onAlbumClick(t.album) },
                                         onPlay = { onAlbumPlay(t.album) }
                                     )
@@ -539,11 +546,13 @@ private fun WideAlbumCard(
     coverTrack: Track?,
     album: String,
     artist: String,
+    customMediaPath: String? = null,
+    isGif: Boolean = false,
+    mediaStamp: Long = 0L,
     onClick: () -> Unit,
-    onPlay: () -> Unit
+    onPlay: () -> Unit = {}
 ) {
     val view = LocalView.current
-    val bitmap = rememberTrackCover(coverTrack, 320)
     val cardShape = RoundedCornerShape(24.dp)
     val coverShape = RectangleShape
 
@@ -566,38 +575,23 @@ private fun WideAlbumCard(
                 .clip(coverShape)
                 .background(AuroColor.SurfaceElevated)
         ) {
-            if (bitmap != null) {
-                Image(
-                    bitmap = bitmap.asImageBitmap(),
-                    contentDescription = album,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                AuroCoverPlaceholder(
-                    modifier = Modifier.fillMaxSize(),
-                    glass = false,
-                    shape = coverShape
-                )
-            }
+            AlbumArtworkImage(
+                albumName = album,
+                customMediaPath = customMediaPath,
+                isGif = isGif,
+                fallbackTrack = coverTrack,
+                shape = coverShape,
+                mediaStamp = mediaStamp,
+                targetSizeDp = 320,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
-        // TranslucentPlayButton (44dp) centralizado na borda direita da capa
-        TranslucentPlayButton(
-            isPlaying = false,
-            size = 44.dp,
-            minTouchTarget = 48.dp,
-            onClick = onPlay,
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .offset(x = 80.dp)
-        )
-
-        // Textos centralizados na vertical, 12dp após o botão
+        // Textos centralizados na vertical, 14dp após a capa (102 + 14 = 116dp)
         Column(
             modifier = Modifier
                 .align(Alignment.CenterStart)
-                .padding(start = 136.dp, end = 6.dp)
+                .padding(start = 116.dp, end = 6.dp)
                 .fillMaxWidth(),
             verticalArrangement = Arrangement.Center
         ) {

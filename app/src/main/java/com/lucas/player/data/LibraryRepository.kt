@@ -826,6 +826,28 @@ class LibraryRepository() {
         getOrCreateDb()?.removeArtistMedia(artistName)
     }
 
+    // --- Metadados Customizados de Álbum (Capa / GIF + Anotações) ---
+
+    fun setAlbumMedia(albumName: String, path: String, isGif: Boolean) {
+        getOrCreateDb()?.setAlbumMedia(albumName, path, isGif)
+    }
+
+    fun removeAlbumMedia(albumName: String) {
+        getOrCreateDb()?.removeAlbumMedia(albumName)
+    }
+
+    fun setAlbumNotes(albumName: String, notes: String) {
+        getOrCreateDb()?.setAlbumNotes(albumName, notes)
+    }
+
+    fun getAlbumMeta(albumName: String): MusicDatabase.AlbumMeta? {
+        return getOrCreateDb()?.getAlbumMeta(albumName)
+    }
+
+    fun getAllAlbumMeta(): Map<String, MusicDatabase.AlbumMeta> {
+        return getOrCreateDb()?.getAllAlbumMeta() ?: emptyMap()
+    }
+
     // --- Ordenação Dinâmica ---
 
     fun applySorting(inputList: List<Track>, sortMode: SortMode): List<Track> {

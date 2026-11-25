@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
 import com.lucas.player.data.LibraryRepository
+import com.lucas.player.data.MusicDatabase
 import com.lucas.player.model.*
 import com.lucas.player.model.formatArtistsDisplay
 import com.lucas.player.ui.components.*
@@ -67,6 +68,8 @@ fun AuroMostPlayedScreen(
     currentPlayingId: Long,
     libraryVersion: Int = 0,
     artistMediaMap: Map<String, Pair<String, Boolean>> = emptyMap(),
+    albumMetaMap: Map<String, MusicDatabase.AlbumMeta> = emptyMap(),
+    albumMediaVersion: Int = 0,
     showFileFormat: Boolean = true,
     libraryRepository: LibraryRepository = LibraryRepository.getInstance(),
     modifier: Modifier = Modifier
@@ -349,9 +352,13 @@ fun AuroMostPlayedScreen(
                             items = albums,
                             key = { _, item -> "mp_album_${item.albumName.lowercase()}" }
                         ) { index, item ->
+                            val albumMeta = albumMetaMap[item.albumName.trim().lowercase()]
                             RankedAlbumRow(
                                 rank = index + 1,
                                 item = item,
+                                customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
+                                isGif = albumMeta?.isGif ?: false,
+                                mediaStamp = albumMediaVersion.toLong(),
                                 onClick = {
                                     AuroHaptics.click(view)
                                     onAlbumClick(item.albumName)
@@ -558,10 +565,11 @@ private fun RankedTrackRow(
 private fun RankedAlbumRow(
     rank: Int,
     item: RankedAlbum,
+    customMediaPath: String?,
+    isGif: Boolean,
+    mediaStamp: Long,
     onClick: () -> Unit
 ) {
-    val coverBitmap = rememberTrackCover(item.coverTrack, 160)
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -588,20 +596,16 @@ private fun RankedAlbumRow(
                 .clip(AuroSquircle),
             contentAlignment = Alignment.Center
         ) {
-            if (coverBitmap != null) {
-                Image(
-                    bitmap = coverBitmap.asImageBitmap(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                AuroCoverPlaceholder(
-                    modifier = Modifier.fillMaxSize(),
-                    glass = false,
-                    shape = AuroSquircle
-                )
-            }
+            AlbumArtworkImage(
+                albumName = item.albumName,
+                customMediaPath = customMediaPath,
+                isGif = isGif,
+                fallbackTrack = item.coverTrack,
+                shape = AuroSquircle,
+                mediaStamp = mediaStamp,
+                targetSizeDp = 160,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         Spacer(modifier = Modifier.width(12.dp))

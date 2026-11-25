@@ -40,8 +40,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
-import com.lucas.player.data.CoverArtLoader
 import com.lucas.player.data.LibraryRepository
+import com.lucas.player.data.MusicDatabase
 import com.lucas.player.model.*
 import com.lucas.player.model.formatArtistsDisplay
 import com.lucas.player.model.splitArtists
@@ -91,6 +91,8 @@ fun AuroArtistScreen(
     isGif: Boolean = false,
     artistMediaVersion: Int = 0,
     libraryVersion: Int = 0,
+    albumMetaMap: Map<String, MusicDatabase.AlbumMeta> = emptyMap(),
+    albumMediaVersion: Int = 0,
     errorTrackIds: Set<Long> = emptySet(),
     showFileFormat: Boolean = true,
     libraryRepository: LibraryRepository = LibraryRepository.getInstance(),
@@ -126,25 +128,6 @@ fun AuroArtistScreen(
     val primaryTracks = profileData.primaryTracks
     val featTracks = profileData.featTracks
     val fallbackTrack = profileData.fallbackTrack
-
-    val fallbackCover = rememberTrackCover(fallbackTrack, 400)
-    var customBitmap by remember(customMediaPath, mediaStamp) {
-        mutableStateOf(CoverArtLoader.getCachedArtistStaticBitmap(customMediaPath))
-    }
-    LaunchedEffect(customMediaPath, mediaStamp) {
-        if (customMediaPath.isNullOrBlank()) {
-            customBitmap = null
-        } else {
-            CoverArtLoader.loadArtistStaticBitmap(customMediaPath, 400) { bmp ->
-                customBitmap = bmp
-            }
-        }
-    }
-
-    var artistAccent by remember { mutableStateOf(AuroAccent.Neutral) }
-    LaunchedEffect(customBitmap, fallbackCover) {
-        artistAccent = CoverGlow.from(customBitmap ?: fallbackCover)
-    }
 
     val totalTracksCount = primaryTracks.size + featTracks.size
     val albumCount = releases.count { it.isAlbum }
@@ -383,7 +366,7 @@ fun AuroArtistScreen(
                             modifier = Modifier.padding(top = 8.dp, bottom = 16.dp)
                         ) {
                             items(carouselReleases, key = { it.albumName }) { release ->
-                                val cover = rememberTrackCover(release.coverTrack, 300)
+                                val albumMeta = albumMetaMap[release.albumName.trim().lowercase()]
                                 Column(
                                     modifier = Modifier
                                         .width(140.dp)
@@ -400,16 +383,16 @@ fun AuroArtistScreen(
                                             .background(AuroColor.SurfaceCard)
                                             .border(0.5.dp, Color.White.copy(alpha = 0.08f), AuroSquircle)
                                     ) {
-                                        if (cover != null) {
-                                            Image(
-                                                bitmap = cover.asImageBitmap(),
-                                                contentDescription = release.albumName,
-                                                contentScale = ContentScale.Crop,
-                                                modifier = Modifier.fillMaxSize()
-                                            )
-                                        } else {
-                                            AuroCoverPlaceholder(modifier = Modifier.fillMaxSize(), glass = false)
-                                        }
+                                        AlbumArtworkImage(
+                                            albumName = release.albumName,
+                                            customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
+                                            isGif = albumMeta?.isGif ?: false,
+                                            fallbackTrack = release.coverTrack,
+                                            shape = AuroSquircle,
+                                            mediaStamp = albumMediaVersion.toLong(),
+                                            targetSizeDp = 300,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Text(
@@ -766,6 +749,8 @@ fun AuroArtistDiscographyScreen(
     onBack: () -> Unit,
     onAlbumClick: (String) -> Unit,
     libraryVersion: Int = 0,
+    albumMetaMap: Map<String, MusicDatabase.AlbumMeta> = emptyMap(),
+    albumMediaVersion: Int = 0,
     libraryRepository: LibraryRepository = LibraryRepository.getInstance(),
     modifier: Modifier = Modifier
 ) {
@@ -865,9 +850,13 @@ fun AuroArtistDiscographyScreen(
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         for (album in pair) {
+                            val albumMeta = albumMetaMap[album.albumName.trim().lowercase()]
                             Box(modifier = Modifier.weight(1f)) {
                                 DiscographyCard(
                                     release = album,
+                                    customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
+                                    isGif = albumMeta?.isGif ?: false,
+                                    albumMediaVersion = albumMediaVersion,
                                     onClick = {
                                         AuroHaptics.click(view)
                                         onAlbumClick(album.albumName)
@@ -902,9 +891,13 @@ fun AuroArtistDiscographyScreen(
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         for (release in pair) {
+                            val albumMeta = albumMetaMap[release.albumName.trim().lowercase()]
                             Box(modifier = Modifier.weight(1f)) {
                                 DiscographyCard(
                                     release = release,
+                                    customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
+                                    isGif = albumMeta?.isGif ?: false,
+                                    albumMediaVersion = albumMediaVersion,
                                     onClick = {
                                         AuroHaptics.click(view)
                                         onAlbumClick(release.albumName)
@@ -925,10 +918,12 @@ fun AuroArtistDiscographyScreen(
 @Composable
 private fun DiscographyCard(
     release: ArtistRelease,
+    customMediaPath: String? = null,
+    isGif: Boolean = false,
+    albumMediaVersion: Int = 0,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val cover = rememberTrackCover(release.coverTrack, 300)
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -943,16 +938,16 @@ private fun DiscographyCard(
                 .background(AuroColor.SurfaceCard)
                 .border(0.5.dp, Color.White.copy(alpha = 0.08f), AuroSquircle)
         ) {
-            if (cover != null) {
-                Image(
-                    bitmap = cover.asImageBitmap(),
-                    contentDescription = release.albumName,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                AuroCoverPlaceholder(modifier = Modifier.fillMaxSize(), glass = false)
-            }
+            AlbumArtworkImage(
+                albumName = release.albumName,
+                customMediaPath = customMediaPath,
+                isGif = isGif,
+                fallbackTrack = release.coverTrack,
+                shape = AuroSquircle,
+                mediaStamp = albumMediaVersion.toLong(),
+                targetSizeDp = 300,
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         Spacer(modifier = Modifier.height(8.dp))

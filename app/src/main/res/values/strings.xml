@@ -433,4 +433,15 @@
     <string name="most_played_type_albums">Álbuns</string>
     <string name="most_played_type_artists">Artistas</string>
     <string name="most_played_empty_period">Nenhuma reprodução neste período</string>
+
+    <!-- Álbum: Capa/GIF Customizada & Verso com Anotações -->
+    <string name="album_change_cover">Alterar capa / GIF</string>
+    <string name="album_remove_cover">Remover capa personalizada</string>
+    <string name="album_cover_updated">Capa do álbum atualizada</string>
+    <string name="album_cover_removed">Capa personalizada removida</string>
+    <string name="album_notes_action">Anotações do álbum</string>
+    <string name="album_notes_title">Anotações</string>
+    <string name="album_notes_placeholder">Toque para anotar algo sobre este álbum</string>
+    <string name="album_notes_hint">Escreva suas anotações sobre este álbum...</string>
+    <string name="album_notes_saved">Anotações salvas</string>
 </resources>

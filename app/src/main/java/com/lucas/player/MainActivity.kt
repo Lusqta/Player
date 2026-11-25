@@ -217,6 +217,41 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         }
     }
 
+    private val targetAlbumForMediaState = mutableStateOf<String?>(null)
+    private val albumMediaVersionState = mutableIntStateOf(0)
+
+    private val pickAlbumMediaLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val albumName = targetAlbumForMediaState.value
+        if (uri != null && !albumName.isNullOrBlank()) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val result = CoverArtLoader.saveAlbumMedia(this@MainActivity, albumName, uri)
+                if (result != null) {
+                    libraryRepo.setAlbumMedia(albumName, result.first, result.second)
+                    withContext(Dispatchers.Main) {
+                        albumMediaVersionState.intValue++
+                        AuroHaptics.confirm(window.decorView)
+                        snackbarState.show(text = getString(R.string.album_cover_updated))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun removeAlbumMedia(albumName: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val meta = libraryRepo.getAlbumMeta(albumName)
+            if (meta != null && meta.mediaPath.isNotBlank()) {
+                libraryRepo.removeAlbumMedia(albumName)
+                CoverArtLoader.deleteAlbumMedia(meta.mediaPath)
+                withContext(Dispatchers.Main) {
+                    albumMediaVersionState.intValue++
+                    AuroHaptics.confirm(window.decorView)
+                    snackbarState.show(text = getString(R.string.album_cover_removed))
+                }
+            }
+        }
+    }
+
     // Seleção Múltipla (Fase 4.3)
     private val isSelectionModeState = mutableStateOf(false)
     private val selectedTrackIdsState = mutableStateListOf<Long>()
@@ -523,6 +558,15 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             ) {
                 value = withContext(Dispatchers.IO) {
                     libraryRepo.getAllArtistMedia()
+                }
+            }
+            val albumMediaVersion by albumMediaVersionState
+            val albumMetaMap by produceState<Map<String, MusicDatabase.AlbumMeta>>(
+                initialValue = emptyMap(),
+                key1 = albumMediaVersion
+            ) {
+                value = withContext(Dispatchers.IO) {
+                    libraryRepo.getAllAlbumMeta()
                 }
             }
 
@@ -921,6 +965,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     },
                                     playlists = homeSnapshot.playlists,
                                     artistMediaMap = artistMediaMap,
+                                    albumMetaMap = albumMetaMap,
+                                    albumMediaVersion = albumMediaVersion,
                                     onAlbumClick = { albumName ->
                                         drillDownGroup(LibraryCategory.ALBUMS, albumName)
                                         navController.navigateTo(
@@ -1172,6 +1218,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                                 }
                                             },
                                             showFileFormat = preferencesManager.isShowFileFormatEnabled(),
+                                            albumMetaMap = albumMetaMap,
+                                            albumMediaVersion = albumMediaVersion,
                                             coverTrackFinder = { group -> albumCoverMap[group.title.lowercase()] },
                                             onBackClick = { navController.navigateUp() },
                                             onTrackClick = { _, position ->
@@ -1261,6 +1309,32 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     selectedTrackIds = selectedTrackIdsState.toSet(),
                                     isPinned = isPinned,
                                     playlistCoverPath = currentPlaylist?.coverPath,
+                                    albumMeta = if (activeScreen.category == LibraryCategory.ALBUMS) {
+                                        albumMetaMap[activeScreen.title.trim().lowercase()]
+                                    } else null,
+                                    albumMediaVersion = albumMediaVersion,
+                                    onChangeAlbumCover = if (activeScreen.category == LibraryCategory.ALBUMS) {
+                                        {
+                                            targetAlbumForMediaState.value = activeScreen.title
+                                            pickAlbumMediaLauncher.launch("image/*")
+                                        }
+                                    } else null,
+                                    onRemoveAlbumCover = if (activeScreen.category == LibraryCategory.ALBUMS) {
+                                        { removeAlbumMedia(activeScreen.title) }
+                                    } else null,
+                                    onSaveAlbumNotes = if (activeScreen.category == LibraryCategory.ALBUMS) {
+                                        { notes ->
+                                            val albumTitle = activeScreen.title
+                                            lifecycleScope.launch(Dispatchers.IO) {
+                                                libraryRepo.setAlbumNotes(albumTitle, notes)
+                                                withContext(Dispatchers.Main) {
+                                                    albumMediaVersionState.intValue++
+                                                    AuroHaptics.confirm(window.decorView)
+                                                    snackbarState.show(text = getString(R.string.album_notes_saved))
+                                                }
+                                            }
+                                        }
+                                    } else null,
                                     onAddTracksToPlaylist = if (activeScreen.category == LibraryCategory.PLAYLISTS && currentPlaylist != null) {
                                         { showPlaylistTrackPickerState.value = currentPlaylist }
                                     } else null,
@@ -1375,6 +1449,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     isGif = artistMedia?.second ?: false,
                                     artistMediaVersion = artistMediaVersion,
                                     libraryVersion = libraryVersion,
+                                    albumMetaMap = albumMetaMap,
+                                    albumMediaVersion = albumMediaVersion,
                                     errorTrackIds = errorTrackIds.toSet(),
                                     showFileFormat = preferencesManager.isShowFileFormatEnabled(),
                                     libraryRepository = libraryRepo,
@@ -1439,18 +1515,26 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         )
                                     },
                                     libraryVersion = libraryVersion,
+                                    albumMetaMap = albumMetaMap,
+                                    albumMediaVersion = albumMediaVersion,
                                     libraryRepository = libraryRepo,
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
 
                             is NavScreen.NowPlaying -> {
+                                val npAlbumMeta = currentTrack?.album?.takeIf { it.isNotBlank() }?.let { albumName ->
+                                    albumMetaMap[albumName.trim().lowercase()]
+                                }
                                 AuroNowPlayingScreen(
                                     track = currentTrack,
                                     isPlaying = isPlaying,
                                     progressMs = progressMsState.longValue,
                                     durationMs = durationMs,
                                     coverBitmap = currentCover,
+                                    customAlbumMediaPath = npAlbumMeta?.mediaPath?.takeIf { it.isNotBlank() },
+                                    isAlbumGif = npAlbumMeta?.isGif ?: false,
+                                    albumMediaVersion = albumMediaVersion,
                                     shuffleMode = shuffleMode,
                                     repeatMode = repeatMode,
                                     priorityTracks = upcomingPriorityQueueState.value,
@@ -1784,6 +1868,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     currentPlayingId = currentTrack?.id ?: -1L,
                                     libraryVersion = libraryVersion,
                                     artistMediaMap = artistMediaMap,
+                                    albumMetaMap = albumMetaMap,
+                                    albumMediaVersion = albumMediaVersion,
                                     showFileFormat = preferencesManager.isShowFileFormatEnabled(),
                                     libraryRepository = libraryRepo,
                                     modifier = Modifier.fillMaxSize()

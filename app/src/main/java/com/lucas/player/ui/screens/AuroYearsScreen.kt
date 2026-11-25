@@ -46,6 +46,13 @@ import com.lucas.player.ui.theme.AuroFontFamily
 import com.lucas.player.ui.theme.AuroSpace
 import com.lucas.player.ui.theme.AuroType
 import com.lucas.player.ui.theme.LocalAuroBottomInset
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+private data class YearsChipsState(
+    val chips: List<Int> = emptyList(),
+    val loaded: Boolean = false
+)
 
 /**
  * TELA DE ANOS COM CARROSSEL NO TOPO (Editorial Dark OLED)
@@ -77,19 +84,39 @@ fun AuroYearsScreen(
 ) {
     val view = LocalView.current
 
-    val yearChips = remember(dataVersion) {
-        val knownYears = libraryRepository.getYears().map { it.year }
-        val hasUnknownYear = libraryRepository.getTracksForYear(0).isNotEmpty()
-        if (hasUnknownYear) knownYears + 0 else knownYears
+    val chipsState by produceState(
+        initialValue = YearsChipsState(),
+        key1 = dataVersion
+    ) {
+        value = withContext(Dispatchers.IO) {
+            val knownYears = libraryRepository.getYears().map { it.year }
+            val hasUnknownYear = libraryRepository.getTracksForYear(0).isNotEmpty()
+            YearsChipsState(
+                chips = if (hasUnknownYear) knownYears + 0 else knownYears,
+                loaded = true
+            )
+        }
+    }
+    val yearChips = chipsState.chips
+
+    var userSelectedYear by remember { mutableStateOf<Int?>(null) }
+    val selectedYear = remember(userSelectedYear, yearChips) {
+        val current = userSelectedYear
+        if (current != null && yearChips.contains(current)) current
+        else yearChips.firstOrNull() ?: 0
     }
 
-    var selectedYear by remember(yearChips) {
-        mutableIntStateOf(yearChips.firstOrNull() ?: 0)
-    }
-
-    val yearTracks = remember(selectedYear, sortMode, dataVersion) {
-        if (yearChips.isEmpty()) emptyList()
-        else libraryRepository.getTracksForYear(selectedYear, sortMode)
+    val yearTracks by produceState<List<Track>>(
+        emptyList(),
+        selectedYear,
+        sortMode,
+        dataVersion,
+        yearChips
+    ) {
+        value = withContext(Dispatchers.IO) {
+            if (yearChips.isEmpty()) emptyList()
+            else libraryRepository.getTracksForYear(selectedYear, sortMode)
+        }
     }
 
     Column(
@@ -114,7 +141,7 @@ fun AuroYearsScreen(
             }
         )
 
-        if (yearChips.isEmpty()) {
+        if (chipsState.loaded && yearChips.isEmpty()) {
             AuroEmptyState(
                 icon = Icons.Rounded.CalendarToday,
                 title = stringResource(R.string.empty_library_title),
@@ -148,7 +175,7 @@ fun AuroYearsScreen(
                             )
                             .clickable {
                                 AuroHaptics.click(view)
-                                selectedYear = year
+                                userSelectedYear = year
                             }
                             .padding(horizontal = 16.dp),
                         contentAlignment = Alignment.Center

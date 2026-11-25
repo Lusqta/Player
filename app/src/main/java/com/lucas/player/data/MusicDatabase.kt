@@ -60,6 +60,13 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         val sampleRateHz: Int = 44100
     )
 
+    data class AlbumMeta(
+        val albumKey: String,
+        val mediaPath: String = "",
+        val isGif: Boolean = false,
+        val notes: String = ""
+    )
+
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             """
@@ -100,6 +107,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         createPlaybackHistoryTable(db)
         createArtistMediaTable(db)
         createPlayEventsTable(db)
+        createAlbumMetaTable(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -128,6 +136,22 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         if (oldVersion < 8) {
             createPlayEventsTable(db)
         }
+        if (oldVersion < 9) {
+            createAlbumMetaTable(db)
+        }
+    }
+
+    private fun createAlbumMetaTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_ALBUM_META (
+                $COL_ALBUM_KEY TEXT PRIMARY KEY,
+                $COL_ALBUM_MEDIA_PATH TEXT DEFAULT '',
+                $COL_ALBUM_IS_GIF INTEGER DEFAULT 0,
+                $COL_ALBUM_NOTES TEXT DEFAULT ''
+            )
+            """.trimIndent()
+        )
     }
 
     private fun createPlayEventsTable(db: SQLiteDatabase) {
@@ -788,9 +812,114 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         } catch (_: Exception) {}
     }
 
+    // --- Metadados Customizados de Álbum (Capa / GIF + Anotações) ---
+
+    fun setAlbumMedia(albumName: String, path: String, isGif: Boolean) {
+        val key = albumName.trim().lowercase()
+        if (key.isEmpty()) return
+        try {
+            writableDatabase.execSQL(
+                """
+                INSERT INTO $TABLE_ALBUM_META ($COL_ALBUM_KEY, $COL_ALBUM_MEDIA_PATH, $COL_ALBUM_IS_GIF, $COL_ALBUM_NOTES)
+                VALUES (?, ?, ?, '')
+                ON CONFLICT($COL_ALBUM_KEY) DO UPDATE SET
+                    $COL_ALBUM_MEDIA_PATH = excluded.$COL_ALBUM_MEDIA_PATH,
+                    $COL_ALBUM_IS_GIF = excluded.$COL_ALBUM_IS_GIF
+                """.trimIndent(),
+                arrayOf(key, path, if (isGif) 1 else 0)
+            )
+        } catch (_: Exception) {}
+    }
+
+    fun removeAlbumMedia(albumName: String) {
+        val key = albumName.trim().lowercase()
+        if (key.isEmpty()) return
+        try {
+            val cv = ContentValues().apply {
+                put(COL_ALBUM_MEDIA_PATH, "")
+                put(COL_ALBUM_IS_GIF, 0)
+            }
+            writableDatabase.update(TABLE_ALBUM_META, cv, "$COL_ALBUM_KEY = ?", arrayOf(key))
+        } catch (_: Exception) {}
+    }
+
+    fun setAlbumNotes(albumName: String, notes: String) {
+        val key = albumName.trim().lowercase()
+        if (key.isEmpty()) return
+        try {
+            writableDatabase.execSQL(
+                """
+                INSERT INTO $TABLE_ALBUM_META ($COL_ALBUM_KEY, $COL_ALBUM_MEDIA_PATH, $COL_ALBUM_IS_GIF, $COL_ALBUM_NOTES)
+                VALUES (?, '', 0, ?)
+                ON CONFLICT($COL_ALBUM_KEY) DO UPDATE SET
+                    $COL_ALBUM_NOTES = excluded.$COL_ALBUM_NOTES
+                """.trimIndent(),
+                arrayOf(key, notes)
+            )
+        } catch (_: Exception) {}
+    }
+
+    fun getAlbumMeta(albumName: String): AlbumMeta? {
+        val key = albumName.trim().lowercase()
+        if (key.isEmpty()) return null
+        try {
+            val cursor = readableDatabase.query(
+                TABLE_ALBUM_META,
+                arrayOf(COL_ALBUM_KEY, COL_ALBUM_MEDIA_PATH, COL_ALBUM_IS_GIF, COL_ALBUM_NOTES),
+                "$COL_ALBUM_KEY = ?",
+                arrayOf(key),
+                null, null, null
+            )
+            cursor.use {
+                if (it.moveToFirst()) {
+                    return AlbumMeta(
+                        albumKey = it.getString(0) ?: key,
+                        mediaPath = it.getString(1) ?: "",
+                        isGif = it.getInt(2) == 1,
+                        notes = it.getString(3) ?: ""
+                    )
+                }
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    fun getAllAlbumMeta(): Map<String, AlbumMeta> {
+        val result = mutableMapOf<String, AlbumMeta>()
+        try {
+            val cursor = readableDatabase.query(
+                TABLE_ALBUM_META,
+                arrayOf(COL_ALBUM_KEY, COL_ALBUM_MEDIA_PATH, COL_ALBUM_IS_GIF, COL_ALBUM_NOTES),
+                null, null, null, null, null
+            )
+            cursor.use {
+                val keyCol = it.getColumnIndexOrThrow(COL_ALBUM_KEY)
+                val pathCol = it.getColumnIndexOrThrow(COL_ALBUM_MEDIA_PATH)
+                val gifCol = it.getColumnIndexOrThrow(COL_ALBUM_IS_GIF)
+                val notesCol = it.getColumnIndexOrThrow(COL_ALBUM_NOTES)
+                while (it.moveToNext()) {
+                    val key = it.getString(keyCol) ?: continue
+                    result[key] = AlbumMeta(
+                        albumKey = key,
+                        mediaPath = it.getString(pathCol) ?: "",
+                        isGif = it.getInt(gifCol) == 1,
+                        notes = it.getString(notesCol) ?: ""
+                    )
+                }
+            }
+        } catch (_: Exception) {}
+        return result
+    }
+
     companion object {
         const val DATABASE_NAME = "poweramp_library.db"
-        const val DATABASE_VERSION = 8
+        const val DATABASE_VERSION = 9
+
+        const val TABLE_ALBUM_META = "album_meta"
+        const val COL_ALBUM_KEY = "album_key"
+        const val COL_ALBUM_MEDIA_PATH = "media_path"
+        const val COL_ALBUM_IS_GIF = "is_gif"
+        const val COL_ALBUM_NOTES = "notes"
 
         const val TABLE_PLAY_EVENTS = "play_events"
         const val COL_PLAY_EVENT_ID = "id"

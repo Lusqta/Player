@@ -87,6 +87,9 @@ fun AuroNowPlayingScreen(
     progressMs: Long,
     durationMs: Long,
     coverBitmap: Bitmap?,
+    customAlbumMediaPath: String? = null,
+    isAlbumGif: Boolean = false,
+    albumMediaVersion: Int = 0,
     shuffleMode: ShuffleMode,
     repeatMode: RepeatMode,
     priorityTracks: List<Track> = emptyList(),
@@ -298,19 +301,17 @@ fun AuroNowPlayingScreen(
                                 }
                             }
                     ) {
-                        if (coverBitmap != null) {
-                            Image(
-                                bitmap = coverBitmap.asImageBitmap(),
-                                contentDescription = track.title,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        } else {
-                            AuroCoverPlaceholder(
-                                modifier = Modifier.fillMaxSize(),
-                                shape = RectangleShape
-                            )
-                        }
+                        AlbumArtworkImage(
+                            albumName = track.album,
+                            customMediaPath = customAlbumMediaPath,
+                            isGif = isAlbumGif,
+                            fallbackTrack = track,
+                            shape = RectangleShape,
+                            mediaStamp = albumMediaVersion.toLong(),
+                            targetSizeDp = 600,
+                            preloadedFallbackBitmap = coverBitmap,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
 
                     Spacer(modifier = Modifier.heightIn(min = 12.dp).weight(0.7f))
@@ -416,15 +417,14 @@ fun AuroNowPlayingScreen(
                                     tint = if (isShuffleActive) Color.White else Color.White.copy(alpha = 0.45f),
                                     modifier = Modifier.size(20.dp)
                                 )
-                                if (isShuffleActive) {
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .size(4.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.White)
-                                    )
-                                }
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(4.dp)
+                                        .graphicsLayer { alpha = if (isShuffleActive) 1f else 0f }
+                                        .clip(CircleShape)
+                                        .background(Color.White)
+                                )
                             }
                         }
 
@@ -523,15 +523,14 @@ fun AuroNowPlayingScreen(
                                     tint = if (isRepeatActive) Color.White else Color.White.copy(alpha = 0.45f),
                                     modifier = Modifier.size(20.dp)
                                 )
-                                if (isRepeatActive) {
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    Box(
-                                        modifier = Modifier
-                                            .size(4.dp)
-                                            .clip(CircleShape)
-                                            .background(Color.White)
-                                    )
-                                }
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(4.dp)
+                                        .graphicsLayer { alpha = if (isRepeatActive) 1f else 0f }
+                                        .clip(CircleShape)
+                                        .background(Color.White)
+                                )
                             }
                         }
                     }
