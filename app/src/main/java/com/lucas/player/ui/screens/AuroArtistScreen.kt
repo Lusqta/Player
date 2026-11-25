@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
@@ -164,100 +165,100 @@ fun AuroArtistScreen(
             .fillMaxSize()
             .background(AuroColor.Canvas)
     ) {
-        // Fundo Bleed Atmosférico (520dp)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(520.dp)
-        ) {
-            AnimatedDualColorBackground(
-                color1 = artistAccent.mesh1,
-                color2 = artistAccent.mesh2,
-                isPlaying = false,
-                modifier = Modifier.fillMaxSize()
-            )
-
-            // Gradiente vertical para dissolver suavemente no preto absoluto OLED
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(168.dp)
-                    .align(Alignment.BottomCenter)
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                AuroColor.Canvas.copy(alpha = 0.78f),
-                                AuroColor.Canvas
-                            )
-                        )
-                    )
-            )
-        }
-
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = bottomInset + 80.dp)
         ) {
-            // Hero Avatar e Identificação
+            // Hero Full-Bleed Estilo Streaming (380dp)
             item(key = "artist_hero") {
-                Column(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(top = 56.dp, bottom = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .height(380.dp)
                 ) {
+                    ArtistAvatarImage(
+                        artistName = artistName,
+                        customMediaPath = customMediaPath,
+                        isGif = isGif,
+                        fallbackTrack = fallbackTrack,
+                        shape = RectangleShape,
+                        mediaStamp = mediaStamp,
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    // Vinheta superior sutil para contraste da Top Bar
                     Box(
-                        modifier = Modifier.size(220.dp),
-                        contentAlignment = Alignment.Center
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(110.dp)
+                            .align(Alignment.TopCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Black.copy(alpha = 0.58f),
+                                        Color.Transparent
+                                    )
+                                )
+                            )
+                    )
+
+                    // Vinheta inferior dissolvendo no preto absoluto OLED
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(190.dp)
+                            .align(Alignment.BottomCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        AuroColor.Canvas.copy(alpha = 0.80f),
+                                        AuroColor.Canvas
+                                    )
+                                )
+                            )
+                    )
+
+                    // Identificação à esquerda + Play flutuante à direita
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .align(Alignment.BottomCenter)
+                            .padding(start = AuroSpace.ScreenMargin, end = AuroSpace.ScreenMargin, bottom = 16.dp),
+                        verticalAlignment = Alignment.Bottom,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        ArtistAvatarImage(
-                            artistName = artistName,
-                            customMediaPath = customMediaPath,
-                            isGif = isGif,
-                            fallbackTrack = fallbackTrack,
-                            shape = AuroSquircle,
-                            mediaStamp = mediaStamp,
-                            modifier = Modifier.size(220.dp)
-                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = formatArtistsDisplay(artistName, artistName),
+                                style = AuroType.HeroName.copy(fontSize = 30.sp, fontWeight = FontWeight.Bold),
+                                color = AuroColor.TextPrimary,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = subtitleText,
+                                style = AuroType.Caption,
+                                color = Color.White.copy(alpha = 0.78f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
 
                         TranslucentPlayButton(
                             isPlaying = false,
                             size = 56.dp,
-                            containerColor = Color(0xBD121215),
+                            containerColor = AuroColor.ControlGlass,
                             onClick = {
                                 AuroHaptics.click(view)
                                 onPlayAll()
-                            },
-                            modifier = Modifier
-                                .align(Alignment.BottomEnd)
-                                .offset(x = 6.dp, y = 6.dp)
+                            }
                         )
                     }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    Text(
-                        text = formatArtistsDisplay(artistName, artistName),
-                        style = AuroType.HeroName.copy(fontSize = 28.sp, fontWeight = FontWeight.Bold),
-                        color = AuroColor.TextPrimary,
-                        textAlign = TextAlign.Center,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(horizontal = AuroSpace.ScreenMargin)
-                    )
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Text(
-                        text = subtitleText,
-                        style = AuroType.Caption,
-                        color = AuroColor.TextSecondary,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = AuroSpace.ScreenMargin)
-                    )
                 }
             }
 
@@ -336,6 +337,7 @@ fun AuroArtistScreen(
                         isPlayingThis = track.id == currentPlayingId,
                         hasError = errorTrackIds.contains(track.id),
                         showFormatTag = showFileFormat,
+                        showAlbumInSubtitle = releases.size > 1,
                         onClick = { onTrackClick(track, index) },
                         onLongClick = { onTrackLongClick(track) },
                         onMenuClick = { onTrackMenuClick(track) }

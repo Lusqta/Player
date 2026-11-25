@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
@@ -47,6 +48,7 @@ import com.lucas.player.data.LibraryRepository
 import com.lucas.player.model.Track
 import com.lucas.player.model.formatArtistsDisplay
 import com.lucas.player.model.isJunkAudio
+import com.lucas.player.model.isPrimaryArtistTrack
 import com.lucas.player.model.splitArtists
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.*
@@ -150,9 +152,14 @@ fun AuroHomeScreen(
                 map.map { (key, tracks) ->
                     val displayName = casingMap[key] ?: key
                     val totalPlays = tracks.sumOf { it.playCount }
-                    val coverTrack = libraryRepository.resolveArtistFallbackCoverTrack(displayName)
-                        ?: tracks.maxByOrNull { it.playCount }
-                        ?: tracks.firstOrNull()
+                    val hasPrimaryTrack = tracks.any { isPrimaryArtistTrack(it, displayName) }
+                    val coverTrack = if (hasPrimaryTrack) {
+                        libraryRepository.resolveArtistFallbackCoverTrack(displayName)
+                            ?: tracks.maxByOrNull { it.playCount }
+                            ?: tracks.firstOrNull()
+                    } else {
+                        null
+                    }
                     Triple(displayName, coverTrack, totalPlays)
                 }
                 .sortedByDescending { it.third }
@@ -200,64 +207,47 @@ fun AuroHomeScreen(
                     }
                 }
 
-                // Carrossel de Mixes rápidos (122dp × 70dp, raio 22dp)
+                // Carrossel de Mixes rápidos (152dp × 92dp, cards neutros Editorial Dark OLED)
                 item(key = "mixes_carousel") {
+                    val shuffleSource = cleanTracks.ifEmpty { allTracks }
+                    val favoritesCount = remember(cleanTracks) { cleanTracks.count { it.rating > 0 } }
+                    val cleanRecent = remember(recentlyPlayed) { recentlyPlayed.filterNot { isJunkAudio(it) } }
                     LazyRow(
                         modifier = Modifier
                             .fillMaxWidth(),
-                        contentPadding = PaddingValues(start = AuroSpace.ScreenMargin, end = AuroSpace.ScreenMargin, bottom = 10.dp),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         item {
                             QuickMixCard(
                                 title = stringResource(R.string.home_mix_shuffle),
+                                subtitle = formatTracksCount(shuffleSource.size),
                                 icon = Icons.Rounded.Shuffle,
-                                baseColor = Color(0xFF2A1210),
-                                spotAColor = Color(0xFFD2703A), spotACx = 0.30f, spotACy = 0.80f, spotARadius = 0.75f, spotAAlpha = 0.95f,
-                                spotBColor = Color(0xFF7A2A22), spotBCx = 0.95f, spotBCy = 0.10f, spotBRadius = 0.60f, spotBAlpha = 0.80f,
-                                onClick = { onShuffleAll(cleanTracks.ifEmpty { allTracks }) }
+                                onClick = { onShuffleAll(shuffleSource) }
                             )
                         }
                         item {
                             QuickMixCard(
                                 title = stringResource(R.string.home_mix_most_played),
+                                subtitle = stringResource(R.string.home_mix_most_played_subtitle),
                                 icon = Icons.Rounded.Whatshot,
-                                baseColor = Color(0xFF1A1340),
-                                spotAColor = Color(0xFF6F4BF0), spotACx = 0.50f, spotACy = 0.45f, spotARadius = 0.70f, spotAAlpha = 0.95f,
-                                spotBColor = Color(0xFF3A2A90), spotBCx = 0.10f, spotBCy = 0.95f, spotBRadius = 0.55f, spotBAlpha = 0.80f,
-                                onClick = onOpenMostPlayed,
-                                onPlayClick = {
-                                    val cleanMost = mostPlayed.filterNot { isJunkAudio(it) }
-                                    if (cleanMost.isNotEmpty()) onPlayAll(cleanMost)
-                                    else if (cleanTracks.isNotEmpty()) onPlayAll(cleanTracks)
-                                    else onPlayAll(allTracks)
-                                }
+                                onClick = onOpenMostPlayed
                             )
                         }
                         item {
                             QuickMixCard(
                                 title = stringResource(R.string.home_mix_favorites),
+                                subtitle = formatTracksCount(favoritesCount),
                                 icon = Icons.Rounded.Favorite,
-                                baseColor = Color(0xFF2A0E18),
-                                spotAColor = Color(0xFFD04565), spotACx = 0.25f, spotACy = 0.85f, spotARadius = 0.75f, spotAAlpha = 0.95f,
-                                spotBColor = Color(0xFF6A1A34), spotBCx = 0.90f, spotBCy = 0.15f, spotBRadius = 0.55f, spotBAlpha = 0.80f,
-                                onClick = onOpenFavorites,
-                                onPlayClick = {
-                                    val favs = cleanTracks.filter { it.rating > 0 }
-                                    if (favs.isNotEmpty()) onPlayAll(favs)
-                                    else onShuffleAll(cleanTracks.ifEmpty { allTracks })
-                                }
+                                onClick = onOpenFavorites
                             )
                         }
                         item {
                             QuickMixCard(
                                 title = stringResource(R.string.home_mix_recent),
+                                subtitle = formatTracksCount(cleanRecent.size),
                                 icon = Icons.Rounded.History,
-                                baseColor = Color(0xFF0E1B28),
-                                spotAColor = Color(0xFF2F7FA0), spotACx = 0.80f, spotACy = 0.85f, spotARadius = 0.75f, spotAAlpha = 0.95f,
-                                spotBColor = Color(0xFF1B3F5C), spotBCx = 0.10f, spotBCy = 0.15f, spotBRadius = 0.55f, spotBAlpha = 0.80f,
                                 onClick = {
-                                    val cleanRecent = recentlyPlayed.filterNot { isJunkAudio(it) }
                                     if (cleanRecent.isNotEmpty()) onPlayAll(cleanRecent)
                                     else if (cleanTracks.isNotEmpty()) onPlayAll(cleanTracks)
                                     else onPlayAll(allTracks)
@@ -270,7 +260,7 @@ fun AuroHomeScreen(
                 // Seção: Álbuns mais ouvidos (Card largo 296 × 128dp)
                 if (topAlbums.isNotEmpty()) {
                     item(key = "top_albums") {
-                        Column(modifier = Modifier.fillMaxWidth().padding(top = 32.dp)) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(top = 28.dp)) {
                             EditorialSectionHeader(
                                 title = stringResource(R.string.home_top_albums),
                                 actionLabel = stringResource(R.string.view_all),
@@ -294,10 +284,10 @@ fun AuroHomeScreen(
                     }
                 }
 
-                // Seção: Artistas (Tile 72dp com AuroSquircle, item 80dp largura)
+                // Seção: Artistas (Tile 72dp com AuroSquircle)
                 if (artistEntries.isNotEmpty()) {
                     item(key = "artists_row") {
-                        Column(modifier = Modifier.fillMaxWidth().padding(top = 32.dp)) {
+                        Column(modifier = Modifier.fillMaxWidth().padding(top = 28.dp)) {
                             EditorialSectionHeader(
                                 title = stringResource(R.string.category_artists),
                                 actionLabel = stringResource(R.string.view_all),
@@ -314,7 +304,7 @@ fun AuroHomeScreen(
 
                                     Column(
                                         modifier = Modifier
-                                            .width(80.dp)
+                                            .width(72.dp)
                                             .clickable {
                                                 AuroHaptics.click(view)
                                                 onArtistClick(artistName)
@@ -360,7 +350,7 @@ fun AuroHomeScreen(
 
                 // Seção: Coleções (Playlists - Tiles 112dp AuroSquircle)
                 item(key = "collections") {
-                    Column(modifier = Modifier.fillMaxWidth().padding(top = 32.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(top = 28.dp)) {
                         EditorialSectionHeader(
                             title = stringResource(R.string.home_banner_collections),
                             actionLabel = null
@@ -459,97 +449,77 @@ fun AuroHomeScreen(
 }
 
 /**
- * Card de Mix Rápido (122dp × 70dp, raio 22dp, play pendurado para fora)
+ * Card de Mix Rápido Editorial Dark OLED (152dp × 92dp, neutro sem iluminação/cor)
  */
 @Composable
 private fun QuickMixCard(
     title: String,
+    subtitle: String,
     icon: ImageVector,
-    baseColor: Color,
-    spotAColor: Color,
-    spotACx: Float,
-    spotACy: Float,
-    spotARadius: Float,
-    spotAAlpha: Float,
-    spotBColor: Color,
-    spotBCx: Float,
-    spotBCy: Float,
-    spotBRadius: Float,
-    spotBAlpha: Float,
-    onClick: () -> Unit,
-    onPlayClick: () -> Unit = onClick
+    onClick: () -> Unit
 ) {
     val view = LocalView.current
     val mixShape = RoundedCornerShape(AuroRadius.mix)
     Box(
         modifier = Modifier
-            .size(width = 122.dp, height = 70.dp)
-    ) {
-        // Camada de fundo clipada com as 2 manchas radiais borradas
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(mixShape)
-                .drawBehind {
-                    drawRect(baseColor)
-                    drawRect(
-                        Brush.radialGradient(
-                            colors = listOf(spotAColor.copy(alpha = spotAAlpha), spotAColor.copy(alpha = 0f)),
-                            center = Offset(size.width * spotACx, size.height * spotACy),
-                            radius = size.width * spotARadius
-                        )
+            .size(width = 152.dp, height = 92.dp)
+            .clip(mixShape)
+            .background(AuroColor.SurfaceCard)
+            .border(
+                width = 0.75.dp,
+                brush = Brush.verticalGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.14f),
+                        Color.White.copy(alpha = 0.03f)
                     )
-                    drawRect(
-                        Brush.radialGradient(
-                            colors = listOf(spotBColor.copy(alpha = spotBAlpha), spotBColor.copy(alpha = 0f)),
-                            center = Offset(size.width * spotBCx, size.height * spotBCy),
-                            radius = size.width * spotBRadius
-                        )
-                    )
-                }
-                .border(0.5.dp, Color.White.copy(alpha = 0.08f), mixShape)
-                .clickable {
-                    AuroHaptics.click(view)
-                    onClick()
-                }
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Color.White.copy(alpha = 0.90f),
-                modifier = Modifier
-                    .padding(start = 12.dp, top = 12.dp)
-                    .size(14.dp)
-                    .align(Alignment.TopStart)
+                ),
+                shape = mixShape
             )
+            .clickable {
+                AuroHaptics.click(view)
+                onClick()
+            }
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = Color.White.copy(alpha = 0.09f),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 8.dp, y = (-6).dp)
+                .size(56.dp)
+                .graphicsLayer { rotationZ = -12f }
+        )
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(horizontal = 14.dp, vertical = 14.dp)
+        ) {
             Text(
                 text = title,
                 style = TextStyle(
                     fontFamily = AuroFontFamily,
-                    fontSize = 14.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White
                 ),
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Start,
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(start = 12.dp, end = 14.dp)
-                    .offset(y = (-3).dp)
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                style = TextStyle(
+                    fontFamily = AuroFontFamily,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color.White.copy(alpha = 0.58f)
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
-
-        // Botão de play 28dp pendurado no canto inferior direito
-        TranslucentPlayButton(
-            isPlaying = false,
-            size = 28.dp,
-            minTouchTarget = 48.dp,
-            onClick = onPlayClick,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .offset(x = 4.dp, y = 7.dp)
-        )
     }
 }
 

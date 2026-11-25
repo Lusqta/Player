@@ -284,6 +284,7 @@
     <string name="home_greeting_recommended">Recomendado\nPara Você Hoje</string>
     <string name="home_mix_shuffle">Aleatório</string>
     <string name="home_mix_most_played">Mais Tocadas</string>
+    <string name="home_mix_most_played_subtitle">Semana · Mês · Ano</string>
     <string name="home_mix_favorites">Favoritas</string>
     <string name="home_mix_recent">Recentes</string>
     <string name="home_banner_collections">Coleções</string>

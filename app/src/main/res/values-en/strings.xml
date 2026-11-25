@@ -283,6 +283,7 @@
     <string name="home_greeting_recommended">Recommended\nFor You Today</string>
     <string name="home_mix_shuffle">Shuffle</string>
     <string name="home_mix_most_played">Most Played</string>
+    <string name="home_mix_most_played_subtitle">Week · Month · Year</string>
     <string name="home_mix_favorites">Favorites</string>
     <string name="home_mix_recent">Recent</string>
     <string name="home_banner_collections">Collections</string>

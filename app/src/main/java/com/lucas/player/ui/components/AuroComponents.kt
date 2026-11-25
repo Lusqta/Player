@@ -654,6 +654,7 @@ fun TranslucentPlayButton(
     size: Dp = 40.dp,
     cornerRadius: Dp = size / 2,
     containerColor: Color = AuroColor.ControlGlass,
+    iconTint: Color = Color.White,
     minTouchTarget: Dp = 48.dp,
     onClick: () -> Unit
 ) {
@@ -692,7 +693,7 @@ fun TranslucentPlayButton(
             Icon(
                 imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                 contentDescription = if (isPlaying) stringResource(R.string.cd_pause) else stringResource(R.string.cd_play),
-                tint = Color.White,
+                tint = iconTint,
                 modifier = Modifier.size(size * 0.52f)
             )
         }
@@ -1205,6 +1206,7 @@ fun AuroTrackRow(
     isSelected: Boolean = false,
     showFormatTag: Boolean = true,
     showPlayCount: Boolean = false,
+    showAlbumInSubtitle: Boolean = true,
     isAudioPlaying: Boolean = LocalAuroIsPlaying.current
 ) {
     val view = LocalView.current
@@ -1351,7 +1353,7 @@ fun AuroTrackRow(
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val displayArtist = formatArtistsDisplay(track.artist, stringResource(R.string.unknown_artist))
-                val subtitleText = if (track.album.isNotBlank() && !track.album.equals("<unknown>", ignoreCase = true) && !track.album.equals("Álbum desconhecido", ignoreCase = true)) {
+                val subtitleText = if (showAlbumInSubtitle && track.album.isNotBlank() && !track.album.equals("<unknown>", ignoreCase = true) && !track.album.equals("Álbum desconhecido", ignoreCase = true)) {
                     "$displayArtist — ${track.album}"
                 } else {
                     displayArtist
