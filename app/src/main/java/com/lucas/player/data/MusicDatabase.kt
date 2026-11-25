@@ -356,21 +356,23 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
 
     fun getAllStats(): Map<Long, TrackStat> {
         val result = mutableMapOf<Long, TrackStat>()
-        val db = readableDatabase
-        db.rawQuery("SELECT $COL_TRACK_ID, $COL_PLAY_COUNT, $COL_LAST_PLAYED, $COL_RATING FROM $TABLE_STATS", null).use { cursor ->
-            val idCol = cursor.getColumnIndexOrThrow(COL_TRACK_ID)
-            val pcCol = cursor.getColumnIndexOrThrow(COL_PLAY_COUNT)
-            val lpCol = cursor.getColumnIndexOrThrow(COL_LAST_PLAYED)
-            val ratCol = cursor.getColumnIndexOrThrow(COL_RATING)
+        try {
+            val db = readableDatabase
+            db.rawQuery("SELECT $COL_TRACK_ID, $COL_PLAY_COUNT, $COL_LAST_PLAYED, $COL_RATING FROM $TABLE_STATS", null).use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(COL_TRACK_ID)
+                val pcCol = cursor.getColumnIndexOrThrow(COL_PLAY_COUNT)
+                val lpCol = cursor.getColumnIndexOrThrow(COL_LAST_PLAYED)
+                val ratCol = cursor.getColumnIndexOrThrow(COL_RATING)
 
-            while (cursor.moveToNext()) {
-                val id = cursor.getLong(idCol)
-                val pc = cursor.getInt(pcCol)
-                val lp = cursor.getLong(lpCol)
-                val rat = cursor.getInt(ratCol)
-                result[id] = TrackStat(id, pc, lp, rat)
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(idCol)
+                    val pc = cursor.getInt(pcCol)
+                    val lp = cursor.getLong(lpCol)
+                    val rat = cursor.getInt(ratCol)
+                    result[id] = TrackStat(id, pc, lp, rat)
+                }
             }
-        }
+        } catch (_: Exception) {}
         return result
     }
 
@@ -387,7 +389,6 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
 
     fun getPlaylists(): List<Playlist> {
         val list = mutableListOf<Playlist>()
-        val db = readableDatabase
         val query = """
             SELECT p.$COL_PL_ID, p.$COL_PL_NAME, p.$COL_PL_CREATED, p.$COL_PL_COVER_PATH, COUNT(i.$COL_ITEM_TRACK_ID) AS track_count
             FROM $TABLE_PLAYLISTS p
@@ -396,26 +397,29 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             ORDER BY p.$COL_PL_NAME COLLATE NOCASE ASC
         """.trimIndent()
 
-        db.rawQuery(query, null).use { cursor ->
-            val idCol = cursor.getColumnIndexOrThrow(COL_PL_ID)
-            val nameCol = cursor.getColumnIndexOrThrow(COL_PL_NAME)
-            val crCol = cursor.getColumnIndexOrThrow(COL_PL_CREATED)
-            val coverCol = cursor.getColumnIndex(COL_PL_COVER_PATH)
-            val cntCol = cursor.getColumnIndexOrThrow("track_count")
+        try {
+            val db = readableDatabase
+            db.rawQuery(query, null).use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(COL_PL_ID)
+                val nameCol = cursor.getColumnIndexOrThrow(COL_PL_NAME)
+                val crCol = cursor.getColumnIndexOrThrow(COL_PL_CREATED)
+                val coverCol = cursor.getColumnIndex(COL_PL_COVER_PATH)
+                val cntCol = cursor.getColumnIndexOrThrow("track_count")
 
-            while (cursor.moveToNext()) {
-                val cover = if (coverCol != -1) cursor.getString(coverCol) ?: "" else ""
-                list.add(
-                    Playlist(
-                        id = cursor.getLong(idCol),
-                        name = cursor.getString(nameCol),
-                        createdMs = cursor.getLong(crCol),
-                        trackCount = cursor.getInt(cntCol),
-                        coverPath = cover
+                while (cursor.moveToNext()) {
+                    val cover = if (coverCol != -1) cursor.getString(coverCol) ?: "" else ""
+                    list.add(
+                        Playlist(
+                            id = cursor.getLong(idCol),
+                            name = cursor.getString(nameCol),
+                            createdMs = cursor.getLong(crCol),
+                            trackCount = cursor.getInt(cntCol),
+                            coverPath = cover
+                        )
                     )
-                )
+                }
             }
-        }
+        } catch (_: Exception) {}
         return list
     }
 
@@ -478,14 +482,16 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
 
     fun getTracksForPlaylist(playlistId: Long): List<Long> {
         val list = mutableListOf<Long>()
-        val db = readableDatabase
         val query = "SELECT $COL_ITEM_TRACK_ID FROM $TABLE_PLAYLIST_ITEMS WHERE $COL_ITEM_PL_ID = ? ORDER BY $COL_ITEM_ORDER ASC"
-        db.rawQuery(query, arrayOf(playlistId.toString())).use { cursor ->
-            val idCol = cursor.getColumnIndexOrThrow(COL_ITEM_TRACK_ID)
-            while (cursor.moveToNext()) {
-                list.add(cursor.getLong(idCol))
+        try {
+            val db = readableDatabase
+            db.rawQuery(query, arrayOf(playlistId.toString())).use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(COL_ITEM_TRACK_ID)
+                while (cursor.moveToNext()) {
+                    list.add(cursor.getLong(idCol))
+                }
             }
-        }
+        } catch (_: Exception) {}
         return list
     }
 
@@ -517,34 +523,36 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
 
     fun getAllPresets(): List<EqPreset> {
         val list = mutableListOf<EqPreset>()
-        val db = readableDatabase
         val query = "SELECT * FROM $TABLE_PRESETS ORDER BY $COL_PRESET_BUILTIN DESC, $COL_PRESET_NAME ASC"
-        db.rawQuery(query, null).use { cursor ->
-            val idCol = cursor.getColumnIndexOrThrow(COL_PRESET_ID)
-            val nameCol = cursor.getColumnIndexOrThrow(COL_PRESET_NAME)
-            val gainsCol = cursor.getColumnIndexOrThrow(COL_PRESET_GAINS)
-            val bassCol = cursor.getColumnIndexOrThrow(COL_PRESET_BASS)
-            val trebleCol = cursor.getColumnIndexOrThrow(COL_PRESET_TREBLE)
-            val preampCol = cursor.getColumnIndexOrThrow(COL_PRESET_PREAMP)
-            val builtinCol = cursor.getColumnIndexOrThrow(COL_PRESET_BUILTIN)
+        try {
+            val db = readableDatabase
+            db.rawQuery(query, null).use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(COL_PRESET_ID)
+                val nameCol = cursor.getColumnIndexOrThrow(COL_PRESET_NAME)
+                val gainsCol = cursor.getColumnIndexOrThrow(COL_PRESET_GAINS)
+                val bassCol = cursor.getColumnIndexOrThrow(COL_PRESET_BASS)
+                val trebleCol = cursor.getColumnIndexOrThrow(COL_PRESET_TREBLE)
+                val preampCol = cursor.getColumnIndexOrThrow(COL_PRESET_PREAMP)
+                val builtinCol = cursor.getColumnIndexOrThrow(COL_PRESET_BUILTIN)
 
-            while (cursor.moveToNext()) {
-                val gainsStr = cursor.getString(gainsCol)
-                val gains = gainsStr.split(",").mapNotNull { it.toFloatOrNull() }
-                val validGains = if (gains.size == 10) gains else List(10) { 0f }
-                list.add(
-                    EqPreset(
-                        id = cursor.getLong(idCol),
-                        name = cursor.getString(nameCol),
-                        bandGains = validGains,
-                        bassGain = cursor.getFloat(bassCol),
-                        trebleGain = cursor.getFloat(trebleCol),
-                        preampGain = cursor.getFloat(preampCol),
-                        isBuiltin = cursor.getInt(builtinCol) == 1
+                while (cursor.moveToNext()) {
+                    val gainsStr = cursor.getString(gainsCol)
+                    val gains = gainsStr.split(",").mapNotNull { it.toFloatOrNull() }
+                    val validGains = if (gains.size == 10) gains else List(10) { 0f }
+                    list.add(
+                        EqPreset(
+                            id = cursor.getLong(idCol),
+                            name = cursor.getString(nameCol),
+                            bandGains = validGains,
+                            bassGain = cursor.getFloat(bassCol),
+                            trebleGain = cursor.getFloat(trebleCol),
+                            preampGain = cursor.getFloat(preampCol),
+                            isBuiltin = cursor.getInt(builtinCol) == 1
+                        )
                     )
-                )
+                }
             }
-        }
+        } catch (_: Exception) {}
         return list
     }
 

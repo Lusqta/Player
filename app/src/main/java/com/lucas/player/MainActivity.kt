@@ -1,6 +1,8 @@
 package com.lucas.player
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -13,6 +15,7 @@ import android.os.Environment
 import android.os.IBinder
 import android.provider.DocumentsContract
 import android.provider.Settings
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
@@ -26,6 +29,9 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import java.io.File
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.PlaylistPlay
@@ -224,6 +230,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     private val albumCollectionsVersionState = mutableIntStateOf(0)
     private val showCreateAlbumCollectionDialogState = mutableStateOf(false)
     private val addAlbumToCollectionTargetState = mutableStateOf<String?>(null)
+    private val lastCrashLogState = mutableStateOf<String?>(null)
 
     private val pickAlbumMediaLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         val albumName = targetAlbumForMediaState.value
@@ -471,6 +478,23 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val crashFile = File(filesDir, "last_crash.txt")
+        if (crashFile.exists()) {
+            val savedCrash = try { crashFile.readText().takeIf { it.isNotBlank() } } catch (_: Exception) { null }
+            if (savedCrash != null) {
+                lastCrashLogState.value = savedCrash
+            } else {
+                try { crashFile.delete() } catch (_: Exception) {}
+            }
+        }
+        val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                val trace = "Thread: ${thread.name}\n${Log.getStackTraceString(throwable)}"
+                crashFile.writeText(trace.take(8000))
+            } catch (_: Throwable) {}
+            previousHandler?.uncaughtException(thread, throwable)
+        }
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
@@ -523,44 +547,49 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 key3 = albumCollectionsVersion
             ) {
                 value = withContext(Dispatchers.IO) {
-                    val all = libraryRepo.getAllTracks()
-                    val recent = libraryRepo.getRecentlyPlayed().take(20)
-                    val most = libraryRepo.getMostPlayed().take(60)
-                    val userPls = libraryRepo.getUserPlaylists()
-                    val homePls = userPls.map { pl ->
-                        HomePlaylist(
-                            id = pl.id,
-                            name = pl.name,
-                            countText = formatTracksCount(this@MainActivity, pl.trackCount),
-                            coverTrack = libraryRepo.getTracksForUserPlaylist(pl.id).firstOrNull(),
-                            coverPath = pl.coverPath
+                    try {
+                        val all = libraryRepo.getAllTracks()
+                        val recent = libraryRepo.getRecentlyPlayed().take(20)
+                        val most = libraryRepo.getMostPlayed().take(60)
+                        val userPls = libraryRepo.getUserPlaylists()
+                        val homePls = userPls.map { pl ->
+                            HomePlaylist(
+                                id = pl.id,
+                                name = pl.name,
+                                countText = formatTracksCount(this@MainActivity, pl.trackCount),
+                                coverTrack = libraryRepo.getTracksForUserPlaylist(pl.id).firstOrNull(),
+                                coverPath = pl.coverPath
+                            )
+                        }
+                        val albumCols = libraryRepo.getAlbumCollections()
+                        val recentItems = libraryRepo.getRecentLibraryItems(12)
+                        val counts = mapOf(
+                            LibraryCategory.ALL_SONGS to all.size,
+                            LibraryCategory.ALBUMS to all.map { it.album }.filter { it.isNotBlank() }.distinct().size,
+                            LibraryCategory.ARTISTS to all.map { it.artist }.filter { it.isNotBlank() }.distinct().size,
+                            LibraryCategory.ALBUM_ARTISTS to all.map { it.albumArtist.ifBlank { it.artist } }.filter { it.isNotBlank() }.distinct().size,
+                            LibraryCategory.GENRES to all.map { it.genre }.filter { it.isNotBlank() }.distinct().size,
+                            LibraryCategory.YEARS to all.map { it.year }.filter { it > 0 }.distinct().size,
+                            LibraryCategory.COMPOSERS to all.map { it.composer }.filter { it.isNotBlank() }.distinct().size,
+                            LibraryCategory.FOLDERS to all.map { it.folder }.filter { it.isNotBlank() }.distinct().size,
+                            LibraryCategory.PLAYLISTS to userPls.size
                         )
+                        val albumCovers = all.groupBy { it.album.lowercase() }.mapValues { it.value.firstOrNull() }
+                        HomeSnapshot(
+                            allTracks = all,
+                            recentlyPlayed = recent,
+                            mostPlayed = most,
+                            userPlaylists = userPls,
+                            playlists = homePls,
+                            albumCollections = albumCols,
+                            recentLibraryItems = recentItems,
+                            categoryCounts = counts,
+                            albumCoverMap = albumCovers
+                        )
+                    } catch (t: Throwable) {
+                        Log.e("MainActivity", "Erro ao montar HomeSnapshot", t)
+                        value
                     }
-                    val albumCols = libraryRepo.getAlbumCollections()
-                    val recentItems = libraryRepo.getRecentLibraryItems(12)
-                    val counts = mapOf(
-                        LibraryCategory.ALL_SONGS to all.size,
-                        LibraryCategory.ALBUMS to all.map { it.album }.filter { it.isNotBlank() }.distinct().size,
-                        LibraryCategory.ARTISTS to all.map { it.artist }.filter { it.isNotBlank() }.distinct().size,
-                        LibraryCategory.ALBUM_ARTISTS to all.map { it.albumArtist.ifBlank { it.artist } }.filter { it.isNotBlank() }.distinct().size,
-                        LibraryCategory.GENRES to all.map { it.genre }.filter { it.isNotBlank() }.distinct().size,
-                        LibraryCategory.YEARS to all.map { it.year }.filter { it > 0 }.distinct().size,
-                        LibraryCategory.COMPOSERS to all.map { it.composer }.filter { it.isNotBlank() }.distinct().size,
-                        LibraryCategory.FOLDERS to all.map { it.folder }.filter { it.isNotBlank() }.distinct().size,
-                        LibraryCategory.PLAYLISTS to userPls.size
-                    )
-                    val albumCovers = all.groupBy { it.album.lowercase() }.mapValues { it.value.firstOrNull() }
-                    HomeSnapshot(
-                        allTracks = all,
-                        recentlyPlayed = recent,
-                        mostPlayed = most,
-                        userPlaylists = userPls,
-                        playlists = homePls,
-                        albumCollections = albumCols,
-                        recentLibraryItems = recentItems,
-                        categoryCounts = counts,
-                        albumCoverMap = albumCovers
-                    )
                 }
             }
             val artistMediaMap by produceState<Map<String, Pair<String, Boolean>>>(
@@ -568,7 +597,11 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 key1 = artistMediaVersion
             ) {
                 value = withContext(Dispatchers.IO) {
-                    libraryRepo.getAllArtistMedia()
+                    try {
+                        libraryRepo.getAllArtistMedia()
+                    } catch (_: Throwable) {
+                        value
+                    }
                 }
             }
             val albumMediaVersion by albumMediaVersionState
@@ -577,7 +610,11 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 key1 = albumMediaVersion
             ) {
                 value = withContext(Dispatchers.IO) {
-                    libraryRepo.getAllAlbumMeta()
+                    try {
+                        libraryRepo.getAllAlbumMeta()
+                    } catch (_: Throwable) {
+                        value
+                    }
                 }
             }
 
@@ -2414,6 +2451,51 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             }
         }
             }
+
+        lastCrashLogState.value?.let { crashText ->
+            AuroOverlay(
+                visible = true,
+                onDismiss = {
+                    lastCrashLogState.value = null
+                    try { File(filesDir, "last_crash.txt").delete() } catch (_: Exception) {}
+                },
+                type = AuroOverlayType.Dialog
+            ) {
+                AuroDialogContainer(
+                    title = stringResource(R.string.crash_dialog_title),
+                    onDismiss = {
+                        lastCrashLogState.value = null
+                        try { File(filesDir, "last_crash.txt").delete() } catch (_: Exception) {}
+                    },
+                    actions = {
+                        AuroDialogTextButton(
+                            text = stringResource(R.string.crash_dialog_copy),
+                            onClick = {
+                                val cm = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                cm?.setPrimaryClip(ClipData.newPlainText("AuroCrashLog", crashText))
+                                snackbarState.show(getString(R.string.crash_dialog_copied))
+                            }
+                        )
+                        AuroDialogTextButton(
+                            text = stringResource(R.string.crash_dialog_close),
+                            onClick = {
+                                lastCrashLogState.value = null
+                                try { File(filesDir, "last_crash.txt").delete() } catch (_: Exception) {}
+                            }
+                        )
+                    }
+                ) {
+                    Text(
+                        text = crashText,
+                        style = AuroType.Caption.copy(color = AuroColor.TextSecondary, fontSize = 11.sp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 260.dp)
+                            .verticalScroll(rememberScrollState())
+                    )
+                }
+            }
+        }
         }
     }
 }

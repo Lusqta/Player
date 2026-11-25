@@ -468,4 +468,8 @@
     <string name="home_customize_reset">Reset to default</string>
     <string name="home_section_quick_mixes">Quick Mixes</string>
     <string name="home_section_playlists">Collections (Playlists)</string>
+    <string name="crash_dialog_title">Previous crash detected</string>
+    <string name="crash_dialog_copy">Copy log</string>
+    <string name="crash_dialog_copied">Log copied</string>
+    <string name="crash_dialog_close">Close</string>
 </resources>

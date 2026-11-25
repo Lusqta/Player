@@ -469,4 +469,8 @@
     <string name="home_customize_reset">Restaurar padrão</string>
     <string name="home_section_quick_mixes">Mixes Rápidos</string>
     <string name="home_section_playlists">Coleções (Playlists)</string>
+    <string name="crash_dialog_title">Erro anterior detectado</string>
+    <string name="crash_dialog_copy">Copiar log</string>
+    <string name="crash_dialog_copied">Log copiado</string>
+    <string name="crash_dialog_close">Fechar</string>
 </resources>

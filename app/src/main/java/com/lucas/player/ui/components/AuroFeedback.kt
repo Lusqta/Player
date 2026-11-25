@@ -377,7 +377,8 @@ fun AuroLoadingBar(
             .fillMaxWidth()
             .height(2.dp)
             .drawBehind {
-                val barWidth = size.width * 0.3f
+                if (size.width <= 0f || size.height <= 0f) return@drawBehind
+                val barWidth = (size.width * 0.3f).coerceAtLeast(1f)
                 val startX = (progress * size.width) - (barWidth / 2f)
                 val endX = startX + barWidth
 
@@ -389,20 +390,26 @@ fun AuroLoadingBar(
                     strokeWidth = size.height
                 )
 
-                // Trecho deslizante de luz (30% da largura)
-                drawRect(
-                    brush = Brush.horizontalGradient(
-                        colors = listOf(
-                            Color.Transparent,
-                            Color.White.copy(alpha = 0.5f),
-                            Color.White,
-                            Color.White.copy(alpha = 0.5f),
-                            Color.Transparent
+                // Trecho deslizante de luz (30% da largura) com limites seguros
+                val visibleStart = startX.coerceIn(0f, size.width)
+                val visibleEnd = endX.coerceIn(0f, size.width)
+                if (visibleEnd > visibleStart) {
+                    drawRect(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.White.copy(alpha = 0.5f),
+                                Color.White,
+                                Color.White.copy(alpha = 0.5f),
+                                Color.Transparent
+                            ),
+                            startX = startX,
+                            endX = endX
                         ),
-                        startX = startX.coerceAtLeast(0f),
-                        endX = endX.coerceAtMost(size.width)
+                        topLeft = Offset(visibleStart, 0f),
+                        size = androidx.compose.ui.geometry.Size(visibleEnd - visibleStart, size.height)
                     )
-                )
+                }
             }
     )
 }

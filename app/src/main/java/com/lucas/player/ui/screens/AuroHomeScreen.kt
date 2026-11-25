@@ -167,52 +167,59 @@ fun AuroHomeScreen(
                 key2 = mostPlayed
             ) {
                 value = withContext(Dispatchers.IO) {
-                    val map = mutableMapOf<String, MutableList<Track>>()
-                    val casingMap = mutableMapOf<String, String>()
+                    try {
+                        val map = mutableMapOf<String, MutableList<Track>>()
+                        val casingMap = mutableMapOf<String, String>()
 
-                    for (track in cleanTracks) {
-                        val artistsList = splitArtists(track.artist)
-                        for (artist in artistsList) {
-                            val key = artist.lowercase().trim()
-                            if (key.isEmpty() || !isValidHighlightName(artist)) continue
-                            map.getOrPut(key) { mutableListOf() }.add(track)
-                            if (!casingMap.containsKey(key)) {
-                                casingMap[key] = artist.trim()
+                        for (track in cleanTracks) {
+                            val artistsList = splitArtists(track.artist)
+                            for (artist in artistsList) {
+                                val key = artist.lowercase().trim()
+                                if (key.isEmpty() || !isValidHighlightName(artist)) continue
+                                map.getOrPut(key) { mutableListOf() }.add(track)
+                                if (!casingMap.containsKey(key)) {
+                                    casingMap[key] = artist.trim()
+                                }
                             }
                         }
-                    }
 
-                    val artists = map.map { (key, tracks) ->
-                        val displayName = casingMap[key] ?: key
-                        val totalPlays = tracks.sumOf { it.playCount }
-                        val hasPrimaryTrack = tracks.any { isPrimaryArtistTrack(it, displayName) }
-                        val coverTrack = if (hasPrimaryTrack) {
-                            libraryRepository.resolveArtistFallbackCoverTrack(displayName)
-                                ?: tracks.maxByOrNull { it.playCount }
-                                ?: tracks.firstOrNull()
+                        val artists = map.entries
+                            .map { (key, tracks) ->
+                                val displayName = casingMap[key] ?: key
+                                val totalPlays = tracks.sumOf { it.playCount }
+                                Triple(displayName, tracks, totalPlays)
+                            }
+                            .sortedByDescending { it.third }
+                            .take(12)
+                            .map { (displayName, tracks, _) ->
+                                val hasPrimaryTrack = tracks.any { isPrimaryArtistTrack(it, displayName) }
+                                val coverTrack = if (hasPrimaryTrack) {
+                                    libraryRepository.resolveArtistFallbackCoverTrack(displayName)
+                                        ?: tracks.maxByOrNull { it.playCount }
+                                        ?: tracks.firstOrNull()
+                                } else {
+                                    null
+                                }
+                                Pair(displayName, coverTrack)
+                            }
+
+                        val sourceTracks = if (mostPlayed.isNotEmpty()) {
+                            val cleanMostPlayed = mostPlayed.filterNot { isJunkAudio(it) }
+                            if (cleanMostPlayed.isNotEmpty()) cleanMostPlayed else cleanTracks
                         } else {
-                            null
+                            cleanTracks
                         }
-                        Triple(displayName, coverTrack, totalPlays)
-                    }
-                        .sortedByDescending { it.third }
-                        .take(12)
-                        .map { Pair(it.first, it.second) }
+                        val albums = sourceTracks.filter { isValidHighlightName(it.album) }
+                            .groupBy { it.album.trim().lowercase() }
+                            .values
+                            .sortedByDescending { group -> group.sumOf { it.playCount } }
+                            .map { group -> group.maxByOrNull { it.playCount } ?: group.first() }
+                            .take(10)
 
-                    val sourceTracks = if (mostPlayed.isNotEmpty()) {
-                        val cleanMostPlayed = mostPlayed.filterNot { isJunkAudio(it) }
-                        if (cleanMostPlayed.isNotEmpty()) cleanMostPlayed else cleanTracks
-                    } else {
-                        cleanTracks
+                        HomeComputedData(artistEntries = artists, topAlbums = albums)
+                    } catch (_: Throwable) {
+                        value
                     }
-                    val albums = sourceTracks.filter { isValidHighlightName(it.album) }
-                        .groupBy { it.album.trim() }
-                        .values
-                        .sortedByDescending { group -> group.sumOf { it.playCount } }
-                        .map { group -> group.maxByOrNull { it.playCount } ?: group.first() }
-                        .take(10)
-
-                    HomeComputedData(artistEntries = artists, topAlbums = albums)
                 }
             }
             val artistEntries = computedData.artistEntries
@@ -336,7 +343,7 @@ fun AuroHomeScreen(
                                             contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
                                             horizontalArrangement = Arrangement.spacedBy(14.dp)
                                         ) {
-                                            items(topAlbums, key = { it.album }) { t ->
+                                            items(topAlbums, key = { it.album.trim().lowercase() }) { t ->
                                                 val albumMeta = albumMetaMap[t.album.trim().lowercase()]
                                                 WideAlbumCard(
                                                     coverTrack = t,
@@ -403,7 +410,7 @@ fun AuroHomeScreen(
                                             contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
                                             horizontalArrangement = Arrangement.spacedBy(14.dp)
                                         ) {
-                                            items(artistEntries, key = { it.first }) { (artistName, artistTrack) ->
+                                            items(artistEntries, key = { it.first.trim().lowercase() }) { (artistName, artistTrack) ->
                                                 val media = artistMediaMap[artistName.trim().lowercase()]
 
                                                 Column(

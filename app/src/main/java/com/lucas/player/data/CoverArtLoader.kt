@@ -496,26 +496,31 @@ object CoverArtLoader {
         val resolver: ContentResolver = context.contentResolver
 
         // Method A: Embedded ID3 APIC / FLAC Picture extraction via MediaMetadataRetriever (Primary for SAF URIs)
+        val mmr = MediaMetadataRetriever()
         try {
-            val mmr = MediaMetadataRetriever()
             mmr.setDataSource(context, uri)
             val picture = mmr.embeddedPicture
-            mmr.release()
 
-            if (picture != null) {
+            if (picture != null && picture.isNotEmpty()) {
                 val options = BitmapFactory.Options().apply {
                     inJustDecodeBounds = true
                 }
                 BitmapFactory.decodeByteArray(picture, 0, picture.size, options)
+                if (options.outWidth > 0 && options.outHeight > 0) {
+                    val reqSize = (targetSizeDp * context.resources.displayMetrics.density).toInt().coerceAtLeast(128)
+                    options.inSampleSize = calculateInSampleSize(options, reqSize, reqSize)
+                    options.inJustDecodeBounds = false
+                    options.inPreferredConfig = Bitmap.Config.RGB_565 // Half memory footprint
 
-                val reqSize = (targetSizeDp * context.resources.displayMetrics.density).toInt().coerceAtLeast(128)
-                options.inSampleSize = calculateInSampleSize(options, reqSize, reqSize)
-                options.inJustDecodeBounds = false
-                options.inPreferredConfig = Bitmap.Config.RGB_565 // Half memory footprint
-
-                return BitmapFactory.decodeByteArray(picture, 0, picture.size, options)
+                    return BitmapFactory.decodeByteArray(picture, 0, picture.size, options)
+                }
             }
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {
+        } finally {
+            try {
+                mmr.release()
+            } catch (_: Throwable) {}
+        }
 
         // Method B: ContentResolver thumbnail pipeline (Fallback)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -523,7 +528,7 @@ object CoverArtLoader {
                 val px = (targetSizeDp * context.resources.displayMetrics.density).toInt().coerceAtLeast(128)
                 val thumb = resolver.loadThumbnail(uri, Size(px, px), null)
                 if (thumb != null) return thumb
-            } catch (_: Exception) {}
+            } catch (_: Throwable) {}
         }
 
         return null
