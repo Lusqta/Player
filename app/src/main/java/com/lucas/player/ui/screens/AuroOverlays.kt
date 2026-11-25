@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import com.lucas.player.BuildConfig
 import com.lucas.player.R
 import com.lucas.player.data.LyricsManager
+import com.lucas.player.model.AlbumCollection
 import com.lucas.player.model.SortMode
 import com.lucas.player.model.Track
 import com.lucas.player.model.UserPlaylist
@@ -1545,11 +1546,200 @@ private fun AuroInfoRow(label: String, value: String) {
         verticalAlignment = Alignment.Top
     ) {
         Text(text = label, style = AuroType.Label.copy(color = AuroColor.TextSecondary), modifier = Modifier.width(130.dp))
-        Text(
+    Text(
             text = value,
             style = AuroType.Body.copy(color = AuroColor.TextPrimary),
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.End
         )
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 11. DIÁLOGOS DE COLEÇÕES DE ÁLBUNS (Fase 4B)
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+fun AuroCreateAlbumCollectionDialog(
+    onCreate: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name by remember { mutableStateOf("") }
+
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.Dialog
+    ) {
+        AuroDialogContainer(
+            title = stringResource(R.string.album_collection_create_title),
+            onDismiss = onDismiss,
+            actions = {
+                AuroDialogTextButton(
+                    text = stringResource(R.string.cancel),
+                    onClick = onDismiss
+                )
+                AuroDialogTextButton(
+                    text = stringResource(R.string.create),
+                    onClick = {
+                        if (name.isNotBlank()) {
+                            onCreate(name.trim())
+                        }
+                    }
+                )
+            }
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(AuroHeight.DialogInputField)
+                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                if (name.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.album_collection_name_hint),
+                        style = AuroType.Body.copy(color = AuroColor.TextTertiary)
+                    )
+                }
+                BasicTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    singleLine = true,
+                    textStyle = AuroType.Body.copy(color = AuroColor.TextPrimary),
+                    cursorBrush = SolidColor(Color.White),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AuroAddAlbumToCollectionDialog(
+    albumName: String,
+    collections: List<AlbumCollection>,
+    onCreateCollection: (String) -> Unit,
+    onSelectCollection: (AlbumCollection) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val view = LocalView.current
+    var isCreatingNew by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf("") }
+
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.Dialog
+    ) {
+        AuroDialogContainer(
+            title = stringResource(R.string.album_add_to_collection),
+            subtitle = albumName,
+            onDismiss = onDismiss
+        ) {
+            if (isCreatingNew) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(AuroHeight.DialogInputField)
+                            .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 14.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (newName.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.album_collection_name_hint),
+                                style = AuroType.Body.copy(color = AuroColor.TextTertiary)
+                            )
+                        }
+                        BasicTextField(
+                            value = newName,
+                            onValueChange = { newName = it },
+                            singleLine = true,
+                            textStyle = AuroType.Body.copy(color = AuroColor.TextPrimary),
+                            cursorBrush = SolidColor(Color.White),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        AuroDialogTextButton(
+                            text = stringResource(R.string.cancel),
+                            onClick = { isCreatingNew = false }
+                        )
+                        AuroDialogTextButton(
+                            text = stringResource(R.string.create),
+                            onClick = {
+                                if (newName.isNotBlank()) {
+                                    onCreateCollection(newName.trim())
+                                    isCreatingNew = false
+                                }
+                            }
+                        )
+                    }
+                }
+            } else {
+                AuroDialogOption(
+                    icon = Icons.Outlined.Add,
+                    title = stringResource(R.string.album_collection_new),
+                    onClick = {
+                        AuroHaptics.click(view)
+                        isCreatingNew = true
+                    }
+                )
+
+                HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp, modifier = Modifier.padding(vertical = 8.dp))
+
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 240.dp)
+                ) {
+                    items(collections, key = { it.id }) { col ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(AuroHeight.DialogOption)
+                                .clickable {
+                                    AuroHaptics.click(view)
+                                    onSelectCollection(col)
+                                    onDismiss()
+                                }
+                                .padding(horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Album,
+                                contentDescription = null,
+                                tint = AuroColor.TextSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Text(
+                                text = col.name,
+                                style = AuroType.Body,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = formatAlbumsCount(col.albumCount),
+                                style = AuroType.Caption.copy(
+                                    color = AuroColor.TextSecondary,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontFeatureSettings = "tnum"
+                                )
+                            )
+                        }
+                        HorizontalDivider(color = AuroColor.Hairline, thickness = 1.dp)
+                    }
+                }
+            }
+        }
     }
 }

@@ -444,4 +444,29 @@
     <string name="album_notes_placeholder">Toque para anotar algo sobre este álbum</string>
     <string name="album_notes_hint">Escreva suas anotações sobre este álbum...</string>
     <string name="album_notes_saved">Anotações salvas</string>
+
+    <!-- Fase 4B: Coleções de Álbuns & Início Personalizável -->
+    <string name="albums_count_zero">0 álbuns</string>
+    <string name="home_album_collections">Coleções de Álbuns</string>
+    <string name="album_collection_new">Nova coleção</string>
+    <string name="album_collection_create_title">Nova coleção de álbuns</string>
+    <string name="album_collection_name_hint">Nome da coleção...</string>
+    <string name="album_collection_created">Coleção de álbuns criada</string>
+    <string name="album_collection_rename">Renomear</string>
+    <string name="album_collection_rename_title">Renomear coleção</string>
+    <string name="album_collection_delete">Excluir</string>
+    <string name="album_collection_delete_confirm">Excluir esta coleção de álbuns? As músicas e os álbuns não serão apagados.</string>
+    <string name="album_collection_deleted">Coleção excluída</string>
+    <string name="album_collection_add_albums">Adicionar álbuns</string>
+    <string name="album_collection_add_selected">Adicionar (%d)</string>
+    <string name="album_collection_search_albums">Buscar álbuns...</string>
+    <string name="album_collection_empty_title">Nenhum álbum nesta coleção</string>
+    <string name="album_collection_empty_message">Adicione álbuns da sua biblioteca para ouvi-los em sequência.</string>
+    <string name="album_add_to_collection">Adicionar à coleção de álbuns</string>
+    <string name="album_added_to_collection">Álbum adicionado à coleção %s</string>
+    <string name="album_collection_subtitle">Coleção de álbuns</string>
+    <string name="home_customize_title">Personalizar Início</string>
+    <string name="home_customize_reset">Restaurar padrão</string>
+    <string name="home_section_quick_mixes">Mixes Rápidos</string>
+    <string name="home_section_playlists">Coleções (Playlists)</string>
 </resources>

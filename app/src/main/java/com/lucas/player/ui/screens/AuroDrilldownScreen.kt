@@ -105,7 +105,8 @@ fun AuroDrilldownScreen(
     onDeletePlaylist: (() -> Unit)? = null,
     onChangeAlbumCover: (() -> Unit)? = null,
     onRemoveAlbumCover: (() -> Unit)? = null,
-    onSaveAlbumNotes: ((String) -> Unit)? = null
+    onSaveAlbumNotes: ((String) -> Unit)? = null,
+    onAddAlbumToCollection: (() -> Unit)? = null
 ) {
     val view = LocalView.current
     val bottomInset = LocalAuroBottomInset.current
@@ -721,6 +722,21 @@ fun AuroDrilldownScreen(
                                         showNotesDialog = true
                                     }
                                 )
+                                if (onAddAlbumToCollection != null) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = stringResource(R.string.album_add_to_collection),
+                                                style = AuroType.Body,
+                                                color = AuroColor.TextPrimary
+                                            )
+                                        },
+                                        onClick = {
+                                            showMenu = false
+                                            onAddAlbumToCollection()
+                                        }
+                                    )
+                                }
                             }
                         }
                     }

@@ -24,6 +24,7 @@ sealed class NavScreen {
     data class ArtistProfile(val artistName: String) : NavScreen()
     data class ArtistTracks(val artistName: String) : NavScreen()
     data class ArtistDiscography(val artistName: String) : NavScreen()
+    data class AlbumCollectionDetail(val collectionId: Long) : NavScreen()
     object Equalizer : NavScreen()
     object Search : NavScreen()
     object Queue : NavScreen()
@@ -97,6 +98,7 @@ class PlayerNavController(initialScreen: NavScreen = NavScreen.Home) {
             is NavScreen.ArtistProfile,
             is NavScreen.ArtistTracks,
             is NavScreen.ArtistDiscography,
+            is NavScreen.AlbumCollectionDetail,
             is NavScreen.MostPlayed -> {
                 navigateTo(NavScreen.LibraryRoot)
             }

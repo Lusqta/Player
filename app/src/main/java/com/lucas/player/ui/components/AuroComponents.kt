@@ -165,6 +165,12 @@ fun formatTracksCount(count: Int): String {
 }
 
 @Composable
+fun formatAlbumsCount(count: Int): String {
+    return if (count == 0) stringResource(R.string.albums_count_zero)
+    else pluralStringResource(R.plurals.albums_count, count, count)
+}
+
+@Composable
 fun ArtistAvatarImage(
     artistName: String,
     customMediaPath: String?,

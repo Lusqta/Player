@@ -443,4 +443,29 @@
     <string name="album_notes_placeholder">Tap to write notes about this album</string>
     <string name="album_notes_hint">Write your notes about this album...</string>
     <string name="album_notes_saved">Notes saved</string>
+
+    <!-- Phase 4B: Album Collections & Customizable Home -->
+    <string name="albums_count_zero">0 albums</string>
+    <string name="home_album_collections">Album Collections</string>
+    <string name="album_collection_new">New collection</string>
+    <string name="album_collection_create_title">New album collection</string>
+    <string name="album_collection_name_hint">Collection name...</string>
+    <string name="album_collection_created">Album collection created</string>
+    <string name="album_collection_rename">Rename</string>
+    <string name="album_collection_rename_title">Rename collection</string>
+    <string name="album_collection_delete">Delete</string>
+    <string name="album_collection_delete_confirm">Delete this album collection? Your albums and songs will not be deleted.</string>
+    <string name="album_collection_deleted">Collection deleted</string>
+    <string name="album_collection_add_albums">Add albums</string>
+    <string name="album_collection_add_selected">Add (%d)</string>
+    <string name="album_collection_search_albums">Search albums...</string>
+    <string name="album_collection_empty_title">No albums in this collection</string>
+    <string name="album_collection_empty_message">Add albums from your library to play them in sequence.</string>
+    <string name="album_add_to_collection">Add to album collection</string>
+    <string name="album_added_to_collection">Album added to %s</string>
+    <string name="album_collection_subtitle">Album collection</string>
+    <string name="home_customize_title">Customize Home</string>
+    <string name="home_customize_reset">Reset to default</string>
+    <string name="home_section_quick_mixes">Quick Mixes</string>
+    <string name="home_section_playlists">Collections (Playlists)</string>
 </resources>

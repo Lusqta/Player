@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
 import android.provider.DocumentsContract
+import com.lucas.player.model.HomeSectionId
 
 class PreferencesManager(context: Context) {
 
@@ -353,7 +354,45 @@ class PreferencesManager(context: Context) {
         prefs.edit().putBoolean(KEY_REQUESTED_AUDIO_PERM, requested).apply()
     }
 
+    // --- Personalização do Início (Ordem & Visibilidade das Seções) ---
+
+    fun getHomeSectionOrder(): List<HomeSectionId> {
+        return normalizeHomeSectionOrder(prefs.getString(KEY_HOME_SECTION_ORDER, null))
+    }
+
+    fun saveHomeSectionOrder(order: List<HomeSectionId>) {
+        val normalized = normalizeHomeSectionOrder(order.joinToString(",") { it.name })
+        prefs.edit().putString(KEY_HOME_SECTION_ORDER, normalized.joinToString(",") { it.name }).apply()
+    }
+
+    fun getHiddenHomeSections(): Set<HomeSectionId> {
+        val rawSet = prefs.getStringSet(KEY_HOME_HIDDEN_SECTIONS, null) ?: return emptySet()
+        return parseHiddenHomeSections(rawSet)
+    }
+
+    fun saveHiddenHomeSections(hidden: Set<HomeSectionId>) {
+        prefs.edit().putStringSet(KEY_HOME_HIDDEN_SECTIONS, hidden.map { it.name }.toSet()).apply()
+    }
+
     companion object {
+        fun normalizeHomeSectionOrder(raw: String?): List<HomeSectionId> {
+            val defaults = HomeSectionId.entries
+            if (raw.isNullOrBlank()) return defaults
+            val parsed = raw.split(",")
+                .mapNotNull { token ->
+                    val clean = token.trim()
+                    HomeSectionId.entries.firstOrNull { it.name == clean }
+                }
+                .distinct()
+            return parsed + defaults.filterNot { it in parsed }
+        }
+
+        fun parseHiddenHomeSections(tokens: Set<String>): Set<HomeSectionId> {
+            return tokens.mapNotNull { token ->
+                val clean = token.trim()
+                HomeSectionId.entries.firstOrNull { it.name == clean }
+            }.toSet()
+        }
         fun formatFolderName(uriString: String): String {
             return try {
                 val uri = Uri.parse(uriString)
@@ -408,5 +447,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_IGNORE_SHORTER_THAN_SEC = "ignore_shorter_than_sec"
         private const val KEY_GAPLESS_ENABLED = "gapless_enabled"
         private const val KEY_RESUME_PLAYBACK = "resume_playback"
+        private const val KEY_HOME_SECTION_ORDER = "home_section_order"
+        private const val KEY_HOME_HIDDEN_SECTIONS = "home_hidden_sections"
     }
 }

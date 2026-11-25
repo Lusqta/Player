@@ -67,6 +67,13 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         val notes: String = ""
     )
 
+    data class AlbumCollectionRow(
+        val id: Long,
+        val name: String,
+        val createdMs: Long,
+        val albumCount: Int = 0
+    )
+
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             """
@@ -108,6 +115,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         createArtistMediaTable(db)
         createPlayEventsTable(db)
         createAlbumMetaTable(db)
+        createAlbumCollectionsTables(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -139,6 +147,31 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         if (oldVersion < 9) {
             createAlbumMetaTable(db)
         }
+        if (oldVersion < 10) {
+            createAlbumCollectionsTables(db)
+        }
+    }
+
+    private fun createAlbumCollectionsTables(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_ALBUM_COLLECTIONS (
+                $COL_AC_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COL_AC_NAME TEXT NOT NULL,
+                $COL_AC_CREATED INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_ALBUM_COLLECTION_ITEMS (
+                $COL_ACI_COLLECTION_ID INTEGER NOT NULL,
+                $COL_ACI_ALBUM_NAME TEXT NOT NULL,
+                $COL_ACI_SORT_ORDER INTEGER NOT NULL,
+                PRIMARY KEY ($COL_ACI_COLLECTION_ID, $COL_ACI_ALBUM_NAME)
+            )
+            """.trimIndent()
+        )
     }
 
     private fun createAlbumMetaTable(db: SQLiteDatabase) {
@@ -911,9 +944,179 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         return result
     }
 
+    // --- Coleções de Álbuns ---
+
+    fun createAlbumCollection(name: String): Long {
+        val db = writableDatabase
+        val values = ContentValues().apply {
+            put(COL_AC_NAME, name.trim())
+            put(COL_AC_CREATED, System.currentTimeMillis())
+        }
+        return db.insert(TABLE_ALBUM_COLLECTIONS, null, values)
+    }
+
+    fun getAlbumCollections(): List<AlbumCollectionRow> {
+        val list = mutableListOf<AlbumCollectionRow>()
+        val db = readableDatabase
+        val query = """
+            SELECT c.$COL_AC_ID, c.$COL_AC_NAME, c.$COL_AC_CREATED, COUNT(i.$COL_ACI_ALBUM_NAME) AS album_count
+            FROM $TABLE_ALBUM_COLLECTIONS c
+            LEFT JOIN $TABLE_ALBUM_COLLECTION_ITEMS i ON c.$COL_AC_ID = i.$COL_ACI_COLLECTION_ID
+            GROUP BY c.$COL_AC_ID
+            ORDER BY c.$COL_AC_NAME COLLATE NOCASE ASC
+        """.trimIndent()
+
+        try {
+            db.rawQuery(query, null).use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(COL_AC_ID)
+                val nameCol = cursor.getColumnIndexOrThrow(COL_AC_NAME)
+                val crCol = cursor.getColumnIndexOrThrow(COL_AC_CREATED)
+                val cntCol = cursor.getColumnIndexOrThrow("album_count")
+                while (cursor.moveToNext()) {
+                    list.add(
+                        AlbumCollectionRow(
+                            id = cursor.getLong(idCol),
+                            name = cursor.getString(nameCol),
+                            createdMs = cursor.getLong(crCol),
+                            albumCount = cursor.getInt(cntCol)
+                        )
+                    )
+                }
+            }
+        } catch (_: Exception) {}
+        return list
+    }
+
+    fun renameAlbumCollection(collectionId: Long, newName: String) {
+        val values = ContentValues().apply {
+            put(COL_AC_NAME, newName.trim())
+        }
+        try {
+            writableDatabase.update(TABLE_ALBUM_COLLECTIONS, values, "$COL_AC_ID = ?", arrayOf(collectionId.toString()))
+        } catch (_: Exception) {}
+    }
+
+    fun deleteAlbumCollection(collectionId: Long) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            db.delete(TABLE_ALBUM_COLLECTION_ITEMS, "$COL_ACI_COLLECTION_ID = ?", arrayOf(collectionId.toString()))
+            db.delete(TABLE_ALBUM_COLLECTIONS, "$COL_AC_ID = ?", arrayOf(collectionId.toString()))
+            db.setTransactionSuccessful()
+        } finally {
+            try {
+                db.endTransaction()
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun getAlbumsForCollection(collectionId: Long): List<String> {
+        val list = mutableListOf<String>()
+        val query = "SELECT $COL_ACI_ALBUM_NAME FROM $TABLE_ALBUM_COLLECTION_ITEMS WHERE $COL_ACI_COLLECTION_ID = ? ORDER BY $COL_ACI_SORT_ORDER ASC"
+        try {
+            readableDatabase.rawQuery(query, arrayOf(collectionId.toString())).use { cursor ->
+                val nameCol = cursor.getColumnIndexOrThrow(COL_ACI_ALBUM_NAME)
+                while (cursor.moveToNext()) {
+                    val albumName = cursor.getString(nameCol)
+                    if (!albumName.isNullOrBlank()) {
+                        list.add(albumName)
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return list
+    }
+
+    fun addAlbumsToCollection(collectionId: Long, albumNames: List<String>) {
+        if (albumNames.isEmpty()) return
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            val existingLower = mutableSetOf<String>()
+            var maxOrder = -1
+            val query = "SELECT $COL_ACI_ALBUM_NAME, $COL_ACI_SORT_ORDER FROM $TABLE_ALBUM_COLLECTION_ITEMS WHERE $COL_ACI_COLLECTION_ID = ? ORDER BY $COL_ACI_SORT_ORDER ASC"
+            db.rawQuery(query, arrayOf(collectionId.toString())).use { cursor ->
+                val nameCol = cursor.getColumnIndexOrThrow(COL_ACI_ALBUM_NAME)
+                val ordCol = cursor.getColumnIndexOrThrow(COL_ACI_SORT_ORDER)
+                while (cursor.moveToNext()) {
+                    val existingName = cursor.getString(nameCol)?.trim()?.lowercase()
+                    if (!existingName.isNullOrEmpty()) existingLower.add(existingName)
+                    val order = cursor.getInt(ordCol)
+                    if (order > maxOrder) maxOrder = order
+                }
+            }
+            var nextOrder = maxOrder + 1
+            for (rawName in albumNames) {
+                val trimmed = rawName.trim()
+                val key = trimmed.lowercase()
+                if (trimmed.isNotEmpty() && !existingLower.contains(key)) {
+                    val values = ContentValues().apply {
+                        put(COL_ACI_COLLECTION_ID, collectionId)
+                        put(COL_ACI_ALBUM_NAME, trimmed)
+                        put(COL_ACI_SORT_ORDER, nextOrder++)
+                    }
+                    db.insertWithOnConflict(TABLE_ALBUM_COLLECTION_ITEMS, null, values, SQLiteDatabase.CONFLICT_IGNORE)
+                    existingLower.add(key)
+                }
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            try {
+                db.endTransaction()
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun removeAlbumFromCollection(collectionId: Long, albumName: String) {
+        try {
+            writableDatabase.delete(
+                TABLE_ALBUM_COLLECTION_ITEMS,
+                "$COL_ACI_COLLECTION_ID = ? AND LOWER($COL_ACI_ALBUM_NAME) = LOWER(?)",
+                arrayOf(collectionId.toString(), albumName.trim())
+            )
+        } catch (_: Exception) {}
+    }
+
+    fun reorderCollectionAlbums(collectionId: Long, orderedAlbumNames: List<String>) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            db.delete(TABLE_ALBUM_COLLECTION_ITEMS, "$COL_ACI_COLLECTION_ID = ?", arrayOf(collectionId.toString()))
+            val seen = mutableSetOf<String>()
+            var order = 0
+            for (rawName in orderedAlbumNames) {
+                val trimmed = rawName.trim()
+                val key = trimmed.lowercase()
+                if (trimmed.isNotEmpty() && seen.add(key)) {
+                    val values = ContentValues().apply {
+                        put(COL_ACI_COLLECTION_ID, collectionId)
+                        put(COL_ACI_ALBUM_NAME, trimmed)
+                        put(COL_ACI_SORT_ORDER, order++)
+                    }
+                    db.insert(TABLE_ALBUM_COLLECTION_ITEMS, null, values)
+                }
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            try {
+                db.endTransaction()
+            } catch (_: Exception) {}
+        }
+    }
+
     companion object {
         const val DATABASE_NAME = "poweramp_library.db"
-        const val DATABASE_VERSION = 9
+        const val DATABASE_VERSION = 10
+
+        const val TABLE_ALBUM_COLLECTIONS = "album_collections"
+        const val COL_AC_ID = "id"
+        const val COL_AC_NAME = "name"
+        const val COL_AC_CREATED = "created_ms"
+
+        const val TABLE_ALBUM_COLLECTION_ITEMS = "album_collection_items"
+        const val COL_ACI_COLLECTION_ID = "collection_id"
+        const val COL_ACI_ALBUM_NAME = "album_name"
+        const val COL_ACI_SORT_ORDER = "sort_order"
 
         const val TABLE_ALBUM_META = "album_meta"
         const val COL_ALBUM_KEY = "album_key"

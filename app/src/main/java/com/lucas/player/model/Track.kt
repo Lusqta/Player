@@ -74,6 +74,22 @@ data class UserPlaylist(
     val coverPath: String = ""
 )
 
+data class AlbumCollection(
+    val id: Long,
+    val name: String,
+    val albumCount: Int,
+    val createdMs: Long,
+    val previewAlbumNames: List<String> = emptyList()
+)
+
+enum class HomeSectionId {
+    QUICK_MIXES,
+    TOP_ALBUMS,
+    ALBUM_COLLECTIONS,
+    ARTISTS,
+    PLAYLISTS
+}
+
 sealed class RecentLibraryItem {
     abstract val key: String
     abstract val title: String

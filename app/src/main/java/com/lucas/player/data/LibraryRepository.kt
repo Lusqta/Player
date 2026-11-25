@@ -848,6 +848,70 @@ class LibraryRepository() {
         return getOrCreateDb()?.getAllAlbumMeta() ?: emptyMap()
     }
 
+    // --- Coleções de Álbuns ---
+
+    fun createAlbumCollection(name: String): Long {
+        return getOrCreateDb()?.createAlbumCollection(name) ?: -1L
+    }
+
+    fun getAlbumCollections(): List<AlbumCollection> {
+        val db = getOrCreateDb() ?: return emptyList()
+        return db.getAlbumCollections().map { row ->
+            AlbumCollection(
+                id = row.id,
+                name = row.name,
+                albumCount = row.albumCount,
+                createdMs = row.createdMs,
+                previewAlbumNames = db.getAlbumsForCollection(row.id).take(4)
+            )
+        }
+    }
+
+    fun renameAlbumCollection(collectionId: Long, newName: String) {
+        getOrCreateDb()?.renameAlbumCollection(collectionId, newName)
+    }
+
+    fun deleteAlbumCollection(collectionId: Long) {
+        getOrCreateDb()?.deleteAlbumCollection(collectionId)
+    }
+
+    fun getAlbumsForCollection(collectionId: Long): List<String> {
+        return getOrCreateDb()?.getAlbumsForCollection(collectionId) ?: emptyList()
+    }
+
+    fun addAlbumsToCollection(collectionId: Long, albumNames: List<String>) {
+        getOrCreateDb()?.addAlbumsToCollection(collectionId, albumNames)
+    }
+
+    fun removeAlbumFromCollection(collectionId: Long, albumName: String) {
+        getOrCreateDb()?.removeAlbumFromCollection(collectionId, albumName)
+    }
+
+    fun reorderCollectionAlbums(collectionId: Long, orderedAlbumNames: List<String>) {
+        getOrCreateDb()?.reorderCollectionAlbums(collectionId, orderedAlbumNames)
+    }
+
+    fun getTracksForAlbumCollection(collectionId: Long): List<Track> {
+        val orderedAlbums = getAlbumsForCollection(collectionId)
+        if (orderedAlbums.isEmpty()) return emptyList()
+        return buildTracksForAlbumCollection(getAllTracks(), orderedAlbums)
+    }
+
+    internal fun buildTracksForAlbumCollection(
+        allTracks: List<Track>,
+        orderedAlbumNames: List<String>
+    ): List<Track> {
+        if (orderedAlbumNames.isEmpty() || allTracks.isEmpty()) return emptyList()
+        val tracksByAlbum = allTracks.groupBy { it.album.trim().lowercase() }
+        val result = mutableListOf<Track>()
+        for (albumName in orderedAlbumNames) {
+            val key = albumName.trim().lowercase()
+            val albumTracks = tracksByAlbum[key] ?: continue
+            result.addAll(applySorting(albumTracks, SortMode.TRACK_NUMBER))
+        }
+        return result
+    }
+
     // --- Ordenação Dinâmica ---
 
     fun applySorting(inputList: List<Track>, sortMode: SortMode): List<Track> {

@@ -89,6 +89,7 @@ private data class HomeSnapshot(
     val mostPlayed: List<Track> = emptyList(),
     val userPlaylists: List<UserPlaylist> = emptyList(),
     val playlists: List<HomePlaylist> = emptyList(),
+    val albumCollections: List<AlbumCollection> = emptyList(),
     val recentLibraryItems: List<RecentLibraryItem> = emptyList(),
     val categoryCounts: Map<LibraryCategory, Int> = emptyMap(),
     val albumCoverMap: Map<String, Track?> = emptyMap()
@@ -116,6 +117,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         is NavScreen.Queue,
         is NavScreen.Settings -> 2
         is NavScreen.Drilldown,
+        is NavScreen.AlbumCollectionDetail,
         is NavScreen.ArtistProfile -> 3
         is NavScreen.ArtistTracks,
         is NavScreen.ArtistDiscography -> 4
@@ -219,6 +221,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
     private val targetAlbumForMediaState = mutableStateOf<String?>(null)
     private val albumMediaVersionState = mutableIntStateOf(0)
+    private val albumCollectionsVersionState = mutableIntStateOf(0)
+    private val showCreateAlbumCollectionDialogState = mutableStateOf(false)
+    private val addAlbumToCollectionTargetState = mutableStateOf<String?>(null)
 
     private val pickAlbumMediaLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         val albumName = targetAlbumForMediaState.value
@@ -508,10 +513,14 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             val libraryVersion by libraryVersionState
             val plVersion by playlistsVersionState
             val artistMediaVersion by artistMediaVersionState
+            val albumCollectionsVersion by albumCollectionsVersionState
+            var homeSectionOrder by remember { mutableStateOf(preferencesManager.getHomeSectionOrder()) }
+            var hiddenHomeSections by remember { mutableStateOf(preferencesManager.getHiddenHomeSections()) }
             val homeSnapshot by produceState(
                 initialValue = HomeSnapshot(),
                 key1 = libraryVersion,
-                key2 = plVersion
+                key2 = plVersion,
+                key3 = albumCollectionsVersion
             ) {
                 value = withContext(Dispatchers.IO) {
                     val all = libraryRepo.getAllTracks()
@@ -527,6 +536,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             coverPath = pl.coverPath
                         )
                     }
+                    val albumCols = libraryRepo.getAlbumCollections()
                     val recentItems = libraryRepo.getRecentLibraryItems(12)
                     val counts = mapOf(
                         LibraryCategory.ALL_SONGS to all.size,
@@ -546,6 +556,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         mostPlayed = most,
                         userPlaylists = userPls,
                         playlists = homePls,
+                        albumCollections = albumCols,
                         recentLibraryItems = recentItems,
                         categoryCounts = counts,
                         albumCoverMap = albumCovers
@@ -628,7 +639,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         showAudioInfoState.value || showAboutState.value ||
                         showLyricsSheetState.value || showSavePresetDialogState.value ||
                         deletePlaylistTargetState.value != null || deletePresetTargetState.value != null ||
-                        showCreatePlaylistDialogState.value ||
+                        showCreatePlaylistDialogState.value || showCreateAlbumCollectionDialogState.value ||
+                        addAlbumToCollectionTargetState.value != null ||
                         editingPlaylistState.value != null || showPlaylistTrackPickerState.value != null ||
                         deletingPlaylistState.value != null ||
                         addToPlaylistDialogTrack.value != null || tracksToAddToPlaylistState.value.isNotEmpty() ||
@@ -640,6 +652,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         selectedTrackIdsState.clear()
                     }
                     showCreatePlaylistDialogState.value -> showCreatePlaylistDialogState.value = false
+                    showCreateAlbumCollectionDialogState.value -> showCreateAlbumCollectionDialogState.value = false
+                    addAlbumToCollectionTargetState.value != null -> addAlbumToCollectionTargetState.value = null
                     editingPlaylistState.value != null -> editingPlaylistState.value = null
                     showPlaylistTrackPickerState.value != null -> showPlaylistTrackPickerState.value = null
                     deletingPlaylistState.value != null -> deletingPlaylistState.value = null
@@ -967,6 +981,31 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     artistMediaMap = artistMediaMap,
                                     albumMetaMap = albumMetaMap,
                                     albumMediaVersion = albumMediaVersion,
+                                    albumCollections = homeSnapshot.albumCollections,
+                                    albumCoverMap = homeSnapshot.albumCoverMap,
+                                    onAlbumCollectionClick = { colId ->
+                                        navController.navigateTo(NavScreen.AlbumCollectionDetail(colId))
+                                    },
+                                    onCreateAlbumCollection = {
+                                        showCreateAlbumCollectionDialogState.value = true
+                                    },
+                                    homeSectionOrder = homeSectionOrder,
+                                    hiddenHomeSections = hiddenHomeSections,
+                                    onSaveHomeSectionOrder = { newOrder ->
+                                        homeSectionOrder = newOrder
+                                        preferencesManager.saveHomeSectionOrder(newOrder)
+                                    },
+                                    onSaveHiddenHomeSections = { newHidden ->
+                                        hiddenHomeSections = newHidden
+                                        preferencesManager.saveHiddenHomeSections(newHidden)
+                                    },
+                                    onResetHomeSections = {
+                                        val defaults = HomeSectionId.entries
+                                        homeSectionOrder = defaults
+                                        hiddenHomeSections = emptySet()
+                                        preferencesManager.saveHomeSectionOrder(defaults)
+                                        preferencesManager.saveHiddenHomeSections(emptySet())
+                                    },
                                     onAlbumClick = { albumName ->
                                         drillDownGroup(LibraryCategory.ALBUMS, albumName)
                                         navController.navigateTo(
@@ -1334,6 +1373,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                                 }
                                             }
                                         }
+                                    } else null,
+                                    onAddAlbumToCollection = if (activeScreen.category == LibraryCategory.ALBUMS) {
+                                        { addAlbumToCollectionTargetState.value = activeScreen.title }
                                     } else null,
                                     onAddTracksToPlaylist = if (activeScreen.category == LibraryCategory.PLAYLISTS && currentPlaylist != null) {
                                         { showPlaylistTrackPickerState.value = currentPlaylist }
@@ -1875,6 +1917,51 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     modifier = Modifier.fillMaxSize()
                                 )
                             }
+
+                            is NavScreen.AlbumCollectionDetail -> {
+                                AuroAlbumCollectionScreen(
+                                    collectionId = activeScreen.collectionId,
+                                    onBack = { navController.navigateUp() },
+                                    onAlbumClick = { albumName ->
+                                        drillDownGroup(LibraryCategory.ALBUMS, albumName)
+                                        navController.navigateTo(
+                                            NavScreen.Drilldown(
+                                                category = LibraryCategory.ALBUMS,
+                                                title = albumName,
+                                                subtitle = getString(R.string.group_subtitle_album)
+                                            )
+                                        )
+                                    },
+                                    onPlayAll = { tracks ->
+                                        if (tracks.isNotEmpty()) {
+                                            playbackService?.playQueue(tracks, 0)
+                                            navController.openNowPlaying()
+                                        }
+                                    },
+                                    onShuffleAll = { tracks ->
+                                        if (tracks.isNotEmpty()) {
+                                            playbackService?.queueManager?.setShuffleMode(ShuffleMode.ALL_TRACKS)
+                                            shuffleModeState.value = ShuffleMode.ALL_TRACKS
+                                            playbackService?.playQueue(tracks.shuffled(), 0)
+                                            navController.openNowPlaying()
+                                        }
+                                    },
+                                    onCollectionMutated = {
+                                        albumCollectionsVersionState.intValue++
+                                    },
+                                    onCollectionDeleted = {
+                                        albumCollectionsVersionState.intValue++
+                                        navController.navigateUp()
+                                        snackbarState.show(getString(R.string.album_collection_deleted))
+                                    },
+                                    libraryVersion = libraryVersion,
+                                    albumCollectionsVersion = albumCollectionsVersion,
+                                    albumMetaMap = albumMetaMap,
+                                    albumMediaVersion = albumMediaVersion,
+                                    libraryRepository = libraryRepo,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                         }
                     }
 
@@ -2044,6 +2131,56 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 showCreatePlaylistDialogState.value = false
                             },
                             onDismiss = { showCreatePlaylistDialogState.value = false }
+                        )
+                    }
+
+                    if (showCreateAlbumCollectionDialogState.value) {
+                        AuroCreateAlbumCollectionDialog(
+                            onCreate = { name ->
+                                showCreateAlbumCollectionDialogState.value = false
+                                lifecycleScope.launch(Dispatchers.IO) {
+                                    val newId = libraryRepo.createAlbumCollection(name)
+                                    if (newId > 0) {
+                                        withContext(Dispatchers.Main) {
+                                            albumCollectionsVersionState.intValue++
+                                            snackbarState.show(getString(R.string.album_collection_created))
+                                            navController.navigateTo(NavScreen.AlbumCollectionDetail(newId))
+                                        }
+                                    }
+                                }
+                            },
+                            onDismiss = { showCreateAlbumCollectionDialogState.value = false }
+                        )
+                    }
+
+                    addAlbumToCollectionTargetState.value?.let { targetAlbumName ->
+                        AuroAddAlbumToCollectionDialog(
+                            albumName = targetAlbumName,
+                            collections = homeSnapshot.albumCollections,
+                            onCreateCollection = { name ->
+                                addAlbumToCollectionTargetState.value = null
+                                lifecycleScope.launch(Dispatchers.IO) {
+                                    val newId = libraryRepo.createAlbumCollection(name)
+                                    if (newId > 0) {
+                                        libraryRepo.addAlbumsToCollection(newId, listOf(targetAlbumName))
+                                        withContext(Dispatchers.Main) {
+                                            albumCollectionsVersionState.intValue++
+                                            snackbarState.show(getString(R.string.album_added_to_collection, name))
+                                        }
+                                    }
+                                }
+                            },
+                            onSelectCollection = { col ->
+                                addAlbumToCollectionTargetState.value = null
+                                lifecycleScope.launch(Dispatchers.IO) {
+                                    libraryRepo.addAlbumsToCollection(col.id, listOf(targetAlbumName))
+                                    withContext(Dispatchers.Main) {
+                                        albumCollectionsVersionState.intValue++
+                                        snackbarState.show(getString(R.string.album_added_to_collection, col.name))
+                                    }
+                                }
+                            },
+                            onDismiss = { addAlbumToCollectionTargetState.value = null }
                         )
                     }
 
