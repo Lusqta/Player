@@ -24,6 +24,7 @@ import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.SearchOff
@@ -60,6 +61,7 @@ import com.lucas.player.ui.components.AuroEmptyState
 import com.lucas.player.ui.components.AuroHaptics
 import com.lucas.player.ui.components.AuroTopFade
 import com.lucas.player.ui.components.AuroTrackRow
+import com.lucas.player.ui.components.formatTracksCount
 import com.lucas.player.ui.theme.AuroColor
 import com.lucas.player.ui.theme.AuroGlass
 import com.lucas.player.ui.theme.AuroGlassKind
@@ -593,8 +595,8 @@ private fun SearchSectionHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (canViewAll) Modifier.clickable(onClick = onViewAll) else Modifier)
             .padding(horizontal = AuroSpace.ScreenMargin, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -605,23 +607,13 @@ private fun SearchSectionHeader(
             )
         )
         if (canViewAll) {
-            Box(
-                modifier = Modifier
-                    .height(24.dp)
-                    .clip(CircleShape)
-                    .background(AuroColor.PillMuted)
-                    .clickable(onClick = onViewAll)
-                    .padding(horizontal = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = stringResource(R.string.search_view_all),
-                    style = AuroType.MicroLabel.copy(
-                        fontSize = 11.sp,
-                        color = Color.White.copy(alpha = 0.75f)
-                    )
-                )
-            }
+            Spacer(modifier = Modifier.width(4.dp))
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = AuroColor.TextSecondary,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -655,7 +647,7 @@ private fun SearchAlbumRow(
             Spacer(modifier = Modifier.height(2.dp))
             val artistDisplay = formatArtistsDisplay(album.artist, stringResource(R.string.unknown_artist))
             Text(
-                text = "$artistDisplay • ${pluralStringResource(R.plurals.tracks_count, album.trackCount, album.trackCount)}",
+                text = "$artistDisplay • ${formatTracksCount(album.trackCount)}",
                 style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -698,7 +690,7 @@ private fun SearchArtistRow(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = pluralStringResource(R.plurals.tracks_count, artist.trackCount, artist.trackCount),
+                text = formatTracksCount(artist.trackCount),
                 style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

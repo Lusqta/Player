@@ -280,7 +280,7 @@
     <string name="tab_search">Search</string>
     <string name="tab_menu">Menu</string>
     <string name="tab_tune">Audio &amp; Settings</string>
-    <string name="home_greeting_recommended">Recommended\nFor You Today</string>
+    <string name="home_greeting_recommended">Home</string>
     <string name="home_mix_shuffle">Shuffle</string>
     <string name="home_mix_most_played">Most Played</string>
     <string name="home_mix_most_played_subtitle">Week · Month · Year</string>

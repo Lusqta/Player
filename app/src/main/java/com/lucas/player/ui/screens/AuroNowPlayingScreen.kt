@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -270,7 +271,7 @@ fun AuroNowPlayingScreen(
                                 scaleX = coverScale
                                 scaleY = coverScale
                             }
-                            .clip(RoundedCornerShape(28.dp))
+                            .clip(RectangleShape)
                             .pointerInput(Unit) {
                                 var dx = 0f
                                 var dy = 0f
@@ -307,7 +308,7 @@ fun AuroNowPlayingScreen(
                         } else {
                             AuroCoverPlaceholder(
                                 modifier = Modifier.fillMaxSize(),
-                                shape = RoundedCornerShape(28.dp)
+                                shape = RectangleShape
                             )
                         }
                     }
@@ -1375,7 +1376,7 @@ private fun ExpandedQueueSheetView(
                     Box(
                         modifier = Modifier
                             .size(44.dp)
-                            .clip(RoundedCornerShape(8.dp)),
+                            .clip(RectangleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         if (anchorCover != null) {
@@ -1389,7 +1390,7 @@ private fun ExpandedQueueSheetView(
                             AuroCoverPlaceholder(
                                 modifier = Modifier.fillMaxSize(),
                                 glass = false,
-                                shape = RoundedCornerShape(8.dp)
+                                shape = RectangleShape
                             )
                         }
                     }
@@ -1749,7 +1750,7 @@ private fun UpcomingTrackRow(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(RoundedCornerShape(6.dp)),
+                    .clip(RectangleShape),
                 contentAlignment = Alignment.Center
             ) {
                 if (coverBitmap != null) {
@@ -1763,7 +1764,7 @@ private fun UpcomingTrackRow(
                     AuroCoverPlaceholder(
                         modifier = Modifier.fillMaxSize(),
                         glass = false,
-                        shape = RoundedCornerShape(6.dp)
+                        shape = RectangleShape
                     )
                 }
             }
@@ -1841,7 +1842,7 @@ private fun HistoryTrackRow(
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .clip(RoundedCornerShape(6.dp)),
+                .clip(RectangleShape),
             contentAlignment = Alignment.Center
         ) {
             if (coverBitmap != null) {
@@ -1855,7 +1856,7 @@ private fun HistoryTrackRow(
                 AuroCoverPlaceholder(
                     modifier = Modifier.fillMaxSize(),
                     glass = false,
-                    shape = RoundedCornerShape(6.dp)
+                    shape = RectangleShape
                 )
             }
         }

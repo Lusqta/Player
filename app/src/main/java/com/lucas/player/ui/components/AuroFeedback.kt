@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
@@ -414,7 +415,7 @@ fun AuroLoadingBar(
 fun AuroCoverPlaceholder(
     modifier: Modifier = Modifier,
     glass: Boolean = false,
-    shape: Shape = RoundedCornerShape(AuroRadius.cover)
+    shape: Shape = RectangleShape
 ) {
     Box(
         modifier = modifier

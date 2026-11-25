@@ -20,6 +20,8 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,9 +32,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
@@ -52,6 +54,13 @@ import com.lucas.player.model.isPrimaryArtistTrack
 import com.lucas.player.model.splitArtists
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+private data class HomeComputedData(
+    val artistEntries: List<Pair<String, Track?>> = emptyList(),
+    val topAlbums: List<Track> = emptyList()
+)
 
 data class HomePlaylist(
     val id: Long = 0L,
@@ -133,54 +142,62 @@ fun AuroHomeScreen(
         } else {
             val cleanTracks = remember(allTracks) { allTracks.filterNot { isJunkAudio(it) } }
 
-            val artistEntries = remember(cleanTracks) {
-                val map = mutableMapOf<String, MutableList<Track>>()
-                val casingMap = mutableMapOf<String, String>()
+            val computedData by produceState(
+                initialValue = HomeComputedData(),
+                key1 = cleanTracks,
+                key2 = mostPlayed
+            ) {
+                value = withContext(Dispatchers.IO) {
+                    val map = mutableMapOf<String, MutableList<Track>>()
+                    val casingMap = mutableMapOf<String, String>()
 
-                for (track in cleanTracks) {
-                    val artistsList = splitArtists(track.artist)
-                    for (artist in artistsList) {
-                        val key = artist.lowercase().trim()
-                        if (key.isEmpty() || !isValidHighlightName(artist)) continue
-                        map.getOrPut(key) { mutableListOf() }.add(track)
-                        if (!casingMap.containsKey(key)) {
-                            casingMap[key] = artist.trim()
+                    for (track in cleanTracks) {
+                        val artistsList = splitArtists(track.artist)
+                        for (artist in artistsList) {
+                            val key = artist.lowercase().trim()
+                            if (key.isEmpty() || !isValidHighlightName(artist)) continue
+                            map.getOrPut(key) { mutableListOf() }.add(track)
+                            if (!casingMap.containsKey(key)) {
+                                casingMap[key] = artist.trim()
+                            }
                         }
                     }
-                }
 
-                map.map { (key, tracks) ->
-                    val displayName = casingMap[key] ?: key
-                    val totalPlays = tracks.sumOf { it.playCount }
-                    val hasPrimaryTrack = tracks.any { isPrimaryArtistTrack(it, displayName) }
-                    val coverTrack = if (hasPrimaryTrack) {
-                        libraryRepository.resolveArtistFallbackCoverTrack(displayName)
-                            ?: tracks.maxByOrNull { it.playCount }
-                            ?: tracks.firstOrNull()
-                    } else {
-                        null
+                    val artists = map.map { (key, tracks) ->
+                        val displayName = casingMap[key] ?: key
+                        val totalPlays = tracks.sumOf { it.playCount }
+                        val hasPrimaryTrack = tracks.any { isPrimaryArtistTrack(it, displayName) }
+                        val coverTrack = if (hasPrimaryTrack) {
+                            libraryRepository.resolveArtistFallbackCoverTrack(displayName)
+                                ?: tracks.maxByOrNull { it.playCount }
+                                ?: tracks.firstOrNull()
+                        } else {
+                            null
+                        }
+                        Triple(displayName, coverTrack, totalPlays)
                     }
-                    Triple(displayName, coverTrack, totalPlays)
-                }
-                .sortedByDescending { it.third }
-                .take(12)
-                .map { Pair(it.first, it.second) }
-            }
+                        .sortedByDescending { it.third }
+                        .take(12)
+                        .map { Pair(it.first, it.second) }
 
-            val topAlbums = remember(cleanTracks, mostPlayed) {
-                val sourceTracks = if (mostPlayed.isNotEmpty()) {
-                    val cleanMostPlayed = mostPlayed.filterNot { isJunkAudio(it) }
-                    if (cleanMostPlayed.isNotEmpty()) cleanMostPlayed else cleanTracks
-                } else {
-                    cleanTracks
+                    val sourceTracks = if (mostPlayed.isNotEmpty()) {
+                        val cleanMostPlayed = mostPlayed.filterNot { isJunkAudio(it) }
+                        if (cleanMostPlayed.isNotEmpty()) cleanMostPlayed else cleanTracks
+                    } else {
+                        cleanTracks
+                    }
+                    val albums = sourceTracks.filter { isValidHighlightName(it.album) }
+                        .groupBy { it.album.trim() }
+                        .values
+                        .sortedByDescending { group -> group.sumOf { it.playCount } }
+                        .map { group -> group.maxByOrNull { it.playCount } ?: group.first() }
+                        .take(10)
+
+                    HomeComputedData(artistEntries = artists, topAlbums = albums)
                 }
-                sourceTracks.filter { isValidHighlightName(it.album) }
-                    .groupBy { it.album.trim() }
-                    .values
-                    .sortedByDescending { group -> group.sumOf { it.playCount } }
-                    .map { group -> group.maxByOrNull { it.playCount } ?: group.first() }
-                    .take(10)
             }
+            val artistEntries = computedData.artistEntries
+            val topAlbums = computedData.topAlbums
 
             LazyColumn(
                 state = listState,
@@ -190,7 +207,7 @@ fun AuroHomeScreen(
                     bottom = bottomInset + 80.dp
                 )
             ) {
-                // Top Greeting
+                // Top Greeting ("Início" / "Home")
                 item(key = "home_greeting") {
                     Box(
                         modifier = Modifier
@@ -207,46 +224,52 @@ fun AuroHomeScreen(
                     }
                 }
 
-                // Carrossel de Mixes rápidos (152dp × 92dp, cards neutros Editorial Dark OLED)
+                // Grade 2×2 de Mixes rápidos ocupando largura útil entre margens
                 item(key = "mixes_carousel") {
                     val shuffleSource = cleanTracks.ifEmpty { allTracks }
                     val favoritesCount = remember(cleanTracks) { cleanTracks.count { it.rating > 0 } }
                     val cleanRecent = remember(recentlyPlayed) { recentlyPlayed.filterNot { isJunkAudio(it) } }
-                    LazyRow(
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin, vertical = 2.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            .fillMaxWidth()
+                            .padding(horizontal = AuroSpace.ScreenMargin),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
                             QuickMixCard(
                                 title = stringResource(R.string.home_mix_shuffle),
                                 subtitle = formatTracksCount(shuffleSource.size),
                                 icon = Icons.Rounded.Shuffle,
+                                modifier = Modifier.weight(1f),
                                 onClick = { onShuffleAll(shuffleSource) }
                             )
-                        }
-                        item {
                             QuickMixCard(
                                 title = stringResource(R.string.home_mix_most_played),
                                 subtitle = stringResource(R.string.home_mix_most_played_subtitle),
                                 icon = Icons.Rounded.Whatshot,
+                                modifier = Modifier.weight(1f),
                                 onClick = onOpenMostPlayed
                             )
                         }
-                        item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
                             QuickMixCard(
                                 title = stringResource(R.string.home_mix_favorites),
                                 subtitle = formatTracksCount(favoritesCount),
                                 icon = Icons.Rounded.Favorite,
+                                modifier = Modifier.weight(1f),
                                 onClick = onOpenFavorites
                             )
-                        }
-                        item {
                             QuickMixCard(
                                 title = stringResource(R.string.home_mix_recent),
                                 subtitle = formatTracksCount(cleanRecent.size),
                                 icon = Icons.Rounded.History,
+                                modifier = Modifier.weight(1f),
                                 onClick = {
                                     if (cleanRecent.isNotEmpty()) onPlayAll(cleanRecent)
                                     else if (cleanTracks.isNotEmpty()) onPlayAll(cleanTracks)
@@ -263,7 +286,6 @@ fun AuroHomeScreen(
                         Column(modifier = Modifier.fillMaxWidth().padding(top = 28.dp)) {
                             EditorialSectionHeader(
                                 title = stringResource(R.string.home_top_albums),
-                                actionLabel = stringResource(R.string.view_all),
                                 onAction = onOpenLibrary
                             )
                             LazyRow(
@@ -290,7 +312,6 @@ fun AuroHomeScreen(
                         Column(modifier = Modifier.fillMaxWidth().padding(top = 28.dp)) {
                             EditorialSectionHeader(
                                 title = stringResource(R.string.category_artists),
-                                actionLabel = stringResource(R.string.view_all),
                                 onAction = onOpenLibrary
                             )
 
@@ -449,53 +470,40 @@ fun AuroHomeScreen(
 }
 
 /**
- * Card de Mix Rápido Editorial Dark OLED (152dp × 92dp, neutro sem iluminação/cor)
+ * Card de Mix Rápido Editorial Dark OLED (flat fosco #141416, borda uniforme #242428)
  */
 @Composable
 private fun QuickMixCard(
     title: String,
     subtitle: String,
     icon: ImageVector,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val view = LocalView.current
     val mixShape = RoundedCornerShape(AuroRadius.mix)
     Box(
-        modifier = Modifier
-            .size(width = 152.dp, height = 92.dp)
+        modifier = modifier
+            .height(106.dp)
             .clip(mixShape)
-            .background(AuroColor.SurfaceCard)
-            .border(
-                width = 0.75.dp,
-                brush = Brush.verticalGradient(
-                    listOf(
-                        Color.White.copy(alpha = 0.14f),
-                        Color.White.copy(alpha = 0.03f)
-                    )
-                ),
-                shape = mixShape
-            )
+            .background(Color(0xFF141416))
+            .border(0.75.dp, Color(0xFF242428), mixShape)
             .clickable {
                 AuroHaptics.click(view)
                 onClick()
             }
+            .padding(16.dp)
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = Color.White.copy(alpha = 0.09f),
+            tint = Color.White.copy(alpha = 0.85f),
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .offset(x = 8.dp, y = (-6).dp)
-                .size(56.dp)
-                .graphicsLayer { rotationZ = -12f }
+                .align(Alignment.TopStart)
+                .size(20.dp)
         )
 
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(horizontal = 14.dp, vertical = 14.dp)
-        ) {
+        Column(modifier = Modifier.align(Alignment.BottomStart)) {
             Text(
                 text = title,
                 style = TextStyle(
@@ -514,7 +522,7 @@ private fun QuickMixCard(
                     fontFamily = AuroFontFamily,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Normal,
-                    color = Color.White.copy(alpha = 0.58f)
+                    color = Color.White.copy(alpha = 0.56f)
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -524,7 +532,7 @@ private fun QuickMixCard(
 }
 
 /**
- * Card horizontal largo de Álbum (296 × 128dp, raio 36dp)
+ * Card horizontal largo de Álbum (296 × 128dp, capa quadrada 0dp)
  */
 @Composable
 private fun WideAlbumCard(
@@ -536,8 +544,8 @@ private fun WideAlbumCard(
 ) {
     val view = LocalView.current
     val bitmap = rememberTrackCover(coverTrack, 320)
-    val cardShape = RoundedCornerShape(36.dp)
-    val coverShape = RoundedCornerShape(28.dp)
+    val cardShape = RoundedCornerShape(24.dp)
+    val coverShape = RectangleShape
 
     Box(
         modifier = Modifier
@@ -692,7 +700,7 @@ private fun PlaylistCard(
 }
 
 /**
- * Card "Nova Playlist" tracejado (112dp × 112dp, AuroSquircle)
+ * Card "Nova Playlist" tracejado (112dp × 112dp, quadrado 0dp)
  */
 @Composable
 private fun NewPlaylistCard(onClick: () -> Unit) {
@@ -707,19 +715,18 @@ private fun NewPlaylistCard(onClick: () -> Unit) {
         Box(
             modifier = Modifier
                 .size(112.dp)
-                .clip(AuroSquircle)
-                .background(AuroColor.SurfaceCard, AuroSquircle)
+                .clip(RectangleShape)
+                .background(AuroColor.SurfaceCard, RectangleShape)
                 .drawBehind {
                     val strokePx = strokeWidth.toPx()
                     val halfStroke = strokePx / 2f
-                    drawRoundRect(
+                    drawRect(
                         color = Color.White.copy(alpha = 0.35f),
                         topLeft = Offset(halfStroke, halfStroke),
                         size = androidx.compose.ui.geometry.Size(
                             size.width - strokePx,
                             size.height - strokePx
                         ),
-                        cornerRadius = CornerRadius(size.width * 0.26f),
                         style = Stroke(
                             width = strokePx,
                             pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f), 0f)

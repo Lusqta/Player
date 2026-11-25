@@ -292,7 +292,7 @@ fun AuroArtistScreen(
                                 imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                                 contentDescription = null,
                                 tint = AuroColor.TextSecondary,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
 
@@ -356,54 +356,25 @@ fun AuroArtistScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = AuroSpace.ScreenMargin, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                                .clickable {
+                                    AuroHaptics.click(view)
+                                    onNavigateToDiscography()
+                                }
+                                .padding(horizontal = AuroSpace.ScreenMargin, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .clip(AuroSquircle)
-                                    .clickable {
-                                        AuroHaptics.click(view)
-                                        onNavigateToDiscography()
-                                    }
-                                    .padding(vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.artist_albums),
-                                    style = AuroType.SectionTitle,
-                                    color = AuroColor.TextPrimary
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
-                                    contentDescription = null,
-                                    tint = AuroColor.TextSecondary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .height(28.dp)
-                                    .clip(CircleShape)
-                                    .background(AuroColor.PillMuted)
-                                    .clickable {
-                                        AuroHaptics.click(view)
-                                        onNavigateToDiscography()
-                                    }
-                                    .padding(horizontal = 10.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.artist_see_all),
-                                    style = AuroType.MicroLabel.copy(
-                                        fontSize = 11.sp,
-                                        color = Color.White.copy(alpha = 0.85f)
-                                    )
-                                )
-                            }
+                            Text(
+                                text = stringResource(R.string.artist_albums),
+                                style = AuroType.SectionTitle,
+                                color = AuroColor.TextPrimary
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = AuroColor.TextSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
 
                         LazyRow(

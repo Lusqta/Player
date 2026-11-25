@@ -260,13 +260,13 @@ object AuroHeight {
 }
 
 object AuroRadius {
-    val hero = 32.dp
-    val cover = 28.dp
+    val hero = 0.dp
+    val cover = 0.dp
     val sheet = 28.dp
     val card = 24.dp
-    val mix = 22.dp
-    val artist = 18.dp
-    val thumbnail = 8.dp
+    val mix = 16.dp
+    val artist = 0.dp
+    val thumbnail = 0.dp
     val pill = 999.dp
 
     val chip = pill
@@ -274,7 +274,7 @@ object AuroRadius {
     val button = pill
 }
 
-val AuroSquircle = RoundedCornerShape(percent = 26)
+val AuroSquircle = RoundedCornerShape(0.dp)
 
 object AuroMotion {
     // Spatial: posição, escala, tamanho, forma (elásticas e interrompíveis)

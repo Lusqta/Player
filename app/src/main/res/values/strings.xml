@@ -281,7 +281,7 @@
     <string name="tab_search">Buscar</string>
     <string name="tab_menu">Menu</string>
     <string name="tab_tune">Áudio &amp; Ajustes</string>
-    <string name="home_greeting_recommended">Recomendado\nPara Você Hoje</string>
+    <string name="home_greeting_recommended">Início</string>
     <string name="home_mix_shuffle">Aleatório</string>
     <string name="home_mix_most_played">Mais Tocadas</string>
     <string name="home_mix_most_played_subtitle">Semana · Mês · Ano</string>

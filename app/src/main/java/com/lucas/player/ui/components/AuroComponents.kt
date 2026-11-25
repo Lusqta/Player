@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.*
@@ -56,6 +57,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.Shape
@@ -124,7 +126,7 @@ fun isValidHighlightName(raw: String): Boolean = com.lucas.player.model.isValidH
 fun ArtistMonogram(
     name: String,
     modifier: Modifier = Modifier,
-    shape: Shape = AuroSquircle
+    shape: Shape = RectangleShape
 ) {
     val initials = remember(name) {
         name.trim()
@@ -135,21 +137,10 @@ fun ArtistMonogram(
             .ifEmpty { "?" }
     }
 
-    val (color1, color2) = remember(name) {
-        val hash = name.lowercase().hashCode()
-        val h = (abs(hash) % 360) / 360f
-        val s = 0.42f
-        val l1 = 0.24f
-        val l2 = 0.12f
-        val c1 = Color(GlowTone.hslToArgb(h, s, l1))
-        val c2 = Color(GlowTone.hslToArgb(h, s, l2))
-        c1 to c2
-    }
-
     Box(
         modifier = modifier
             .clip(shape)
-            .background(Brush.linearGradient(listOf(color1, color2))),
+            .background(Color(0xFF161618)),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -179,7 +170,7 @@ fun ArtistAvatarImage(
     customMediaPath: String?,
     isGif: Boolean,
     fallbackTrack: Track?,
-    shape: Shape = AuroSquircle,
+    shape: Shape = RectangleShape,
     mediaStamp: Long = 0L,
     modifier: Modifier = Modifier
 ) {
@@ -869,29 +860,53 @@ fun EditorialMiniPlayer(
 
 /**
  * EDITORIAL SECTION HEADER (Editorial Dark OLED)
- * Título de seção 17sp SemiBold com ação opcional "Ver tudo".
+ * Título de seção com chevron discreto `>` quando clicável para abrir lista completa,
+ * e suporte opcional a ações em pílula quando `actionLabel` explícito for fornecido.
  */
 @Composable
 fun EditorialSectionHeader(
     title: String,
     modifier: Modifier = Modifier,
-    actionLabel: String? = stringResource(R.string.view_all),
+    actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
     secondaryActionLabel: String? = null,
     onSecondaryAction: (() -> Unit)? = null
 ) {
+    val viewAllLabel = stringResource(R.string.view_all)
+    val useChevronHeader = onAction != null && (actionLabel == null || actionLabel == viewAllLabel)
+    val view = LocalView.current
+
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .then(
+                if (useChevronHeader && onAction != null) {
+                    Modifier.clickable {
+                        AuroHaptics.click(view)
+                        onAction()
+                    }
+                } else Modifier
+            )
             .padding(horizontal = AuroSpace.ScreenMargin, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = title,
-            style = AuroType.SectionTitle,
-            color = AuroColor.TextPrimary
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = title,
+                style = AuroType.SectionTitle,
+                color = AuroColor.TextPrimary
+            )
+            if (useChevronHeader) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = AuroColor.TextSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -915,7 +930,7 @@ fun EditorialSectionHeader(
                     )
                 }
             }
-            if (actionLabel != null && onAction != null) {
+            if (!useChevronHeader && actionLabel != null && onAction != null) {
                 Box(
                     modifier = Modifier
                         .height(24.dp)
