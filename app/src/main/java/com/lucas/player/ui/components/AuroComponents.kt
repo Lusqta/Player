@@ -723,18 +723,21 @@ private fun BoxScope.ProgressiveBlurTier(
                 }
                 .drawBehind {
                     if (!isBackdropReady()) return@drawBehind
+                    if (backdropLayer.size.width <= 0 || backdropLayer.size.height <= 0) return@drawBehind
                     val dx = navPosition.x - backdropOrigin.x
                     val dy = navPosition.y - backdropOrigin.y
-                    clipRect(
-                        left = 0f,
-                        top = -maxBlurPx,
-                        right = size.width,
-                        bottom = size.height
-                    ) {
-                        translate(left = -dx, top = -dy) {
-                            drawLayer(backdropLayer)
+                    try {
+                        clipRect(
+                            left = 0f,
+                            top = -maxBlurPx,
+                            right = size.width,
+                            bottom = size.height
+                        ) {
+                            translate(left = -dx, top = -dy) {
+                                drawLayer(backdropLayer)
+                            }
                         }
-                    }
+                    } catch (_: Throwable) {}
                 }
         )
     }

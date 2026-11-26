@@ -325,8 +325,8 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
 
     fun getPlayCountsSince(sinceMs: Long): Map<Long, Int> {
         val counts = LinkedHashMap<Long, Int>()
-        val db = readableDatabase
         try {
+            val db = readableDatabase
             db.rawQuery(
                 "SELECT $COL_PLAY_EVENT_TRACK_ID, COUNT(*) AS cnt FROM $TABLE_PLAY_EVENTS WHERE $COL_PLAY_EVENT_PLAYED_AT >= ? GROUP BY $COL_PLAY_EVENT_TRACK_ID ORDER BY cnt DESC",
                 arrayOf(sinceMs.toString())
@@ -628,9 +628,10 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
 
     fun upsertCachedTracks(tracks: List<CachedTrack>) {
         if (tracks.isEmpty()) return
-        val db = writableDatabase
-        db.beginTransaction()
+        var db: SQLiteDatabase? = null
         try {
+            db = writableDatabase
+            db.beginTransaction()
             val stmt = db.compileStatement(
                 """
                 INSERT OR REPLACE INTO $TABLE_CACHED_TRACKS (
@@ -674,21 +675,21 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         } catch (_: Exception) {
         } finally {
             try {
-                db.endTransaction()
+                if (db?.inTransaction() == true) {
+                    db.endTransaction()
+                }
             } catch (_: Exception) {}
         }
     }
 
     fun deleteCachedTracksNotIn(validUris: Set<String>) {
-        val db = writableDatabase
-        if (validUris.isEmpty()) {
-            try {
-                db.delete(TABLE_CACHED_TRACKS, null, null)
-            } catch (_: Exception) {}
-            return
-        }
-        val cachedUris = mutableListOf<String>()
         try {
+            val db = writableDatabase
+            if (validUris.isEmpty()) {
+                db.delete(TABLE_CACHED_TRACKS, null, null)
+                return
+            }
+            val cachedUris = mutableListOf<String>()
             db.rawQuery("SELECT $COL_CACHE_URI FROM $TABLE_CACHED_TRACKS", null).use { cursor ->
                 val uriCol = cursor.getColumnIndex(COL_CACHE_URI)
                 if (uriCol != -1) {
@@ -708,7 +709,9 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
                     db.setTransactionSuccessful()
                 } finally {
                     try {
-                        db.endTransaction()
+                        if (db.inTransaction()) {
+                            db.endTransaction()
+                        }
                     } catch (_: Exception) {}
                 }
             }
@@ -965,7 +968,6 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
 
     fun getAlbumCollections(): List<AlbumCollectionRow> {
         val list = mutableListOf<AlbumCollectionRow>()
-        val db = readableDatabase
         val query = """
             SELECT c.$COL_AC_ID, c.$COL_AC_NAME, c.$COL_AC_CREATED, COUNT(i.$COL_ACI_ALBUM_NAME) AS album_count
             FROM $TABLE_ALBUM_COLLECTIONS c
@@ -975,6 +977,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         """.trimIndent()
 
         try {
+            val db = readableDatabase
             db.rawQuery(query, null).use { cursor ->
                 val idCol = cursor.getColumnIndexOrThrow(COL_AC_ID)
                 val nameCol = cursor.getColumnIndexOrThrow(COL_AC_NAME)

@@ -894,7 +894,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             .fillMaxSize()
                             .onGloballyPositioned { contentRootOffset = it.positionInRoot() }
                             .drawWithContent {
-                                if (size.width > 0f && size.height > 0f) {
+                                if (!backdropLayer.isReleased && size.width > 0f && size.height > 0f) {
                                     backdropLayer.record {
                                         drawRect(AuroColor.Canvas)
                                         this@drawWithContent.drawContent()
@@ -2057,7 +2057,12 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 onTuneClick = { showMenuSheetState.value = true },
                                 backdropLayer = backdropLayer,
                                 backdropOrigin = contentRootOffset,
-                                isBackdropReady = { isBackdropRecorded[0] && !backdropLayer.isReleased }
+                                isBackdropReady = {
+                                    isBackdropRecorded[0] &&
+                                        !backdropLayer.isReleased &&
+                                        backdropLayer.size.width > 0 &&
+                                        backdropLayer.size.height > 0
+                                }
                             )
                         }
                     }

@@ -3,6 +3,8 @@ package com.lucas.player.data
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.provider.DocumentsContract
 import com.lucas.player.model.*
 import java.io.File
@@ -20,6 +22,7 @@ class LibraryRepository() {
         @Volatile
         private var appContext: Context? = null
         private val sharedExecutor = Executors.newSingleThreadExecutor()
+        private val mainHandler = Handler(Looper.getMainLooper())
 
         fun getInstance(context: Context? = null): LibraryRepository {
             if (context != null && appContext == null) {
@@ -51,45 +54,65 @@ class LibraryRepository() {
     }
 
     fun loadTracks(context: Context, onComplete: (List<Track>) -> Unit) {
-        init(context)
-        val prefs = PreferencesManager(context)
-        val folderUris = prefs.getMusicFolderUris()
+        val appCtx = context.applicationContext ?: context
+        init(appCtx)
 
-        val db = getOrCreateDb(context)
-        val statsMap = db?.getAllStats() ?: emptyMap()
-        val minSec = prefs.getIgnoreShorterThanSeconds()
-
-        // 1. Emissão imediata do cache para as pastas configuradas (startup instantâneo estilo Poweramp)
-        if (folderUris.isNotEmpty() && db != null) {
-            val cachedTracks = db.getCachedTracks()
-                .filter { cached -> folderUris.contains(cached.treeUri) }
-            if (cachedTracks.isNotEmpty()) {
-                val initialList = cachedTracks.mapNotNull { cached ->
-                    val track = cachedToTrack(cached, statsMap)
-                    if (minSec > 0 && track.durationMs > 0 && track.durationMs < minSec * 1000L) null else track
-                }
-                if (initialList.isNotEmpty()) {
-                    synchronized(sharedTracks) {
-                        sharedTracks.clear()
-                        sharedTracks.addAll(initialList)
-                    }
-                    onComplete(initialList)
-                }
-            }
-        }
-
-        // 2. Varredura e sincronização em background via SAF puro (DocumentsContract)
         sharedExecutor.execute {
             try {
-                val list = scanSafFolders(context, folderUris, statsMap, minSec)
+                val prefs = PreferencesManager(appCtx)
+                val folderUris = prefs.getMusicFolderUris()
+                val db = getOrCreateDb(appCtx)
+                val statsMap = db?.getAllStats() ?: emptyMap()
+                val minSec = prefs.getIgnoreShorterThanSeconds()
+
+                // 1. Emissão imediata do cache para as pastas configuradas (fora da Main Thread)
+                if (folderUris.isNotEmpty() && db != null) {
+                    val cachedTracks = db.getCachedTracks()
+                        .filter { cached -> folderUris.contains(cached.treeUri) }
+                    if (cachedTracks.isNotEmpty()) {
+                        val initialList = cachedTracks.mapNotNull { cached ->
+                            val track = cachedToTrack(cached, statsMap)
+                            if (minSec > 0 && track.durationMs > 0 && track.durationMs < minSec * 1000L) null else track
+                        }
+                        if (initialList.isNotEmpty()) {
+                            synchronized(sharedTracks) {
+                                sharedTracks.clear()
+                                sharedTracks.addAll(initialList)
+                            }
+                            mainHandler.post {
+                                try {
+                                    onComplete(initialList)
+                                } catch (e: Throwable) {
+                                    android.util.Log.e("LibraryRepository", "Erro no callback inicial onComplete", e)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. Varredura e sincronização em background via SAF puro (DocumentsContract)
+                val list = scanSafFolders(appCtx, folderUris, statsMap, minSec)
                 synchronized(sharedTracks) {
                     sharedTracks.clear()
                     sharedTracks.addAll(list)
                 }
-                onComplete(list)
+                mainHandler.post {
+                    try {
+                        onComplete(list)
+                    } catch (e: Throwable) {
+                        android.util.Log.e("LibraryRepository", "Erro no callback onComplete", e)
+                    }
+                }
             } catch (e: Throwable) {
                 android.util.Log.e("LibraryRepository", "Erro na varredura de pastas SAF", e)
-                onComplete(getAllTracks())
+                val fallback = getAllTracks()
+                mainHandler.post {
+                    try {
+                        onComplete(fallback)
+                    } catch (cbErr: Throwable) {
+                        android.util.Log.e("LibraryRepository", "Erro no callback fallback onComplete", cbErr)
+                    }
+                }
             }
         }
     }
