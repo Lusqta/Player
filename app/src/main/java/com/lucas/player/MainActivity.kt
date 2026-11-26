@@ -231,6 +231,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     private val showCreateAlbumCollectionDialogState = mutableStateOf(false)
     private val addAlbumToCollectionTargetState = mutableStateOf<String?>(null)
     private val lastCrashLogState = mutableStateOf<String?>(null)
+    @Volatile
+    private var lastLifecycleStage: String = "init"
 
     private val pickAlbumMediaLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         val albumName = targetAlbumForMediaState.value
@@ -490,11 +492,13 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
         val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
-                val trace = "Thread: ${thread.name}\n${Log.getStackTraceString(throwable)}"
-                crashFile.writeText(trace.take(8000))
+                val stack = throwable.stackTraceToString().ifBlank { Log.getStackTraceString(throwable) }
+                val trace = "Thread: ${thread.name}\nStage: $lastLifecycleStage\n$stack"
+                crashFile.writeText(trace.take(12000))
             } catch (_: Throwable) {}
             previousHandler?.uncaughtException(thread, throwable)
         }
+        lastLifecycleStage = "onCreate:edgeToEdge"
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
@@ -510,14 +514,100 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
         selectedFoldersState.value = preferencesManager.getMusicFolderUris()
         libraryAccessState.value = evaluateLibraryAccess()
-        if (libraryAccessState.value is LibraryAccess.Granted) {
+        if (lastCrashLogState.value == null && libraryAccessState.value is LibraryAccess.Granted) {
+            lastLifecycleStage = "onCreate:loadLibrary"
             loadLibrary()
             checkNotificationPermissionNonBlocking()
         }
 
+        lastLifecycleStage = "onCreate:startService"
         startAndBindService()
 
         setContent {
+            val coroutineScope = rememberCoroutineScope()
+            DisposableEffect(coroutineScope) {
+                snackbarState.bindScope(coroutineScope)
+                onDispose { }
+            }
+
+            val pendingCrash = lastCrashLogState.value
+            if (pendingCrash != null) {
+                AuroTheme(
+                    accent = AuroAccent.Neutral,
+                    playing = false
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(AuroColor.Black)
+                    ) {
+                        AuroOverlay(
+                            visible = true,
+                            onDismiss = {
+                                lastCrashLogState.value = null
+                                try { crashFile.delete() } catch (_: Exception) {}
+                                if (libraryAccessState.value is LibraryAccess.Granted) {
+                                    loadLibrary()
+                                    checkNotificationPermissionNonBlocking()
+                                }
+                            },
+                            type = AuroOverlayType.Dialog
+                        ) {
+                            AuroDialogContainer(
+                                title = stringResource(R.string.crash_dialog_title),
+                                onDismiss = {
+                                    lastCrashLogState.value = null
+                                    try { crashFile.delete() } catch (_: Exception) {}
+                                    if (libraryAccessState.value is LibraryAccess.Granted) {
+                                        loadLibrary()
+                                        checkNotificationPermissionNonBlocking()
+                                    }
+                                },
+                                actions = {
+                                    AuroDialogTextButton(
+                                        text = stringResource(R.string.crash_dialog_copy),
+                                        onClick = {
+                                            val cm = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                            cm?.setPrimaryClip(ClipData.newPlainText("AuroCrashLog", pendingCrash))
+                                            snackbarState.show(getString(R.string.crash_dialog_copied))
+                                        }
+                                    )
+                                    AuroDialogTextButton(
+                                        text = stringResource(R.string.crash_dialog_close),
+                                        onClick = {
+                                            lastCrashLogState.value = null
+                                            try { crashFile.delete() } catch (_: Exception) {}
+                                            if (libraryAccessState.value is LibraryAccess.Granted) {
+                                                loadLibrary()
+                                                checkNotificationPermissionNonBlocking()
+                                            }
+                                        }
+                                    )
+                                }
+                            ) {
+                                Text(
+                                    text = pendingCrash,
+                                    style = AuroType.Caption.copy(color = AuroColor.TextSecondary, fontSize = 11.sp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 320.dp)
+                                        .verticalScroll(rememberScrollState())
+                                )
+                            }
+                        }
+
+                        AuroSnackbarHost(
+                            state = snackbarState,
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(horizontal = 16.dp, vertical = 24.dp)
+                        )
+                    }
+                }
+                return@setContent
+            }
+
+            lastLifecycleStage = "setContent:main"
             val backdropLayer = rememberGraphicsLayer()
             val isBackdropRecorded = remember { booleanArrayOf(false) }
             var contentRootOffset by remember { mutableStateOf(Offset.Zero) }
@@ -648,12 +738,6 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             val activePresetName by activePresetNameState
             val presetsList by presetsListState
 
-            val coroutineScope = rememberCoroutineScope()
-            DisposableEffect(coroutineScope) {
-                snackbarState.bindScope(coroutineScope)
-                onDispose { }
-            }
-
             val currentCover = rememberTrackCover(currentTrack, 350)
             val miniPlayerCover = rememberTrackCover(currentTrack, 120)
 
@@ -742,6 +826,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                     }
                 }
             } else {
+                lastLifecycleStage = "compose:else_granted"
                 AuroTheme(
                     accent = currentAccent,
                     playing = isPlaying,
@@ -895,12 +980,20 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             .onGloballyPositioned { contentRootOffset = it.positionInRoot() }
                             .drawWithContent {
                                 if (!backdropLayer.isReleased && size.width > 0f && size.height > 0f) {
-                                    backdropLayer.record {
-                                        drawRect(AuroColor.Canvas)
-                                        this@drawWithContent.drawContent()
+                                    val recorded = try {
+                                        backdropLayer.record {
+                                            drawRect(AuroColor.Canvas)
+                                            this@drawWithContent.drawContent()
+                                        }
+                                        isBackdropRecorded[0] = true
+                                        drawLayer(backdropLayer)
+                                        true
+                                    } catch (_: Throwable) {
+                                        false
                                     }
-                                    isBackdropRecorded[0] = true
-                                    drawLayer(backdropLayer)
+                                    if (!recorded) {
+                                        drawContent()
+                                    }
                                 } else {
                                     drawContent()
                                 }
@@ -2456,51 +2549,6 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             }
         }
             }
-
-        lastCrashLogState.value?.let { crashText ->
-            AuroOverlay(
-                visible = true,
-                onDismiss = {
-                    lastCrashLogState.value = null
-                    try { File(filesDir, "last_crash.txt").delete() } catch (_: Exception) {}
-                },
-                type = AuroOverlayType.Dialog
-            ) {
-                AuroDialogContainer(
-                    title = stringResource(R.string.crash_dialog_title),
-                    onDismiss = {
-                        lastCrashLogState.value = null
-                        try { File(filesDir, "last_crash.txt").delete() } catch (_: Exception) {}
-                    },
-                    actions = {
-                        AuroDialogTextButton(
-                            text = stringResource(R.string.crash_dialog_copy),
-                            onClick = {
-                                val cm = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                                cm?.setPrimaryClip(ClipData.newPlainText("AuroCrashLog", crashText))
-                                snackbarState.show(getString(R.string.crash_dialog_copied))
-                            }
-                        )
-                        AuroDialogTextButton(
-                            text = stringResource(R.string.crash_dialog_close),
-                            onClick = {
-                                lastCrashLogState.value = null
-                                try { File(filesDir, "last_crash.txt").delete() } catch (_: Exception) {}
-                            }
-                        )
-                    }
-                ) {
-                    Text(
-                        text = crashText,
-                        style = AuroType.Caption.copy(color = AuroColor.TextSecondary, fontSize = 11.sp),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 260.dp)
-                            .verticalScroll(rememberScrollState())
-                    )
-                }
-            }
-        }
         }
     }
 }
@@ -2830,6 +2878,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     }
 
     private fun loadLibrary() {
+        lastLifecycleStage = "loadLibrary:start"
         isLoadingLibraryState.value = true
         errorTrackIdsState.clear()
         consecutivePlaybackErrors = 0
@@ -2837,19 +2886,20 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
             libraryRepo.loadTracks(this) { list ->
                 runOnUiThread {
                     try {
+                        lastLifecycleStage = "loadLibrary:onComplete(${list.size})"
                         totalTracksCountState.intValue = list.size
                         loadingTracksCountState.intValue = list.size
                         isLoadingLibraryState.value = false
                         libraryVersionState.intValue++
                         selectCategory(LibraryCategory.ALL_SONGS)
                         playbackService?.restoreSavedQueue(list)
-                    } catch (e: Exception) {
+                    } catch (e: Throwable) {
                         android.util.Log.e("MainActivity", "Erro ao atualizar UI com biblioteca", e)
                         isLoadingLibraryState.value = false
                     }
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             android.util.Log.e("MainActivity", "Erro ao disparar carregamento de biblioteca", e)
             isLoadingLibraryState.value = false
         }
