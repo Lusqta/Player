@@ -89,9 +89,9 @@ object AuroColor {
     val ControlGlass = Color.White.copy(alpha = 0.22f)  // Botões de controle translúcidos
     val PillMuted = Color.White.copy(alpha = 0.12f)     // Pílulas secundárias ("Ver tudo")
     val TextPrimary = Color(0xFFFFFFFF)                 // Texto principal 100% branco
-    val TextSecondary = Color.White.copy(alpha = 0.62f) // Rótulos secundários 62% branco
-    val TextTertiary = Color.White.copy(alpha = 0.46f)  // Rótulos terciários 46% branco (WCAG em dicas/legendas)
-    val LyricsInactive = Color.White.copy(alpha = 0.28f)// Exclusivo para versos inativos da letra
+    val TextSecondary = Color.White.copy(alpha = 0.72f) // Rótulos secundários 72% branco (contraste WCAG AA)
+    val TextTertiary = Color.White.copy(alpha = 0.56f)  // Rótulos terciários 56% branco (contraste WCAG em dicas/legendas)
+    val LyricsInactive = Color.White.copy(alpha = 0.42f)// Exclusivo para versos inativos da letra
     val ScrubberTrack = Color.White.copy(alpha = 0.20f) // Trilho inativo do scrubber
     val ScrubberActive = Color(0xFFFFFFFF)              // Trilho ativo do scrubber branco puro
     val Separator = Color.White.copy(alpha = 0.08f)     // Divisores sutis

@@ -167,8 +167,18 @@ fun AuroMediaEditorSheet(
                         .fillMaxWidth()
                         .navigationBarsPadding()
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = AuroSpace.ScreenMargin, vertical = 20.dp)
+                        .padding(horizontal = AuroSpace.ScreenMargin)
+                        .padding(top = 12.dp, bottom = 20.dp)
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .width(36.dp)
+                            .height(4.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.24f))
+                            .align(Alignment.CenterHorizontally)
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
                     Text(
                         text = stringResource(R.string.media_editor_title),
                         style = AuroType.SectionTitle,
@@ -402,13 +412,19 @@ fun AuroMediaEditorSheet(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
+                    val hasChanges = draftGifPath != (initialMedia?.gifPath ?: "") ||
+                        draftFrameIndex != (initialMedia?.gifFrameIndex ?: 0) ||
+                        draftStaticPath != (initialMedia?.staticImagePath ?: "") ||
+                        draftPausedMode != (initialMedia?.pausedDisplayMode ?: MusicDatabase.PAUSED_MODE_GIF_FRAME)
+                    val canSave = !isSaving && hasChanges
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(46.dp)
                             .clip(CircleShape)
-                            .background(if (isSaving) Color.White.copy(alpha = 0.55f) else Color.White)
-                            .clickable(enabled = !isSaving) {
+                            .background(if (canSave) Color.White else Color.White.copy(alpha = 0.28f))
+                            .clickable(enabled = canSave) {
                                 isSaving = true
                                 AuroHaptics.confirm(view)
                                 coroutineScope.launch(Dispatchers.IO) {

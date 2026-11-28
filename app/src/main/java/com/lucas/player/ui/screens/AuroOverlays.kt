@@ -693,6 +693,11 @@ fun AuroPowerampMenuSheet(
                     onOpenAudioInfo()
                 }
             )
+            HorizontalDivider(
+                color = AuroColor.Hairline,
+                thickness = 0.5.dp,
+                modifier = Modifier.padding(vertical = 4.dp)
+            )
             AuroSheetItem(
                 icon = Icons.Outlined.Refresh,
                 title = stringResource(R.string.settings_rescan_library),
@@ -723,25 +728,27 @@ private fun AuroSheetItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .height(52.dp)
+            .clip(RoundedCornerShape(10.dp))
             .clickable {
                 AuroHaptics.click(view)
                 onClick()
             }
-            .padding(horizontal = 4.dp),
+            .padding(horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text(
-            text = title,
-            style = AuroType.Body.copy(fontWeight = FontWeight.Medium),
-            modifier = Modifier.weight(1f)
-        )
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = AuroColor.TextSecondary,
-            modifier = Modifier.size(24.dp)
+            tint = AuroColor.TextPrimary.copy(alpha = 0.80f),
+            modifier = Modifier.size(22.dp)
+        )
+        Text(
+            text = title,
+            style = AuroType.Body.copy(fontWeight = FontWeight.Medium),
+            color = AuroColor.TextPrimary,
+            modifier = Modifier.weight(1f)
         )
     }
 }

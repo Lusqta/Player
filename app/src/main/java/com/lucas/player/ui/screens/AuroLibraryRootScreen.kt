@@ -340,11 +340,11 @@ fun AuroLibraryRootScreen(
                             )
 
                             val count = categoryCounts[cat] ?: if (cat == LibraryCategory.ALL_SONGS) totalTracksCount else null
-                            if (count != null && count > 0) {
+                            if (count != null) {
                                 Text(
                                     text = count.toString(),
                                     style = AuroType.Caption.copy(
-                                        color = AuroColor.TextSecondary,
+                                        color = if (count > 0) AuroColor.TextSecondary else AuroColor.TextTertiary,
                                         fontFamily = FontFamily.Monospace,
                                         fontFeatureSettings = "tnum"
                                     )
@@ -365,18 +365,33 @@ fun AuroLibraryRootScreen(
                 // Grade 2 colunas: Adicionadas Recentemente
                 if (recentLibraryItems.isNotEmpty() || recentlyAddedTracks.isNotEmpty()) {
                     item(key = "recently_added_header") {
-                        Text(
-                            text = stringResource(R.string.home_recently_added),
-                            style = AuroType.SectionTitle,
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clickable {
+                                    AuroHaptics.click(view)
+                                    onSelectCategory(LibraryCategory.RECENTLY_ADDED)
+                                }
                                 .padding(
                                     start = AuroSpace.ScreenMargin,
                                     end = AuroSpace.ScreenMargin,
                                     top = 24.dp,
                                     bottom = 12.dp
-                                )
-                        )
+                                ),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.home_recently_added),
+                                style = AuroType.SectionTitle
+                            )
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = AuroColor.TextTertiary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
                     }
 
                     if (recentLibraryItems.isNotEmpty()) {

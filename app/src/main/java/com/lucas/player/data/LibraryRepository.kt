@@ -227,6 +227,16 @@ class LibraryRepository() {
 
     // --- Categorias e Agrupamentos ---
 
+    private fun isUnknownGroupName(name: String): Boolean {
+        val trimmed = name.trim()
+        return trimmed.isBlank() ||
+            trimmed.startsWith("<") ||
+            trimmed.equals("unknown", ignoreCase = true) ||
+            trimmed.equals("unknown artist", ignoreCase = true) ||
+            trimmed.equals("unknown album", ignoreCase = true) ||
+            trimmed.equals("desconhecido", ignoreCase = true)
+    }
+
     fun getAlbums(): List<Album> {
         val all = getAllTracks()
         return all.groupBy { it.album }
@@ -235,7 +245,7 @@ class LibraryRepository() {
                 val year = albumTracks.map { it.year }.filter { it > 0 }.minOrNull() ?: 0
                 Album(albumName, artist, albumTracks.size, year)
             }
-            .sortedBy { it.name.lowercase() }
+            .sortedWith(compareBy<Album> { isUnknownGroupName(it.name) }.thenBy { it.name.lowercase() })
     }
 
     fun getTracksForAlbum(albumName: String, sortMode: SortMode = SortMode.TRACK_NUMBER): List<Track> {
@@ -261,7 +271,7 @@ class LibraryRepository() {
         return artistTrackCount.map { (key, count) ->
             val bestName = casingMap[key]?.maxByOrNull { it.value }?.key ?: key
             Artist(bestName, count)
-        }.sortedBy { it.name.lowercase() }
+        }.sortedWith(compareBy<Artist> { isUnknownGroupName(it.name) }.thenBy { it.name.lowercase() })
     }
 
     fun getTracksForArtist(artistName: String, sortMode: SortMode = SortMode.ALBUM_ASC): List<Track> {

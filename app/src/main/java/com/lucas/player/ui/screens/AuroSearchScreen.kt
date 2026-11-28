@@ -44,10 +44,14 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
@@ -321,9 +325,8 @@ fun AuroSearchScreen(
             )
         }
 
-        // Conteúdo: Buscas Recentes OU Resultados
+        // Conteúdo: Buscas Recentes OU Estado Inicial OU Resultados
         if (!hasQuery) {
-            // Buscas Recentes
             if (recentSearches.isNotEmpty()) {
                 Row(
                     modifier = Modifier
@@ -347,7 +350,7 @@ fun AuroSearchScreen(
                                 preferencesManager.clearRecentSearches()
                                 recentSearches.clear()
                             }
-                            .padding(4.dp)
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
                     )
                 }
 
@@ -400,6 +403,13 @@ fun AuroSearchScreen(
                     }
                     AuroTopFade(modifier = Modifier.align(Alignment.TopCenter))
                 }
+            } else {
+                AuroEmptyState(
+                    icon = Icons.Outlined.Search,
+                    title = stringResource(R.string.search_idle_title),
+                    message = stringResource(R.string.search_idle_message),
+                    modifier = Modifier.fillMaxSize()
+                )
             }
         } else if (!hasAnyResults) {
             // Estado Vazio de Busca
@@ -436,6 +446,7 @@ fun AuroSearchScreen(
                                         trackIndex = index,
                                         isPlayingThis = track.id == currentPlayingId,
                                         hasError = errorTrackIds.contains(track.id),
+                                        highlightQuery = trimmed,
                                         onClick = {
                                             preferencesManager.addRecentSearch(trimmed)
                                             keyboardController?.hide()
@@ -459,6 +470,7 @@ fun AuroSearchScreen(
                                 itemsIndexed(matchedAlbums.take(5), key = { _, a -> "all_a_${a.name}" }) { _, album ->
                                     SearchAlbumRow(
                                         album = album,
+                                        query = trimmed,
                                         onClick = {
                                             preferencesManager.addRecentSearch(trimmed)
                                             keyboardController?.hide()
@@ -480,6 +492,7 @@ fun AuroSearchScreen(
                                 itemsIndexed(matchedArtists.take(5), key = { _, ar -> "all_ar_${ar.name}" }) { _, artist ->
                                     SearchArtistRow(
                                         artist = artist,
+                                        query = trimmed,
                                         onClick = {
                                             preferencesManager.addRecentSearch(trimmed)
                                             keyboardController?.hide()
@@ -497,6 +510,7 @@ fun AuroSearchScreen(
                                     trackIndex = index,
                                     isPlayingThis = track.id == currentPlayingId,
                                     hasError = errorTrackIds.contains(track.id),
+                                    highlightQuery = trimmed,
                                     onClick = {
                                         preferencesManager.addRecentSearch(trimmed)
                                         keyboardController?.hide()
@@ -512,6 +526,7 @@ fun AuroSearchScreen(
                             itemsIndexed(matchedAlbums, key = { _, a -> "albums_${a.name}" }) { _, album ->
                                 SearchAlbumRow(
                                     album = album,
+                                    query = trimmed,
                                     onClick = {
                                         preferencesManager.addRecentSearch(trimmed)
                                         keyboardController?.hide()
@@ -525,6 +540,7 @@ fun AuroSearchScreen(
                             itemsIndexed(matchedArtists, key = { _, ar -> "artists_${ar.name}" }) { _, artist ->
                                 SearchArtistRow(
                                     artist = artist,
+                                    query = trimmed,
                                     onClick = {
                                         preferencesManager.addRecentSearch(trimmed)
                                         keyboardController?.hide()
@@ -618,9 +634,25 @@ private fun SearchSectionHeader(
     }
 }
 
+private fun highlightSearchMatch(text: String, query: String): AnnotatedString {
+    val cleanQuery = query.trim()
+    if (cleanQuery.isEmpty()) return AnnotatedString(text)
+    val startIndex = text.indexOf(cleanQuery, ignoreCase = true)
+    if (startIndex < 0) return AnnotatedString(text)
+    val endIndex = (startIndex + cleanQuery.length).coerceAtMost(text.length)
+    return buildAnnotatedString {
+        append(text.substring(0, startIndex))
+        withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) {
+            append(text.substring(startIndex, endIndex))
+        }
+        append(text.substring(endIndex))
+    }
+}
+
 @Composable
 private fun SearchAlbumRow(
     album: Album,
+    query: String = "",
     onClick: () -> Unit
 ) {
     Row(
@@ -639,7 +671,7 @@ private fun SearchAlbumRow(
         Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = album.name,
+                text = highlightSearchMatch(album.name, query),
                 style = AuroType.Body.copy(fontWeight = FontWeight.Medium),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -647,7 +679,7 @@ private fun SearchAlbumRow(
             Spacer(modifier = Modifier.height(2.dp))
             val artistDisplay = formatArtistsDisplay(album.artist, stringResource(R.string.unknown_artist))
             Text(
-                text = "$artistDisplay • ${formatTracksCount(album.trackCount)}",
+                text = highlightSearchMatch("$artistDisplay • ${formatTracksCount(album.trackCount)}", query),
                 style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -665,6 +697,7 @@ private fun SearchAlbumRow(
 @Composable
 private fun SearchArtistRow(
     artist: Artist,
+    query: String = "",
     onClick: () -> Unit
 ) {
     Row(
@@ -683,7 +716,7 @@ private fun SearchArtistRow(
         Spacer(modifier = Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = artist.name,
+                text = highlightSearchMatch(artist.name, query),
                 style = AuroType.Body.copy(fontWeight = FontWeight.Medium),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

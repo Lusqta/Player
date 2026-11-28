@@ -81,11 +81,15 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
@@ -691,20 +695,20 @@ fun EditorialFloatingNavbar(
             )
         }
 
-        // Gradiente escuro translúcido progressivo sobre o blur (mais ralo no topo, mais denso embaixo)
+        // Gradiente escuro translúcido progressivo sobre o blur (mais ralo no topo, opaco o suficiente embaixo)
         val tintGradient = remember(hasRealBlur) {
             if (hasRealBlur) {
                 Brush.verticalGradient(
-                    0.00f to Color(0x140A0A0C),
-                    0.38f to Color(0x660B0B0D),
-                    0.75f to Color(0xBD08080A),
-                    1.00f to Color(0xE0050507)
+                    0.00f to Color(0x28050507),
+                    0.34f to Color(0x9E070709),
+                    0.70f to Color(0xEB050507),
+                    1.00f to Color(0xF7050507)
                 )
             } else {
                 Brush.verticalGradient(
-                    0.00f to Color(0x380A0A0C),
-                    0.42f to Color(0xA80D0D10),
-                    1.00f to Color(0xF508080A)
+                    0.00f to Color(0x48050507),
+                    0.40f to Color(0xBF08080A),
+                    1.00f to Color(0xFA050507)
                 )
             }
         }
@@ -738,8 +742,8 @@ fun EditorialFloatingNavbar(
                     onClick = onSearchClick
                 )
                 EditorialNavIcon(
-                    activeIcon = Icons.Rounded.Favorite,
-                    inactiveIcon = Icons.Outlined.FavoriteBorder,
+                    activeIcon = Icons.Rounded.LibraryMusic,
+                    inactiveIcon = Icons.Outlined.LibraryMusic,
                     contentDescription = stringResource(R.string.tab_library),
                     isActive = currentScreen is NavScreen.LibraryRoot ||
                         currentScreen is NavScreen.CategoryList ||
@@ -751,8 +755,8 @@ fun EditorialFloatingNavbar(
                     onClick = onLibraryClick
                 )
                 EditorialNavIcon(
-                    activeIcon = Icons.Rounded.Tune,
-                    inactiveIcon = Icons.Outlined.Tune,
+                    activeIcon = Icons.Rounded.Settings,
+                    inactiveIcon = Icons.Outlined.Settings,
                     contentDescription = stringResource(R.string.tab_tune),
                     isActive = currentScreen is NavScreen.Equalizer ||
                         currentScreen is NavScreen.Settings,
@@ -963,15 +967,15 @@ fun EditorialMiniPlayer(
             .border(0.5.dp, Color.White.copy(alpha = 0.08f), CircleShape)
             .clickable(onClick = onOpenNowPlaying)
     ) {
-        // Linha de progresso discreta de 2dp na base
+        // Linha de progresso nítida na base
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(2.dp)
+                .height(2.5.dp)
                 .align(Alignment.BottomCenter)
-                .padding(horizontal = 28.dp)
+                .padding(horizontal = 24.dp)
                 .padding(bottom = 1.dp)
-                .background(Color.White.copy(alpha = 0.08f), CircleShape)
+                .background(Color.White.copy(alpha = 0.14f), CircleShape)
         ) {
             Box(
                 modifier = Modifier
@@ -1440,6 +1444,21 @@ fun AuroEqualizerBars(
  * Specs: Altura 52dp, miniatura 36dp (raio 8dp), título TrackTitle (13.5sp), artista Subtitle (12sp),
  * sem divisores na lista, menu com três pontos horizontais (•••).
  */
+private fun buildHighlightedRowText(text: String, query: String): AnnotatedString {
+    val cleanQuery = query.trim()
+    if (cleanQuery.isEmpty()) return AnnotatedString(text)
+    val startIndex = text.indexOf(cleanQuery, ignoreCase = true)
+    if (startIndex < 0) return AnnotatedString(text)
+    val endIndex = (startIndex + cleanQuery.length).coerceAtMost(text.length)
+    return buildAnnotatedString {
+        append(text.substring(0, startIndex))
+        withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) {
+            append(text.substring(startIndex, endIndex))
+        }
+        append(text.substring(endIndex))
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AuroTrackRow(
@@ -1456,6 +1475,8 @@ fun AuroTrackRow(
     showFormatTag: Boolean = true,
     showPlayCount: Boolean = false,
     showAlbumInSubtitle: Boolean = true,
+    trackNumber: Int? = null,
+    highlightQuery: String = "",
     isAudioPlaying: Boolean = LocalAuroIsPlaying.current
 ) {
     val view = LocalView.current
@@ -1518,38 +1539,8 @@ fun AuroTrackRow(
             Spacer(modifier = Modifier.width(10.dp))
         }
 
-        val coverBitmap = rememberTrackCover(track, 100)
-
-        if (coverBitmap != null) {
-            // Com capa: miniatura de 36dp com raio 8dp
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(AuroRadius.thumbnail)),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    bitmap = coverBitmap.asImageBitmap(),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-                if (isPlayingThis) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.45f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        AuroEqualizerBars(
-                            isPlaying = isAudioPlaying,
-                            color = Color.White
-                        )
-                    }
-                }
-            }
-        } else {
-            // Sem capa
+        if (trackNumber != null) {
+            // Modo álbum: número da faixa em vez de repetir a mesma miniatura
             Box(
                 modifier = Modifier.size(36.dp),
                 contentAlignment = Alignment.Center
@@ -1560,12 +1551,67 @@ fun AuroTrackRow(
                         color = Color.White
                     )
                 } else {
-                    Icon(
-                        imageVector = Icons.Outlined.MusicNote,
-                        contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.45f),
-                        modifier = Modifier.size(20.dp)
+                    Text(
+                        text = if (trackNumber > 0) String.format(java.util.Locale.US, "%02d", trackNumber) else "—",
+                        style = AuroType.Caption.copy(
+                            color = AuroColor.TextSecondary,
+                            fontFamily = FontFamily.Monospace,
+                            fontFeatureSettings = "tnum",
+                            fontWeight = FontWeight.Medium
+                        )
                     )
+                }
+            }
+        } else {
+            val coverBitmap = rememberTrackCover(track, 100)
+
+            if (coverBitmap != null) {
+                // Com capa: miniatura de 36dp com raio 8dp
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(AuroRadius.thumbnail)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Image(
+                        bitmap = coverBitmap.asImageBitmap(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    if (isPlayingThis) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.45f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AuroEqualizerBars(
+                                isPlaying = isAudioPlaying,
+                                color = Color.White
+                            )
+                        }
+                    }
+                }
+            } else {
+                // Sem capa
+                Box(
+                    modifier = Modifier.size(36.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isPlayingThis) {
+                        AuroEqualizerBars(
+                            isPlaying = isAudioPlaying,
+                            color = Color.White
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.MusicNote,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.45f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }
@@ -1588,7 +1634,7 @@ fun AuroTrackRow(
                     Spacer(modifier = Modifier.width(4.dp))
                 }
                 Text(
-                    text = track.title,
+                    text = buildHighlightedRowText(track.title, highlightQuery),
                     style = AuroType.TrackTitle.copy(
                         color = if (hasError) AuroColor.Danger else AuroColor.TextPrimary,
                         fontWeight = if (isPlayingThis) FontWeight.SemiBold else FontWeight.Medium
@@ -1608,7 +1654,7 @@ fun AuroTrackRow(
                     displayArtist
                 }
                 Text(
-                    text = subtitleText,
+                    text = buildHighlightedRowText(subtitleText, highlightQuery),
                     style = AuroType.Subtitle,
                     color = AuroColor.TextSecondary,
                     maxLines = 1,
@@ -1991,9 +2037,15 @@ fun AuroSwitch(
     )
 
     val trackColor by animateColorAsState(
-        targetValue = if (checked) AuroColor.ToggleGreen else Color.White.copy(alpha = 0.16f),
+        targetValue = if (checked) Color.White else Color.White.copy(alpha = 0.16f),
         animationSpec = if (reduceMotion) tween(0) else com.lucas.player.ui.theme.AuroMotion.liquid(),
         label = "switchTrack"
+    )
+
+    val thumbColor by animateColorAsState(
+        targetValue = if (checked) AuroColor.Canvas else Color.White,
+        animationSpec = if (reduceMotion) tween(0) else com.lucas.player.ui.theme.AuroMotion.liquid(),
+        label = "switchThumbColor"
     )
 
     val toggleModifier = if (onCheckedChange != null) {
@@ -2013,6 +2065,11 @@ fun AuroSwitch(
             .size(width = 48.dp, height = 28.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(trackColor)
+            .border(
+                width = if (checked) 0.dp else 0.75.dp,
+                color = if (checked) Color.Transparent else Color.White.copy(alpha = 0.16f),
+                shape = RoundedCornerShape(14.dp)
+            )
             .then(toggleModifier),
         contentAlignment = Alignment.CenterStart
     ) {
@@ -2021,7 +2078,7 @@ fun AuroSwitch(
                 .offset(x = thumbOffset)
                 .size(20.dp)
                 .clip(CircleShape)
-                .background(Color.White)
+                .background(thumbColor)
         )
     }
 }

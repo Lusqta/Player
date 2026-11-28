@@ -719,8 +719,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         val recentItems = libraryRepo.getRecentLibraryItems(12)
                         val counts = mapOf(
                             LibraryCategory.ALL_SONGS to all.size,
-                            LibraryCategory.ALBUMS to all.map { it.album }.filter { it.isNotBlank() }.distinct().size,
-                            LibraryCategory.ARTISTS to all.map { it.artist }.filter { it.isNotBlank() }.distinct().size,
+                            LibraryCategory.ALBUMS to libraryRepo.getAlbums().size,
+                            LibraryCategory.ARTISTS to libraryRepo.getArtists().size,
                             LibraryCategory.ALBUM_ARTISTS to all.map { it.albumArtist.ifBlank { it.artist } }.filter { it.isNotBlank() }.distinct().size,
                             LibraryCategory.GENRES to all.map { it.genre }.filter { it.isNotBlank() }.distinct().size,
                             LibraryCategory.YEARS to all.map { it.year }.filter { it > 0 }.distinct().size,
@@ -930,14 +930,16 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                     }
                 ) {
                     val reduceMotion = rememberReduceMotion()
+                    val overlayPortal = remember { AuroOverlayPortalState() }
                     val navBarBottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-                    val barsHeight = 56.dp + (if (currentTrack != null) 60.dp else 0.dp)
+                    val barsHeight = 56.dp + (if (currentTrack != null) 76.dp else 0.dp)
                     val activeBottomInset = if (currentScreen is NavScreen.NowPlaying) 0.dp else (barsHeight + navBarBottomInset)
 
                     CompositionLocalProvider(
                         LocalAuroBottomInset provides activeBottomInset,
                         LocalAuroIsPlaying provides isPlaying,
-                        LocalAuroPauseGifs provides pauseGifs
+                        LocalAuroPauseGifs provides pauseGifs,
+                        LocalAuroOverlayPortal provides overlayPortal
                     ) {
                         Box(
                             modifier = Modifier
@@ -2393,6 +2395,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         state = snackbarState,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
+                            .zIndex(260f)
                             .padding(horizontal = 16.dp)
                             .padding(bottom = snackbarBottomPadding)
                     )
@@ -2410,7 +2413,11 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         .fillMaxWidth()
                                         .background(
                                             Brush.verticalGradient(
-                                                listOf(Color.Transparent, Color(0xCC050505), Color.Transparent)
+                                                listOf(
+                                                    Color.Transparent,
+                                                    Color(0xB8050507),
+                                                    Color(0xE6050507)
+                                                )
                                             )
                                         )
                                         .padding(top = 8.dp, bottom = 8.dp)
@@ -2446,6 +2453,13 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                             )
                         }
                     }
+
+                    AuroOverlayPortalHost(
+                        portal = overlayPortal,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .zIndex(200f)
+                    )
 
                     // Diálogos Modais Funcionais e Limpos
                     trackContextMenu?.let { track ->

@@ -380,7 +380,7 @@ fun AuroEqualizerScreen(
                                 Text(
                                     text = formattedGain,
                                     style = AuroType.Caption.copy(
-                                        color = AuroColor.TextSecondary,
+                                        color = if (eqEnabled) AuroColor.TextPrimary else AuroColor.TextTertiary,
                                         fontFamily = FontFamily.Monospace,
                                         fontFeatureSettings = "tnum"
                                     ),

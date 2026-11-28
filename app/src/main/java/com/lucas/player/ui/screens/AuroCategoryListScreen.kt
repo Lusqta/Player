@@ -566,6 +566,7 @@ fun AuroCategoryListScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = LocalAuroBottomInset.current + 24.dp, end = if (displayedGroups.size > 15) 28.dp else 0.dp)
                     ) {
+                        val isArtistList = category == LibraryCategory.ARTISTS || category == LibraryCategory.ALBUM_ARTISTS
                         items(displayedGroups, key = { it.title }) { group ->
                             val groupInteraction = remember { MutableInteractionSource() }
                             val isGroupPressed by groupInteraction.collectIsPressedAsState()
@@ -589,9 +590,34 @@ fun AuroCategoryListScreen(
                                         onClick = { onGroupClick(group) },
                                         onLongClick = { onGroupLongClick(group) }
                                     )
-                                    .padding(horizontal = AuroSpace.ScreenMargin, vertical = 14.dp),
+                                    .padding(horizontal = AuroSpace.ScreenMargin, vertical = if (isArtistList) 10.dp else 14.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                if (isArtistList) {
+                                    val artistMedia = customMediaMap[
+                                        MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ARTIST, group.title)
+                                    ]
+                                    Box(
+                                        modifier = Modifier
+                                            .size(44.dp)
+                                            .clip(AuroSquircle)
+                                            .background(AuroColor.SurfaceGrouped)
+                                            .border(0.5.dp, Color.White.copy(alpha = 0.08f), AuroSquircle)
+                                    ) {
+                                        ArtistAvatarImage(
+                                            artistName = group.title,
+                                            customMediaPath = group.coverPath.takeIf { it.isNotBlank() },
+                                            isGif = false,
+                                            fallbackTrack = coverTrackFinder(group),
+                                            shape = AuroSquircle,
+                                            mediaStamp = customMediaVersion.toLong(),
+                                            customMedia = artistMedia,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(14.dp))
+                                }
+
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = group.title,
@@ -601,16 +627,21 @@ fun AuroCategoryListScreen(
                                     )
                                     Spacer(modifier = Modifier.height(2.dp))
                                     Text(
-                                        text = group.subtitle,
-                                        style = AuroType.Label.copy(color = AuroColor.TextSecondary)
+                                        text = if (isArtistList) group.countText.ifBlank { group.subtitle } else group.subtitle,
+                                        style = AuroType.Label.copy(color = AuroColor.TextSecondary),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
-                                Icon(
-                                    imageVector = Icons.Rounded.ChevronRight,
-                                    contentDescription = null,
-                                    tint = AuroColor.TextTertiary,
-                                    modifier = Modifier.size(18.dp)
-                                )
+
+                                if (!isArtistList) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.ChevronRight,
+                                        contentDescription = null,
+                                        tint = AuroColor.TextTertiary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
                         }
                     }

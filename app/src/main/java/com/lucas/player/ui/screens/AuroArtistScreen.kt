@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.clipRect
@@ -384,17 +385,17 @@ fun AuroArtistScreen(
                         endY = effectiveDocH - scrollY
                     )
                 )
-                // Véu escuro leve atrás da área de listas para leitura nítida sem apagar a cor viva
-                val veilTop = heroHeightPx - with(density) { 40.dp.toPx() } - scrollY
+                // Véu escuro gradual e suave atrás da área de listas para leitura nítida sem corte brusco
+                val veilTop = heroHeightPx - with(density) { 48.dp.toPx() } - scrollY
                 if (veilTop < size.height) {
                     val clampedTop = veilTop.coerceAtLeast(0f)
                     drawRect(
                         brush = Brush.verticalGradient(
                             0.0f to Color.Transparent,
-                            0.18f to Color.Black.copy(alpha = 0.20f),
-                            1.0f to Color.Black.copy(alpha = 0.20f),
+                            0.45f to Color.Black.copy(alpha = 0.14f),
+                            1.0f to Color.Black.copy(alpha = 0.24f),
                             startY = veilTop,
-                            endY = veilTop + with(density) { 96.dp.toPx() }
+                            endY = veilTop + with(density) { 160.dp.toPx() }
                         ),
                         topLeft = Offset(0f, clampedTop),
                         size = Size(size.width, (size.height - clampedTop).coerceAtLeast(0f))
@@ -609,60 +610,85 @@ fun AuroArtistScreen(
             }
         }
 
-        // Top Bar transparente com Glass Actions
+        // Top Bar transparente com pílulas escuras discretas para contraste sobre capas claras
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = {
-                    AuroHaptics.click(view)
-                    onBack()
-                },
-                modifier = Modifier.size(44.dp)
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.38f))
+                    .border(0.5.dp, Color.White.copy(alpha = 0.14f), CircleShape)
+                    .clickable {
+                        AuroHaptics.click(view)
+                        onBack()
+                    },
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = stringResource(R.string.cd_back),
-                    tint = AuroColor.TextPrimary,
-                    modifier = Modifier.size(24.dp)
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = {
-                        AuroHaptics.click(view)
-                        onTogglePin()
-                    },
-                    modifier = Modifier.size(44.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isPinned) Color.White.copy(alpha = 0.22f)
+                            else Color.Black.copy(alpha = 0.38f)
+                        )
+                        .border(
+                            0.5.dp,
+                            if (isPinned) Color.White.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.14f),
+                            CircleShape
+                        )
+                        .clickable {
+                            AuroHaptics.click(view)
+                            onTogglePin()
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (isPinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
                         contentDescription = stringResource(if (isPinned) R.string.action_unpin else R.string.action_pin),
-                        tint = if (isPinned) Color.White else Color.White.copy(alpha = 0.55f),
-                        modifier = Modifier.size(22.dp)
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
                 var showMenu by remember { mutableStateOf(false) }
                 Box {
-                    IconButton(
-                        onClick = {
-                            AuroHaptics.click(view)
-                            showMenu = true
-                        },
-                        modifier = Modifier.size(44.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.38f))
+                            .border(0.5.dp, Color.White.copy(alpha = 0.14f), CircleShape)
+                            .clickable {
+                                AuroHaptics.click(view)
+                                showMenu = true
+                            },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.MoreVert,
                             contentDescription = stringResource(R.string.cd_more_options),
-                            tint = AuroColor.TextPrimary,
-                            modifier = Modifier.size(22.dp)
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                     DropdownMenu(
@@ -735,6 +761,7 @@ fun AuroArtistScreen(
                 currentFontId = effectiveStyle.fontId,
                 logoPath = logoPath,
                 logoBitmap = artistLogoBitmap,
+                accentColor = animatedTopColor,
                 onSelectFont = onUpdateArtistFont,
                 onPickLogo = {
                     showIdentitySheet = false
@@ -910,11 +937,29 @@ private fun ArtistHeroSection(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(100.dp)
+                .height(104.dp)
                 .align(Alignment.TopCenter)
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(
+                            Color.Black.copy(alpha = 0.48f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+
+        // Proteção sutil atrás do texto inferior para contraste garantido em capas claras
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(190.dp)
+                .align(Alignment.BottomCenter)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            Color.Black.copy(alpha = 0.34f),
                             Color.Black.copy(alpha = 0.42f),
                             Color.Transparent
                         )
@@ -949,7 +994,13 @@ private fun ArtistHeroSection(
                 } else {
                     Text(
                         text = formatArtistIdentityText(artistName, fontId),
-                        style = artistIdentityTextStyle(fontId),
+                        style = artistIdentityTextStyle(fontId).copy(
+                            shadow = Shadow(
+                                color = Color.Black.copy(alpha = 0.65f),
+                                offset = Offset(0f, 3f),
+                                blurRadius = 10f
+                            )
+                        ),
                         color = AuroColor.TextPrimary,
                         textAlign = TextAlign.Center,
                         maxLines = 2,
@@ -959,23 +1010,33 @@ private fun ArtistHeroSection(
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = subtitleText,
-                    style = AuroType.Caption,
-                    color = Color.White.copy(alpha = 0.80f),
+                    style = AuroType.Caption.copy(
+                        shadow = Shadow(
+                            color = Color.Black.copy(alpha = 0.65f),
+                            offset = Offset(0f, 2f),
+                            blurRadius = 6f
+                        )
+                    ),
+                    color = Color.White.copy(alpha = 0.90f),
                     textAlign = TextAlign.Center,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
 
-            TranslucentPlayButton(
-                isPlaying = false,
-                size = 50.dp,
-                containerColor = AuroColor.ControlGlass,
-                onClick = onPlayAll,
+            Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(end = AuroSpace.ScreenMargin, bottom = 4.dp)
-            )
+                    .border(0.75.dp, Color.White.copy(alpha = 0.22f), CircleShape)
+            ) {
+                TranslucentPlayButton(
+                    isPlaying = false,
+                    size = 50.dp,
+                    containerColor = Color.Black.copy(alpha = 0.52f),
+                    onClick = onPlayAll
+                )
+            }
         }
     }
 }
@@ -1034,6 +1095,7 @@ private fun ArtistIdentitySheet(
     currentFontId: String,
     logoPath: String?,
     logoBitmap: Bitmap?,
+    accentColor: Color = Color(0xFF101013),
     onSelectFont: (String) -> Unit,
     onPickLogo: () -> Unit,
     onRemoveLogo: () -> Unit,
@@ -1059,9 +1121,19 @@ private fun ArtistIdentitySheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = AuroSpace.ScreenMargin, vertical = 20.dp)
+                        .padding(horizontal = AuroSpace.ScreenMargin)
+                        .padding(top = 12.dp, bottom = 20.dp)
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .width(36.dp)
+                            .height(4.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.24f))
+                            .align(Alignment.CenterHorizontally)
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
                     Text(
                         text = stringResource(R.string.artist_customize_identity),
                         style = AuroType.SectionTitle,
@@ -1069,7 +1141,7 @@ private fun ArtistIdentitySheet(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Prévia ao vivo
+                    // Prévia ao vivo com a cor da página do artista
                     Text(
                         text = stringResource(R.string.artist_identity_preview),
                         style = AuroType.MicroLabel,
@@ -1081,8 +1153,15 @@ private fun ArtistIdentitySheet(
                             .fillMaxWidth()
                             .height(92.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFF101013))
-                            .border(0.75.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        lerp(accentColor, Color(0xFF141418), 0.22f),
+                                        Color(0xFF101013)
+                                    )
+                                )
+                            )
+                            .border(0.75.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(16.dp))
                             .padding(horizontal = 20.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -1109,123 +1188,150 @@ private fun ArtistIdentitySheet(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Botões de Logo PNG
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState())
                     ) {
+                        // Botões de Logo PNG
                         Row(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(44.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White.copy(alpha = 0.10f))
-                                .clickable {
-                                    AuroHaptics.click(view)
-                                    onPickLogo()
-                                }
-                                .padding(horizontal = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Image,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = stringResource(R.string.artist_logo_upload),
-                                style = AuroType.Label.copy(color = Color.White, fontWeight = FontWeight.Medium),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        if (!logoPath.isNullOrBlank()) {
                             Row(
                                 modifier = Modifier
+                                    .weight(1f)
                                     .height(44.dp)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(AuroColor.Danger.copy(alpha = 0.16f))
+                                    .background(Color.White.copy(alpha = 0.10f))
                                     .clickable {
                                         AuroHaptics.click(view)
-                                        onRemoveLogo()
+                                        onPickLogo()
                                     }
-                                    .padding(horizontal = 14.dp),
+                                    .padding(horizontal = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Outlined.DeleteOutline,
+                                    imageVector = Icons.Outlined.Image,
                                     contentDescription = null,
-                                    tint = AuroColor.Danger,
+                                    tint = Color.White,
                                     modifier = Modifier.size(18.dp)
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = stringResource(R.string.artist_logo_remove),
-                                    style = AuroType.Label.copy(color = AuroColor.Danger, fontWeight = FontWeight.Medium)
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(18.dp))
-
-                    Text(
-                        text = stringResource(R.string.artist_font_section),
-                        style = AuroType.MicroLabel,
-                        color = AuroColor.TextSecondary
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    ARTIST_FONT_IDS.forEach { fontId ->
-                        val isSelected = fontId == currentFontId
-                        val label = when (fontId) {
-                            "manrope" -> stringResource(R.string.artist_font_manrope)
-                            "serif" -> stringResource(R.string.artist_font_serif)
-                            "mono_caps" -> stringResource(R.string.artist_font_mono_caps)
-                            "condensed" -> stringResource(R.string.artist_font_condensed)
-                            else -> stringResource(R.string.artist_font_default)
-                        }
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
-                                .clickable {
-                                    AuroHaptics.click(view)
-                                    onSelectFont(fontId)
-                                }
-                                .padding(horizontal = 12.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = label,
-                                    style = AuroType.Caption,
-                                    color = AuroColor.TextSecondary
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = formatArtistIdentityText(artistName, fontId),
-                                    style = artistIdentityTextStyle(fontId).copy(fontSize = 18.sp, lineHeight = 22.sp),
-                                    color = AuroColor.TextPrimary,
+                                    text = stringResource(R.string.artist_logo_upload),
+                                    style = AuroType.Label.copy(color = Color.White, fontWeight = FontWeight.Medium),
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Rounded.Check,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
-                                )
+
+                            if (!logoPath.isNullOrBlank()) {
+                                Row(
+                                    modifier = Modifier
+                                        .height(44.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(AuroColor.Danger.copy(alpha = 0.16f))
+                                        .clickable {
+                                            AuroHaptics.click(view)
+                                            onRemoveLogo()
+                                        }
+                                        .padding(horizontal = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.DeleteOutline,
+                                        contentDescription = null,
+                                        tint = AuroColor.Danger,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = stringResource(R.string.artist_logo_remove),
+                                        style = AuroType.Label.copy(color = AuroColor.Danger, fontWeight = FontWeight.Medium)
+                                    )
+                                }
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        Text(
+                            text = stringResource(R.string.artist_font_section),
+                            style = AuroType.MicroLabel,
+                            color = AuroColor.TextSecondary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        ARTIST_FONT_IDS.forEach { fontId ->
+                            val isSelected = fontId == currentFontId
+                            val label = when (fontId) {
+                                "manrope" -> stringResource(R.string.artist_font_manrope)
+                                "serif" -> stringResource(R.string.artist_font_serif)
+                                "mono_caps" -> stringResource(R.string.artist_font_mono_caps)
+                                "condensed" -> stringResource(R.string.artist_font_condensed)
+                                else -> stringResource(R.string.artist_font_default)
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                    .clickable {
+                                        AuroHaptics.click(view)
+                                        onSelectFont(fontId)
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = label,
+                                        style = AuroType.Caption,
+                                        color = AuroColor.TextSecondary
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = formatArtistIdentityText(artistName, fontId),
+                                        style = artistIdentityTextStyle(fontId).copy(fontSize = 18.sp, lineHeight = 22.sp),
+                                        color = AuroColor.TextPrimary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Check,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .clickable {
+                                AuroHaptics.confirm(view)
+                                onDismiss()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.done),
+                            style = AuroType.Label.copy(color = Color.Black, fontWeight = FontWeight.Bold)
+                        )
                     }
                 }
             }

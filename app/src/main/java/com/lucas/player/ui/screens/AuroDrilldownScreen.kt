@@ -25,6 +25,7 @@ import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.MusicOff
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.Whatshot
@@ -338,12 +339,12 @@ fun AuroDrilldownScreen(
                                                     AuroHaptics.click(view)
                                                     showNotesDialog = true
                                                 },
-                                                modifier = Modifier.size(36.dp)
+                                                modifier = Modifier.size(40.dp)
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Outlined.Edit,
                                                     contentDescription = stringResource(R.string.album_notes_action),
-                                                    tint = AuroColor.TextSecondary,
+                                                    tint = Color.White.copy(alpha = 0.85f),
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                             }
@@ -369,7 +370,7 @@ fun AuroDrilldownScreen(
                                                 style = AuroType.Body.copy(
                                                     fontSize = 14.sp,
                                                     lineHeight = 20.sp,
-                                                    color = if (savedNotes.isNotEmpty()) AuroColor.TextPrimary else AuroColor.TextTertiary
+                                                    color = if (savedNotes.isNotEmpty()) AuroColor.TextPrimary else AuroColor.TextSecondary
                                                 )
                                             )
                                         }
@@ -378,7 +379,7 @@ fun AuroDrilldownScreen(
                                             Text(
                                                 text = footerInfo,
                                                 style = AuroType.MicroLabel.copy(
-                                                    color = AuroColor.TextTertiary,
+                                                    color = AuroColor.TextSecondary,
                                                     fontFamily = FontFamily.Monospace,
                                                     fontFeatureSettings = "tnum"
                                                 ),
@@ -558,22 +559,93 @@ fun AuroDrilldownScreen(
                                 )
                             }
                         } else {
-                            Spacer(modifier = Modifier.height(28.dp))
+                            Spacer(modifier = Modifier.height(20.dp))
 
-                            // Cabeçalho da seção com ação de Aleatório e Adicionar (se playlist)
+                            // Ações primárias explícitas: Reproduzir & Aleatório
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = AuroSpace.ScreenMargin),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White)
+                                        .clickable {
+                                            AuroHaptics.click(view)
+                                            onPlayAll()
+                                        },
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.PlayArrow,
+                                        contentDescription = null,
+                                        tint = Color.Black,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = stringResource(R.string.play_all),
+                                        style = AuroType.Label.copy(
+                                            color = Color.Black,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    )
+                                }
+
+                                Row(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.12f))
+                                        .border(0.75.dp, Color.White.copy(alpha = 0.22f), CircleShape)
+                                        .clickable {
+                                            AuroHaptics.click(view)
+                                            onShuffleAll()
+                                        },
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Shuffle,
+                                        contentDescription = null,
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = stringResource(R.string.shuffle_all),
+                                        style = AuroType.Label.copy(
+                                            color = Color.White,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(22.dp))
+
+                            // Cabeçalho da seção com ação rápida de Adicionar (se playlist)
                             EditorialSectionHeader(
-                                title = stringResource(R.string.top_songs),
-                                actionLabel = stringResource(R.string.shuffle_all),
-                                onAction = onShuffleAll,
-                                secondaryActionLabel = if (category == LibraryCategory.PLAYLISTS && onAddTracksToPlaylist != null) {
+                                title = if (category == LibraryCategory.ALBUMS) {
+                                    stringResource(R.string.album_tracks_section)
+                                } else {
+                                    stringResource(R.string.top_songs)
+                                },
+                                actionLabel = if (category == LibraryCategory.PLAYLISTS && onAddTracksToPlaylist != null) {
                                     stringResource(R.string.playlist_add_short)
                                 } else null,
-                                onSecondaryAction = if (category == LibraryCategory.PLAYLISTS) {
+                                onAction = if (category == LibraryCategory.PLAYLISTS && onAddTracksToPlaylist != null) {
                                     {
                                         AuroHaptics.click(view)
-                                        onAddTracksToPlaylist?.invoke()
+                                        onAddTracksToPlaylist.invoke()
                                     }
-                                } else null
+                                } else ({})
                             )
                         }
                     }
@@ -590,6 +662,8 @@ fun AuroDrilldownScreen(
                         isSelected = selectedTrackIds.contains(track.id),
                         showFormatTag = showFileFormat,
                         showPlayCount = category == LibraryCategory.MOST_PLAYED,
+                        showAlbumInSubtitle = category != LibraryCategory.ALBUMS,
+                        trackNumber = if (category == LibraryCategory.ALBUMS) track.trackNumber else null,
                         onClick = {
                             if (isSelectionMode) {
                                 onToggleSelectTrack(track)
@@ -610,61 +684,86 @@ fun AuroDrilldownScreen(
             }
         }
 
-        // Top Bar Limpa: Botão voltar (<) e Fixar (Pin) sem círculos
+        // Top Bar Limpa com proteção sutil sobre capas claras
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(
-                onClick = {
-                    AuroHaptics.click(view)
-                    onBackToCategoryList()
-                },
-                modifier = Modifier.size(44.dp)
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.36f))
+                    .border(0.5.dp, Color.White.copy(alpha = 0.14f), CircleShape)
+                    .clickable {
+                        AuroHaptics.click(view)
+                        onBackToCategoryList()
+                    },
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = stringResource(R.string.cd_back),
-                    tint = AuroColor.TextPrimary,
-                    modifier = Modifier.size(24.dp)
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = {
-                        AuroHaptics.click(view)
-                        onTogglePin()
-                    },
-                    modifier = Modifier.size(44.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isPinned) Color.White.copy(alpha = 0.22f)
+                            else Color.Black.copy(alpha = 0.36f)
+                        )
+                        .border(
+                            0.5.dp,
+                            if (isPinned) Color.White.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.14f),
+                            CircleShape
+                        )
+                        .clickable {
+                            AuroHaptics.click(view)
+                            onTogglePin()
+                        },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (isPinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin,
                         contentDescription = stringResource(if (isPinned) R.string.action_unpin else R.string.action_pin),
-                        tint = if (isPinned) Color.White else Color.White.copy(alpha = 0.55f),
-                        modifier = Modifier.size(22.dp)
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
                 if (category == LibraryCategory.PLAYLISTS || category == LibraryCategory.ALBUMS) {
                     var showMenu by remember { mutableStateOf(false) }
                     Box {
-                        IconButton(
-                            onClick = {
-                                AuroHaptics.click(view)
-                                showMenu = true
-                            },
-                            modifier = Modifier.size(44.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.36f))
+                                .border(0.5.dp, Color.White.copy(alpha = 0.14f), CircleShape)
+                                .clickable {
+                                    AuroHaptics.click(view)
+                                    showMenu = true
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.MoreVert,
                                 contentDescription = stringResource(R.string.cd_more_options),
-                                tint = AuroColor.TextPrimary,
-                                modifier = Modifier.size(22.dp)
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                         DropdownMenu(

@@ -31,6 +31,48 @@ enum class AuroOverlayType {
 }
 
 /**
+ * Portal central de overlays no root da Activity para que sheets/diálogos lançados de telas internas
+ * sempre renderizem acima do MiniPlayer e da EditorialFloatingNavbar com o mesmo scrim.
+ */
+class AuroOverlayPortalState {
+    private val entries = mutableStateListOf<Pair<Any, @Composable () -> Unit>>()
+
+    val activeEntries: List<Pair<Any, @Composable () -> Unit>>
+        get() = entries
+
+    fun set(key: Any, content: @Composable () -> Unit) {
+        val idx = entries.indexOfFirst { it.first === key }
+        if (idx >= 0) {
+            entries[idx] = key to content
+        } else {
+            entries.add(key to content)
+        }
+    }
+
+    fun remove(key: Any) {
+        entries.removeAll { it.first === key }
+    }
+}
+
+val LocalAuroOverlayPortal = staticCompositionLocalOf<AuroOverlayPortalState?> { null }
+
+@Composable
+fun AuroOverlayPortalHost(
+    portal: AuroOverlayPortalState,
+    modifier: Modifier = Modifier
+) {
+    if (portal.activeEntries.isNotEmpty()) {
+        Box(modifier = modifier.fillMaxSize()) {
+            portal.activeEntries.forEach { (entryKey, entryContent) ->
+                key(entryKey) {
+                    entryContent()
+                }
+            }
+        }
+    }
+}
+
+/**
  * AURŌ DESIGN SYSTEM v3 - SISTEMA CENTRAL DE OVERLAYS (Fase 2.3 & 2.4)
  * - Scrim preto 72% com fade de 200ms na entrada e 140ms na saída.
  * - Diálogos entram de escala 0.94 para 1.0 com mola líquida e fade, saem com fade de 140ms.
@@ -40,6 +82,48 @@ enum class AuroOverlayType {
  */
 @Composable
 fun AuroOverlay(
+    visible: Boolean = true,
+    onDismiss: () -> Unit,
+    type: AuroOverlayType = AuroOverlayType.Dialog,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val portal = LocalAuroOverlayPortal.current
+    if (portal != null) {
+        val portalKey = remember { Any() }
+        val latestVisible by rememberUpdatedState(visible)
+        val latestOnDismiss by rememberUpdatedState(onDismiss)
+        val latestType by rememberUpdatedState(type)
+        val latestModifier by rememberUpdatedState(modifier)
+        val latestContent by rememberUpdatedState(content)
+
+        DisposableEffect(portal) {
+            onDispose { portal.remove(portalKey) }
+        }
+        SideEffect {
+            portal.set(portalKey) {
+                AuroOverlayInternal(
+                    visible = latestVisible,
+                    onDismiss = latestOnDismiss,
+                    type = latestType,
+                    modifier = latestModifier,
+                    content = latestContent
+                )
+            }
+        }
+    } else {
+        AuroOverlayInternal(
+            visible = visible,
+            onDismiss = onDismiss,
+            type = type,
+            modifier = modifier,
+            content = content
+        )
+    }
+}
+
+@Composable
+private fun AuroOverlayInternal(
     visible: Boolean = true,
     onDismiss: () -> Unit,
     type: AuroOverlayType = AuroOverlayType.Dialog,

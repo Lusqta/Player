@@ -12,8 +12,10 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Tune
@@ -42,6 +44,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -238,7 +241,7 @@ fun AuroHomeScreen(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(
-                    top = 16.dp,
+                    top = 8.dp,
                     bottom = bottomInset + 80.dp
                 )
             ) {
@@ -249,7 +252,7 @@ fun AuroHomeScreen(
                             .fillMaxWidth()
                             .statusBarsPadding()
                             .padding(horizontal = AuroSpace.ScreenMargin)
-                            .padding(top = 20.dp, bottom = 16.dp),
+                            .padding(top = 12.dp, bottom = 12.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -265,7 +268,7 @@ fun AuroHomeScreen(
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(5.dp),
                                 modifier = Modifier
                                     .clip(CircleShape)
                                     .background(
@@ -291,7 +294,10 @@ fun AuroHomeScreen(
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Text(
-                                    text = "GIF",
+                                    text = stringResource(
+                                        if (pauseGifs) R.string.home_gifs_paused_short
+                                        else R.string.home_gifs_active_short
+                                    ),
                                     style = AuroType.Caption.copy(
                                         color = if (pauseGifs) Color.White else AuroColor.TextSecondary,
                                         fontWeight = FontWeight.SemiBold
@@ -384,26 +390,49 @@ fun AuroHomeScreen(
                                             title = stringResource(R.string.home_top_albums),
                                             onAction = onOpenLibrary
                                         )
-                                        LazyRow(
-                                            contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
-                                            horizontalArrangement = Arrangement.spacedBy(14.dp)
-                                        ) {
-                                            items(topAlbums, key = { it.album.trim().lowercase() }) { t ->
-                                                val albumMeta = albumMetaMap[t.album.trim().lowercase()]
-                                                val customMedia = customMediaMap[
-                                                    MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, t.album)
-                                                ]
-                                                WideAlbumCard(
-                                                    coverTrack = t,
-                                                    album = t.album,
-                                                    artist = formatArtistsDisplay(t.artist, stringResource(R.string.unknown_artist)),
-                                                    customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
-                                                    isGif = albumMeta?.isGif ?: false,
-                                                    customMedia = customMedia,
-                                                    mediaStamp = (albumMediaVersion + customMediaVersion).toLong(),
-                                                    onClick = { onAlbumClick(t.album) },
-                                                    onPlay = { onAlbumPlay(t.album) }
-                                                )
+                                        if (topAlbums.size == 1) {
+                                            val t = topAlbums.first()
+                                            val albumMeta = albumMetaMap[t.album.trim().lowercase()]
+                                            val customMedia = customMediaMap[
+                                                MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, t.album)
+                                            ]
+                                            WideAlbumCard(
+                                                coverTrack = t,
+                                                album = t.album,
+                                                artist = formatArtistsDisplay(t.artist, stringResource(R.string.unknown_artist)),
+                                                customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
+                                                isGif = albumMeta?.isGif ?: false,
+                                                customMedia = customMedia,
+                                                mediaStamp = (albumMediaVersion + customMediaVersion).toLong(),
+                                                onClick = { onAlbumClick(t.album) },
+                                                onPlay = { onAlbumPlay(t.album) },
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(horizontal = AuroSpace.ScreenMargin)
+                                                    .height(128.dp)
+                                            )
+                                        } else {
+                                            LazyRow(
+                                                contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
+                                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                            ) {
+                                                items(topAlbums, key = { it.album.trim().lowercase() }) { t ->
+                                                    val albumMeta = albumMetaMap[t.album.trim().lowercase()]
+                                                    val customMedia = customMediaMap[
+                                                        MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, t.album)
+                                                    ]
+                                                    WideAlbumCard(
+                                                        coverTrack = t,
+                                                        album = t.album,
+                                                        artist = formatArtistsDisplay(t.artist, stringResource(R.string.unknown_artist)),
+                                                        customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
+                                                        isGif = albumMeta?.isGif ?: false,
+                                                        customMedia = customMedia,
+                                                        mediaStamp = (albumMediaVersion + customMediaVersion).toLong(),
+                                                        onClick = { onAlbumClick(t.album) },
+                                                        onPlay = { onAlbumPlay(t.album) }
+                                                    )
+                                                }
                                             }
                                         }
                                     }
@@ -418,31 +447,40 @@ fun AuroHomeScreen(
                                         title = stringResource(R.string.home_album_collections),
                                         actionLabel = null
                                     )
-                                    LazyRow(
-                                        contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
-                                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                                    ) {
-                                        item(key = "new_album_collection") {
-                                            NewAlbumCollectionCard(onClick = onCreateAlbumCollection)
-                                        }
-                                        items(albumCollections, key = { it.id }) { collection ->
-                                            val firstAlbumName = collection.previewAlbumNames.firstOrNull()
-                                            val firstKey = firstAlbumName?.trim()?.lowercase()
-                                            val albumMeta = firstKey?.let { albumMetaMap[it] }
-                                            val customMedia = firstAlbumName?.let {
-                                                customMediaMap[MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, it)]
+                                    if (albumCollections.isEmpty()) {
+                                        NewAlbumCollectionBannerCard(
+                                            onClick = onCreateAlbumCollection,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = AuroSpace.ScreenMargin)
+                                        )
+                                    } else {
+                                        LazyRow(
+                                            contentPadding = PaddingValues(horizontal = AuroSpace.ScreenMargin),
+                                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                                        ) {
+                                            item(key = "new_album_collection") {
+                                                NewAlbumCollectionCard(onClick = onCreateAlbumCollection)
                                             }
-                                            val coverTrack = firstKey?.let { albumCoverMap[it] }
-                                            AlbumCollectionHomeCard(
-                                                collection = collection,
-                                                firstAlbumName = firstAlbumName,
-                                                coverTrack = coverTrack,
-                                                customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
-                                                isGif = albumMeta?.isGif ?: false,
-                                                customMedia = customMedia,
-                                                mediaStamp = (albumMediaVersion + customMediaVersion).toLong(),
-                                                onClick = { onAlbumCollectionClick(collection.id) }
-                                            )
+                                            items(albumCollections, key = { it.id }) { collection ->
+                                                val firstAlbumName = collection.previewAlbumNames.firstOrNull()
+                                                val firstKey = firstAlbumName?.trim()?.lowercase()
+                                                val albumMeta = firstKey?.let { albumMetaMap[it] }
+                                                val customMedia = firstAlbumName?.let {
+                                                    customMediaMap[MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, it)]
+                                                }
+                                                val coverTrack = firstKey?.let { albumCoverMap[it] }
+                                                AlbumCollectionHomeCard(
+                                                    collection = collection,
+                                                    firstAlbumName = firstAlbumName,
+                                                    coverTrack = coverTrack,
+                                                    customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
+                                                    isGif = albumMeta?.isGif ?: false,
+                                                    customMedia = customMedia,
+                                                    mediaStamp = (albumMediaVersion + customMediaVersion).toLong(),
+                                                    onClick = { onAlbumCollectionClick(collection.id) }
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -657,20 +695,33 @@ private fun HomeCustomizeSheet(
         onDismiss = onDismiss,
         type = AuroOverlayType.BottomSheet
     ) {
+        val screenHeight = LocalConfiguration.current.screenHeightDp.dp
         Box(modifier = Modifier.fillMaxSize()) {
             Surface(
                 shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
                 color = AuroColor.SurfaceGrouped,
                 modifier = Modifier
                     .fillMaxWidth()
+                    .heightIn(max = screenHeight * 0.80f)
                     .align(Alignment.BottomCenter)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .navigationBarsPadding()
-                        .padding(horizontal = AuroSpace.ScreenMargin, vertical = 20.dp)
+                        .padding(horizontal = AuroSpace.ScreenMargin)
+                        .padding(top = 12.dp, bottom = 20.dp)
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .width(36.dp)
+                            .height(4.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.24f))
+                            .align(Alignment.CenterHorizontally)
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -700,100 +751,127 @@ private fun HomeCustomizeSheet(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color.White.copy(alpha = 0.06f))
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                            .weight(1f, fill = false)
+                            .verticalScroll(rememberScrollState())
                     ) {
-                        Text(
-                            text = stringResource(R.string.home_pause_gifs),
-                            style = AuroType.Body.copy(
-                                color = Color.White,
-                                fontWeight = FontWeight.Medium
-                            ),
-                            modifier = Modifier.weight(1f)
-                        )
-                        AuroSwitch(
-                            checked = pauseGifs,
-                            onCheckedChange = onTogglePauseGifs
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    sectionOrder.forEachIndexed { idx, sectionId ->
-                        val isVisible = sectionId !in hiddenSections
-                        val label = when (sectionId) {
-                            HomeSectionId.QUICK_MIXES -> stringResource(R.string.home_section_quick_mixes)
-                            HomeSectionId.TOP_ALBUMS -> stringResource(R.string.home_top_albums)
-                            HomeSectionId.ALBUM_COLLECTIONS -> stringResource(R.string.home_album_collections)
-                            HomeSectionId.ARTISTS -> stringResource(R.string.category_artists)
-                            HomeSectionId.PLAYLISTS -> stringResource(R.string.home_section_playlists)
-                        }
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color.White.copy(alpha = 0.06f))
+                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = label,
+                                text = stringResource(R.string.home_pause_gifs),
                                 style = AuroType.Body.copy(
-                                    color = if (isVisible) AuroColor.TextPrimary else AuroColor.TextTertiary,
+                                    color = Color.White,
                                     fontWeight = FontWeight.Medium
                                 ),
-                                modifier = Modifier.weight(1f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
+                                modifier = Modifier.weight(1f)
                             )
-                            IconButton(
-                                enabled = idx > 0,
-                                onClick = {
-                                    AuroHaptics.click(view)
-                                    val updated = sectionOrder.toMutableList()
-                                    val moved = updated.removeAt(idx)
-                                    updated.add(idx - 1, moved)
-                                    onSaveOrder(updated)
-                                },
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.KeyboardArrowUp,
-                                    contentDescription = null,
-                                    tint = if (idx > 0) AuroColor.TextPrimary else AuroColor.TextTertiary.copy(alpha = 0.35f)
-                                )
-                            }
-                            IconButton(
-                                enabled = idx < sectionOrder.lastIndex,
-                                onClick = {
-                                    AuroHaptics.click(view)
-                                    val updated = sectionOrder.toMutableList()
-                                    val moved = updated.removeAt(idx)
-                                    updated.add(idx + 1, moved)
-                                    onSaveOrder(updated)
-                                },
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.KeyboardArrowDown,
-                                    contentDescription = null,
-                                    tint = if (idx < sectionOrder.lastIndex) AuroColor.TextPrimary else AuroColor.TextTertiary.copy(alpha = 0.35f)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(6.dp))
                             AuroSwitch(
-                                checked = isVisible,
-                                onCheckedChange = { checked ->
-                                    val nextHidden = hiddenSections.toMutableSet()
-                                    if (checked) nextHidden.remove(sectionId) else nextHidden.add(sectionId)
-                                    onSaveHidden(nextHidden)
-                                }
+                                checked = pauseGifs,
+                                onCheckedChange = onTogglePauseGifs
                             )
                         }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        sectionOrder.forEachIndexed { idx, sectionId ->
+                            val isVisible = sectionId !in hiddenSections
+                            val label = when (sectionId) {
+                                HomeSectionId.QUICK_MIXES -> stringResource(R.string.home_section_quick_mixes)
+                                HomeSectionId.TOP_ALBUMS -> stringResource(R.string.home_top_albums)
+                                HomeSectionId.ALBUM_COLLECTIONS -> stringResource(R.string.home_album_collections)
+                                HomeSectionId.ARTISTS -> stringResource(R.string.category_artists)
+                                HomeSectionId.PLAYLISTS -> stringResource(R.string.home_section_playlists)
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = AuroType.Body.copy(
+                                        color = if (isVisible) AuroColor.TextPrimary else AuroColor.TextTertiary,
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    modifier = Modifier.weight(1f),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                IconButton(
+                                    enabled = idx > 0,
+                                    onClick = {
+                                        AuroHaptics.click(view)
+                                        val updated = sectionOrder.toMutableList()
+                                        val moved = updated.removeAt(idx)
+                                        updated.add(idx - 1, moved)
+                                        onSaveOrder(updated)
+                                    },
+                                    modifier = Modifier.size(44.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.KeyboardArrowUp,
+                                        contentDescription = null,
+                                        tint = if (idx > 0) AuroColor.TextPrimary else AuroColor.TextTertiary.copy(alpha = 0.35f)
+                                    )
+                                }
+                                IconButton(
+                                    enabled = idx < sectionOrder.lastIndex,
+                                    onClick = {
+                                        AuroHaptics.click(view)
+                                        val updated = sectionOrder.toMutableList()
+                                        val moved = updated.removeAt(idx)
+                                        updated.add(idx + 1, moved)
+                                        onSaveOrder(updated)
+                                    },
+                                    modifier = Modifier.size(44.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.KeyboardArrowDown,
+                                        contentDescription = null,
+                                        tint = if (idx < sectionOrder.lastIndex) AuroColor.TextPrimary else AuroColor.TextTertiary.copy(alpha = 0.35f)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                AuroSwitch(
+                                    checked = isVisible,
+                                    onCheckedChange = { checked ->
+                                        val nextHidden = hiddenSections.toMutableSet()
+                                        if (checked) nextHidden.remove(sectionId) else nextHidden.add(sectionId)
+                                        onSaveHidden(nextHidden)
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .clickable {
+                                AuroHaptics.confirm(view)
+                                onDismiss()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.done),
+                            style = AuroType.Label.copy(color = Color.Black, fontWeight = FontWeight.Bold)
+                        )
                     }
                 }
             }
@@ -876,15 +954,15 @@ private fun WideAlbumCard(
     customMedia: MusicDatabase.CustomMedia? = null,
     mediaStamp: Long = 0L,
     onClick: () -> Unit,
-    onPlay: () -> Unit = {}
+    onPlay: () -> Unit = {},
+    modifier: Modifier = Modifier.size(width = 296.dp, height = 128.dp)
 ) {
     val view = LocalView.current
     val cardShape = RectangleShape
     val coverShape = RectangleShape
 
     Box(
-        modifier = Modifier
-            .size(width = 296.dp, height = 128.dp)
+        modifier = modifier
             .clip(cardShape)
             .background(AuroColor.SurfaceCard)
             .border(0.5.dp, Color.White.copy(alpha = 0.08f), cardShape)
@@ -1205,5 +1283,76 @@ private fun NewAlbumCollectionCard(onClick: () -> Unit) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
+    }
+}
+
+@Composable
+private fun NewAlbumCollectionBannerCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val view = LocalView.current
+    val strokeWidth = 1.dp
+    Row(
+        modifier = modifier
+            .height(76.dp)
+            .clip(RectangleShape)
+            .background(AuroColor.SurfaceCard, RectangleShape)
+            .drawBehind {
+                val strokePx = strokeWidth.toPx()
+                val halfStroke = strokePx / 2f
+                drawRect(
+                    color = Color.White.copy(alpha = 0.28f),
+                    topLeft = Offset(halfStroke, halfStroke),
+                    size = androidx.compose.ui.geometry.Size(
+                        size.width - strokePx,
+                        size.height - strokePx
+                    ),
+                    style = Stroke(
+                        width = strokePx,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 10f), 0f)
+                    )
+                )
+            }
+            .clickable {
+                AuroHaptics.click(view)
+                onClick()
+            }
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RectangleShape)
+                .background(Color.White.copy(alpha = 0.08f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Add,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.85f),
+                modifier = Modifier.size(22.dp)
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.album_collection_new),
+                style = AuroType.Body.copy(
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = stringResource(R.string.home_album_collections_empty_hint),
+                style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }

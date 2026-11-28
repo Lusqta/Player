@@ -33,6 +33,10 @@ import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.GraphicEq
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.MusicNote
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -357,12 +361,17 @@ fun AuroNowPlayingScreen(
                             }
                             val canEditNotes = track.album.isNotBlank() && onSaveAlbumNotes != null
 
+                            val backTint = androidx.compose.ui.graphics.lerp(
+                                Color(0xFF141416),
+                                color1,
+                                0.14f
+                            )
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .graphicsLayer { rotationY = 180f }
-                                    .background(Color(0xFF141416))
-                                    .border(0.75.dp, Color(0xFF242428), RectangleShape)
+                                    .background(backTint)
+                                    .border(0.75.dp, Color.White.copy(alpha = 0.14f), RectangleShape)
                                     .padding(20.dp)
                             ) {
                                 Row(
@@ -379,7 +388,7 @@ fun AuroNowPlayingScreen(
                                         )
                                     )
                                     Row(
-                                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         if (canEditNotes) {
@@ -388,12 +397,12 @@ fun AuroNowPlayingScreen(
                                                     AuroHaptics.click(view)
                                                     showNotesDialog = true
                                                 },
-                                                modifier = Modifier.size(34.dp)
+                                                modifier = Modifier.size(40.dp)
                                             ) {
                                                 Icon(
                                                     imageVector = Icons.Outlined.Edit,
                                                     contentDescription = stringResource(R.string.album_notes_action),
-                                                    tint = AuroColor.TextSecondary,
+                                                    tint = Color.White.copy(alpha = 0.88f),
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                             }
@@ -403,12 +412,12 @@ fun AuroNowPlayingScreen(
                                                 AuroHaptics.click(view)
                                                 isFlipped = false
                                             },
-                                            modifier = Modifier.size(34.dp)
+                                            modifier = Modifier.size(40.dp)
                                         ) {
                                             Icon(
                                                 imageVector = Icons.Rounded.FlipCameraAndroid,
                                                 contentDescription = stringResource(R.string.cd_show_album_front),
-                                                tint = AuroColor.TextSecondary,
+                                                tint = Color.White.copy(alpha = 0.88f),
                                                 modifier = Modifier.size(18.dp)
                                             )
                                         }
@@ -441,7 +450,7 @@ fun AuroNowPlayingScreen(
                                         style = AuroType.Body.copy(
                                             fontSize = 14.sp,
                                             lineHeight = 20.sp,
-                                            color = if (savedNotes.isNotEmpty()) AuroColor.TextPrimary else AuroColor.TextTertiary
+                                            color = if (savedNotes.isNotEmpty()) AuroColor.TextPrimary else AuroColor.TextSecondary
                                         )
                                     )
                                 }
@@ -450,7 +459,7 @@ fun AuroNowPlayingScreen(
                                     Text(
                                         text = technicalFooter,
                                         style = AuroType.MicroLabel.copy(
-                                            color = AuroColor.TextTertiary,
+                                            color = AuroColor.TextSecondary,
                                             fontFamily = FontFamily.Monospace,
                                             fontFeatureSettings = "tnum"
                                         ),
@@ -489,10 +498,10 @@ fun AuroNowPlayingScreen(
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
                                         .padding(10.dp)
-                                        .size(32.dp)
+                                        .size(40.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0x99121215))
-                                        .border(0.5.dp, Color.White.copy(alpha = 0.16f), CircleShape)
+                                        .background(Color(0xA6121215))
+                                        .border(0.75.dp, Color.White.copy(alpha = 0.28f), CircleShape)
                                         .clickable {
                                             AuroHaptics.click(view)
                                             isFlipped = true
@@ -502,15 +511,15 @@ fun AuroNowPlayingScreen(
                                     Icon(
                                         imageVector = Icons.Rounded.FlipCameraAndroid,
                                         contentDescription = stringResource(R.string.cd_show_album_back),
-                                        tint = Color.White.copy(alpha = 0.85f),
-                                        modifier = Modifier.size(16.dp)
+                                        tint = Color.White.copy(alpha = 0.92f),
+                                        modifier = Modifier.size(20.dp)
                                     )
                                 }
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.heightIn(min = 12.dp).weight(0.7f))
+                    Spacer(modifier = Modifier.heightIn(min = 10.dp).weight(0.55f))
 
                     // Título / Artista + ♡ e •••
                     Row(
@@ -532,7 +541,7 @@ fun AuroNowPlayingScreen(
                             Text(
                                 text = formatArtistsDisplay(track.artist, stringResource(R.string.unknown_artist)),
                                 style = AuroType.Subtitle.copy(fontSize = 16.sp),
-                                color = Color.White.copy(alpha = 0.55f),
+                                color = Color.White.copy(alpha = 0.76f),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -731,9 +740,9 @@ fun AuroNowPlayingScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.heightIn(min = 12.dp).weight(0.8f))
+                    Spacer(modifier = Modifier.heightIn(min = 10.dp).weight(0.55f))
 
-                    // Scrubber fino branco
+                    // Scrubber fino branco com timestamps sempre visíveis
                     EditorialScrubber(
                         progressMs = progressMs,
                         durationMs = durationMs,
@@ -741,7 +750,7 @@ fun AuroNowPlayingScreen(
                         onSeek = { ms ->
                             onSeek(if (durationMs > 0) ms.toFloat() / durationMs.toFloat() else 0f)
                         },
-                        showTimestampsOnlyWhenDragging = true,
+                        showTimestampsOnlyWhenDragging = false,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = AuroSpace.ScreenMargin)
@@ -1138,6 +1147,31 @@ fun AuroNowPlayingScreen(
                     .padding(bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = track.title,
+                        style = AuroType.Subtitle.copy(fontWeight = FontWeight.Bold),
+                        color = AuroColor.TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = formatArtistsDisplay(track.artist, stringResource(R.string.unknown_artist)),
+                        style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                HorizontalDivider(
+                    color = AuroColor.Hairline,
+                    thickness = 0.5.dp,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
                 QuickMenuItem(Icons.AutoMirrored.Outlined.QueueMusic, stringResource(R.string.menu_queue)) {
                     showOptionsMenu = false
                     activeSheetTab = PlayerSheetTab.QUEUE
@@ -1145,16 +1179,16 @@ fun AuroNowPlayingScreen(
                         expandProgress.animateTo(1f, AuroMotion.spatialDefault())
                     }
                 }
-                QuickMenuItem(Icons.Rounded.GraphicEq, stringResource(R.string.tab_equalizer)) {
+                QuickMenuItem(Icons.Outlined.GraphicEq, stringResource(R.string.tab_equalizer)) {
                     showOptionsMenu = false; onOpenEqualizer()
                 }
                 QuickMenuItem(Icons.AutoMirrored.Outlined.PlaylistAdd, stringResource(R.string.selection_add_playlist)) {
                     showOptionsMenu = false; onAddToPlaylist()
                 }
-                QuickMenuItem(Icons.Rounded.Timer, stringResource(R.string.menu_sleep_timer)) {
+                QuickMenuItem(Icons.Outlined.Timer, stringResource(R.string.menu_sleep_timer)) {
                     showOptionsMenu = false; onOpenSleepTimer()
                 }
-                QuickMenuItem(Icons.Rounded.Info, stringResource(R.string.context_track_info)) {
+                QuickMenuItem(Icons.Outlined.Info, stringResource(R.string.context_track_info)) {
                     showOptionsMenu = false; onOpenTrackInfo()
                 }
             }
@@ -1226,16 +1260,34 @@ private fun LyricsContentView(
             modifier = modifier,
             contentAlignment = Alignment.Center
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.08f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.MusicNote,
+                        contentDescription = null,
+                        tint = AuroColor.TextSecondary,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(14.dp))
                 Text(
                     text = stringResource(R.string.lyrics_none_found),
-                    style = AuroType.SectionTitle.copy(color = AuroColor.TextSecondary),
+                    style = AuroType.SectionTitle.copy(color = AuroColor.TextPrimary),
                     textAlign = TextAlign.Center
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = stringResource(R.string.lyrics_lrc_hint),
-                    style = AuroType.Caption.copy(color = AuroColor.TextTertiary),
+                    style = AuroType.Caption.copy(color = AuroColor.TextSecondary),
                     textAlign = TextAlign.Center
                 )
             }
@@ -1264,30 +1316,34 @@ private fun LyricsContentView(
 
                 Text(
                     text = line.text,
-                    style = if (isLineActive) {
+                    style = if (isLineActive || !lyrics.isSynced) {
                         AuroType.LyricsActive.copy(
                             fontSize = 18.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.White,
+                            fontWeight = if (isLineActive) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (isLineActive) Color.White else Color.White.copy(alpha = 0.84f),
                             textAlign = TextAlign.Center
                         )
                     } else {
                         AuroType.LyricsInactive.copy(
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Normal,
-                            color = Color.White.copy(alpha = 0.28f),
+                            color = AuroColor.LyricsInactive,
                             textAlign = TextAlign.Center
                         )
                     },
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable {
-                            if (durationMs > 0) {
-                                val targetFrac = (line.timeMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
-                                onSeek(targetFrac)
+                        .then(
+                            if (lyrics.isSynced && durationMs > 0) {
+                                Modifier.clickable {
+                                    val targetFrac = (line.timeMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+                                    onSeek(targetFrac)
+                                }
+                            } else {
+                                Modifier
                             }
-                        }
+                        )
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 )
             }
@@ -1335,7 +1391,9 @@ private fun ExpandedQueueSheetView(
     var dragPointerY by remember { mutableFloatStateOf(0f) }
     val queueListState = rememberLazyListState()
 
-    val chronologicalHistory = remember(historyList) { historyList.reversed() }
+    val chronologicalHistory = remember(historyList, currentTrackId) {
+        historyList.dropLastWhile { it.second.id == currentTrackId }.reversed()
+    }
     val anchorIndex = if (chronologicalHistory.isNotEmpty()) 1 + chronologicalHistory.size else 0
 
     LaunchedEffect(shouldScrollToAnchor) {
@@ -1489,7 +1547,7 @@ private fun ExpandedQueueSheetView(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = stringResource(R.string.search_recent_clear),
+                    text = stringResource(R.string.queue_clear_next),
                     style = AuroType.Caption.copy(
                         color = AuroColor.TextSecondary.copy(alpha = if (isClearEnabled) 1f else 0.40f),
                         fontWeight = FontWeight.SemiBold
@@ -1520,9 +1578,9 @@ private fun ExpandedQueueSheetView(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = stringResource(R.string.queue_mode_history),
+                            text = "${stringResource(R.string.queue_mode_history)} (${chronologicalHistory.size})",
                             style = AuroType.Caption.copy(
-                                color = AuroColor.TextTertiary,
+                                color = AuroColor.TextSecondary,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace
                             )
@@ -1539,7 +1597,7 @@ private fun ExpandedQueueSheetView(
                                     AuroHaptics.click(view)
                                     onClearHistory()
                                 }
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
                         )
                     }
                 }
@@ -1752,9 +1810,9 @@ private fun ExpandedQueueSheetView(
             if (localRegularTracks.isNotEmpty()) {
                 item(key = "header_regular") {
                     Text(
-                        text = stringResource(R.string.queue_section_continuing),
+                        text = "${stringResource(R.string.queue_section_continuing)} (${localRegularTracks.size})",
                         style = AuroType.Caption.copy(
-                            color = AuroColor.TextTertiary,
+                            color = AuroColor.TextSecondary,
                             fontWeight = FontWeight.Bold,
                             fontFamily = FontFamily.Monospace
                         ),
@@ -2038,7 +2096,6 @@ private fun HistoryTrackRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .graphicsLayer { alpha = 0.55f }
             .clip(RoundedCornerShape(AuroRadius.card))
             .background(Color.Transparent)
             .clickable { onClick() }
@@ -2048,6 +2105,7 @@ private fun HistoryTrackRow(
         Box(
             modifier = Modifier
                 .size(40.dp)
+                .graphicsLayer { alpha = 0.65f }
                 .clip(RectangleShape),
             contentAlignment = Alignment.Center
         ) {
@@ -2069,7 +2127,11 @@ private fun HistoryTrackRow(
 
         Spacer(modifier = Modifier.width(10.dp))
 
-        Column(modifier = Modifier.weight(1f)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .graphicsLayer { alpha = 0.65f }
+        ) {
             Text(
                 text = track.title,
                 style = AuroType.Body.copy(

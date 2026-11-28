@@ -522,4 +522,13 @@
     <string name="settings_backup_export_success">Backup exported (%1$d playlists, %2$d media files)</string>
     <string name="settings_backup_restore_success">Backup restored (%1$d playlists, %2$d media files)</string>
     <string name="settings_backup_error">Backup failed: %s</string>
+    <string name="home_gifs_paused_short">GIFs off</string>
+    <string name="home_gifs_active_short">GIFs on</string>
+    <string name="done">Done</string>
+    <string name="home_album_collections_empty_hint">Group albums into custom collections</string>
+    <string name="search_idle_title">Search your library</string>
+    <string name="search_idle_message">Find songs, albums and artists stored on your device</string>
+    <string name="album_tracks_section">Tracks</string>
+    <string name="queue_clear_next">Clear queue</string>
+    <string name="settings_folder_path_subtitle">Folder: %s</string>
 </resources>

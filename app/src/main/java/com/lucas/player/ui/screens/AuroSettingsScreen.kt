@@ -156,9 +156,10 @@ fun AuroSettingsScreen(
                     } else {
                         currentFolders.forEach { uriStr ->
                             val folderDisplay = preferencesManager.formatFolderName(uriStr)
+                            val folderLeaf = folderDisplay.substringAfterLast('/').ifBlank { folderDisplay }
                             SettingsClickableRow(
-                                title = folderDisplay,
-                                subtitle = uriStr,
+                                title = folderLeaf,
+                                subtitle = stringResource(R.string.settings_folder_path_subtitle, folderDisplay),
                                 onClick = {},
                                 trailingContent = {
                                     IconButton(
@@ -511,7 +512,7 @@ fun AuroSettingsScreen(
                                 Icon(
                                     imageVector = Icons.Rounded.Upload,
                                     contentDescription = null,
-                                    tint = AuroColor.TextTertiary,
+                                    tint = AuroColor.TextPrimary,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -539,7 +540,7 @@ fun AuroSettingsScreen(
                                 Icon(
                                     imageVector = Icons.Rounded.Download,
                                     contentDescription = null,
-                                    tint = AuroColor.TextTertiary,
+                                    tint = AuroColor.TextPrimary,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
