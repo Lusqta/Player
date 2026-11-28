@@ -2379,6 +2379,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 )
                             }
                         }
+                        }
                     }
 
                     // AuroSnackbarHost posicionado acima do mini player / navbar (Fase 5.4: insets medidos)
@@ -2859,7 +2860,6 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 }
             }
         }
-            }
         }
     }
 }
