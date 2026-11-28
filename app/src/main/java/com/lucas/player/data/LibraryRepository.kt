@@ -121,6 +121,44 @@ class LibraryRepository() {
         return synchronized(sharedTracks) { sharedTracks.toList() }
     }
 
+    fun getCachedTracksForBackup(context: Context): List<MusicDatabase.CachedTrack> {
+        return getOrCreateDb(context)?.getCachedTracks() ?: emptyList()
+    }
+
+    fun getAllStatsForBackup(context: Context): Map<Long, MusicDatabase.TrackStat> {
+        return getOrCreateDb(context)?.getAllStats() ?: emptyMap()
+    }
+
+    fun getAllPlayEventsForBackup(context: Context): List<MusicDatabase.PlayEventRow> {
+        return getOrCreateDb(context)?.getAllPlayEvents() ?: emptyList()
+    }
+
+    fun getRawPlaylistTrackIds(context: Context, playlistId: Long): List<Long> {
+        return getOrCreateDb(context)?.getTracksForPlaylist(playlistId) ?: emptyList()
+    }
+
+    fun restoreBackupSnapshot(context: Context, snapshot: MusicDatabase.BackupRestoreSnapshot) {
+        init(context)
+        getOrCreateDb(context)?.restoreBackupSnapshot(snapshot)
+        syncInMemoryStatsFromDb(context)
+    }
+
+    fun syncInMemoryStatsFromDb(context: Context? = null) {
+        val db = getOrCreateDb(context) ?: return
+        val statsMap = db.getAllStats()
+        synchronized(sharedTracks) {
+            for (i in sharedTracks.indices) {
+                val track = sharedTracks[i]
+                val stat = statsMap[track.id]
+                sharedTracks[i] = track.copy(
+                    playCount = stat?.playCount ?: 0,
+                    lastPlayedTimestamp = stat?.lastPlayedMs ?: 0L,
+                    rating = stat?.rating ?: 0
+                )
+            }
+        }
+    }
+
     @Volatile
     var onStatsChangedListener: (() -> Unit)? = null
 

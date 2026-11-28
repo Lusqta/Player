@@ -59,6 +59,7 @@ import androidx.compose.ui.zIndex
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import com.lucas.player.data.BackupManager
 import com.lucas.player.data.CoverArtLoader
 import com.lucas.player.data.LibraryRepository
 import com.lucas.player.data.LyricsManager
@@ -276,6 +277,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     private val targetAlbumForMediaState = mutableStateOf<String?>(null)
     private val albumMediaVersionState = mutableIntStateOf(0)
     private val customMediaVersionState = mutableIntStateOf(0)
+    private val backupOperationState = mutableStateOf(BackupOperationState.IDLE)
     private val mediaEditorTargetState = mutableStateOf<Triple<String, String, String>?>(null)
     private val albumCollectionsVersionState = mutableIntStateOf(0)
     private val showCreateAlbumCollectionDialogState = mutableStateOf(false)
@@ -2183,6 +2185,89 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     pauseGifs = pauseGifs,
                                     onPauseGifsChanged = { enabled ->
                                         pauseGifs = enabled
+                                    },
+                                    backupState = backupOperationState.value,
+                                    onExportBackup = { targetUri ->
+                                        if (backupOperationState.value == BackupOperationState.IDLE) {
+                                            backupOperationState.value = BackupOperationState.EXPORTING
+                                            lifecycleScope.launch {
+                                                try {
+                                                    val result = BackupManager.exportBackup(this@MainActivity, targetUri)
+                                                    result.onSuccess { summary ->
+                                                        AuroHaptics.confirm(window.decorView)
+                                                        snackbarState.show(
+                                                            getString(
+                                                                R.string.settings_backup_export_success,
+                                                                summary.playlistsCount,
+                                                                summary.mediaFilesCount
+                                                            )
+                                                        )
+                                                    }.onFailure { err ->
+                                                        snackbarState.show(
+                                                            getString(
+                                                                R.string.settings_backup_error,
+                                                                err.localizedMessage ?: "error"
+                                                            )
+                                                        )
+                                                    }
+                                                } finally {
+                                                    backupOperationState.value = BackupOperationState.IDLE
+                                                }
+                                            }
+                                        }
+                                    },
+                                    onRestoreBackup = { sourceUri ->
+                                        if (backupOperationState.value == BackupOperationState.IDLE) {
+                                            backupOperationState.value = BackupOperationState.RESTORING
+                                            lifecycleScope.launch {
+                                                try {
+                                                    val result = BackupManager.importBackup(
+                                                        context = this@MainActivity,
+                                                        sourceUri = sourceUri,
+                                                        currentTracks = homeSnapshot.allTracks
+                                                    )
+                                                    result.onSuccess { summary ->
+                                                        CoverArtLoader.clearCache()
+                                                        homeSectionOrder = preferencesManager.getHomeSectionOrder()
+                                                        hiddenHomeSections = preferencesManager.getHiddenHomeSections()
+                                                        pauseGifs = preferencesManager.isPauseGifsEnabled()
+
+                                                        libraryVersionState.intValue++
+                                                        playlistsVersionState.intValue++
+                                                        artistMediaVersionState.intValue++
+                                                        artistStyleVersionState.intValue++
+                                                        albumMediaVersionState.intValue++
+                                                        albumCollectionsVersionState.intValue++
+                                                        customMediaVersionState.intValue++
+
+                                                        val cur = currentTrackState.value
+                                                        if (cur != null) {
+                                                            libraryRepo.getAllTracks().firstOrNull { it.id == cur.id }?.let {
+                                                                currentTrackState.value = it
+                                                            }
+                                                        }
+                                                        renderCurrentCategory()
+                                                        AuroHaptics.confirm(window.decorView)
+                                                        snackbarState.show(
+                                                            getString(
+                                                                R.string.settings_backup_restore_success,
+                                                                summary.playlistsCount,
+                                                                summary.mediaFilesCount
+                                                            )
+                                                        )
+                                                    }.onFailure { err ->
+                                                        snackbarState.show(
+                                                            getString(
+                                                                R.string.settings_backup_error,
+                                                                err.localizedMessage ?: "error"
+                                                            )
+                                                        )
+                                                    }
+                                                } finally {
+                                                    backupOperationState.value = BackupOperationState.IDLE
+                                                }
+                                            }
+                                        }
                                     },
                                     onSettingsChanged = {
                                         playbackService?.let { s -> s.queueManager.currentTrack?.let { s.applyEffectivePreamp(it) } }

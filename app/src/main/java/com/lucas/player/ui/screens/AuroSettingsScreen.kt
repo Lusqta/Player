@@ -2,6 +2,8 @@ package com.lucas.player.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.BuildConfig
 import com.lucas.player.R
+import com.lucas.player.data.BackupManager
 import com.lucas.player.data.PreferencesManager
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.AuroColor
@@ -39,6 +42,12 @@ import com.lucas.player.ui.theme.AuroSpace
 import com.lucas.player.ui.theme.LiquidGlassSurface
 import com.lucas.player.ui.theme.LocalAuroBottomInset
 import kotlin.math.roundToInt
+
+enum class BackupOperationState {
+    IDLE,
+    EXPORTING,
+    RESTORING
+}
 
 /**
  * AURŌ DESIGN SYSTEM v3 - TELA DE CONFIGURAÇÕES (AURŌ SETTINGS SCREEN)
@@ -60,6 +69,9 @@ fun AuroSettingsScreen(
     onClearMusicFolder: () -> Unit = {},
     pauseGifs: Boolean = false,
     onPauseGifsChanged: (Boolean) -> Unit = {},
+    backupState: BackupOperationState = BackupOperationState.IDLE,
+    onExportBackup: (Uri) -> Unit = {},
+    onRestoreBackup: (Uri) -> Unit = {},
     modifier: Modifier = Modifier,
     onSettingsChanged: () -> Unit = {}
 ) {
@@ -84,6 +96,23 @@ fun AuroSettingsScreen(
     var showReplayGainPicker by remember { mutableStateOf(false) }
     var showReduceMotionPicker by remember { mutableStateOf(false) }
     var showLicensesDialog by remember { mutableStateOf(false) }
+    var pendingRestoreUri by remember { mutableStateOf<Uri?>(null) }
+
+    val exportBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri ->
+        if (uri != null) {
+            onExportBackup(uri)
+        }
+    }
+
+    val restoreBackupLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            pendingRestoreUri = uri
+        }
+    }
 
     Column(
         modifier = modifier
@@ -456,7 +485,71 @@ fun AuroSettingsScreen(
             }
 
             // ─────────────────────────────────────────────────────────────
-            // SEÇÃO 4: SOBRE
+            // SEÇÃO 4: BACKUP E PERMANÊNCIA
+            // ─────────────────────────────────────────────────────────────
+            item {
+                SettingsSectionHeader(stringResource(R.string.settings_section_backup))
+                SettingsCard {
+                    SettingsClickableRow(
+                        title = stringResource(R.string.settings_backup_export),
+                        subtitle = if (backupState == BackupOperationState.EXPORTING) {
+                            stringResource(R.string.settings_backup_exporting)
+                        } else {
+                            stringResource(R.string.settings_backup_export_desc)
+                        },
+                        onClick = if (backupState == BackupOperationState.IDLE) {
+                            { exportBackupLauncher.launch(BackupManager.defaultBackupFileName()) }
+                        } else null,
+                        trailingContent = {
+                            if (backupState == BackupOperationState.EXPORTING) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color.White
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Rounded.Upload,
+                                    contentDescription = null,
+                                    tint = AuroColor.TextTertiary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    )
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                    SettingsClickableRow(
+                        title = stringResource(R.string.settings_backup_restore),
+                        subtitle = if (backupState == BackupOperationState.RESTORING) {
+                            stringResource(R.string.settings_backup_restoring)
+                        } else {
+                            stringResource(R.string.settings_backup_restore_desc)
+                        },
+                        onClick = if (backupState == BackupOperationState.IDLE) {
+                            { restoreBackupLauncher.launch(arrayOf("application/zip")) }
+                        } else null,
+                        trailingContent = {
+                            if (backupState == BackupOperationState.RESTORING) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color.White
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Rounded.Download,
+                                    contentDescription = null,
+                                    tint = AuroColor.TextTertiary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    )
+                }
+            }
+
+            // ─────────────────────────────────────────────────────────────
+            // SEÇÃO 5: SOBRE
             // ─────────────────────────────────────────────────────────────
             item {
                 SettingsSectionHeader(stringResource(R.string.settings_section_about))
@@ -608,6 +701,37 @@ fun AuroSettingsScreen(
             ) {
                 Text(
                     text = stringResource(R.string.settings_licenses_text),
+                    style = AuroType.Body.copy(color = AuroColor.TextSecondary)
+                )
+            }
+        }
+    }
+
+    pendingRestoreUri?.let { restoreUri ->
+        AuroOverlay(
+            visible = true,
+            onDismiss = { pendingRestoreUri = null },
+            type = AuroOverlayType.Dialog
+        ) {
+            AuroDialogContainer(
+                title = stringResource(R.string.settings_backup_restore_confirm_title),
+                onDismiss = { pendingRestoreUri = null },
+                actions = {
+                    AuroDialogTextButton(
+                        text = stringResource(R.string.cancel),
+                        onClick = { pendingRestoreUri = null }
+                    )
+                    AuroDialogTextButton(
+                        text = stringResource(R.string.settings_backup_restore_confirm_action),
+                        onClick = {
+                            pendingRestoreUri = null
+                            onRestoreBackup(restoreUri)
+                        }
+                    )
+                }
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_backup_restore_confirm_message),
                     style = AuroType.Body.copy(color = AuroColor.TextSecondary)
                 )
             }

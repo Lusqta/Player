@@ -509,4 +509,17 @@
     <string name="media_editor_mode_gif_frame">GIF frame</string>
     <string name="media_editor_mode_static_image">Static image</string>
     <string name="media_editor_updated">Media updated</string>
+    <string name="settings_section_backup">Backup &amp; Permanence</string>
+    <string name="settings_backup_export">Export backup (.zip)</string>
+    <string name="settings_backup_export_desc">Saves playlists, collections, album notes, custom covers, GIFs and stats</string>
+    <string name="settings_backup_restore">Restore backup (.zip)</string>
+    <string name="settings_backup_restore_desc">Replaces current curation with data from a backup archive</string>
+    <string name="settings_backup_exporting">Exporting backup…</string>
+    <string name="settings_backup_restoring">Restoring backup…</string>
+    <string name="settings_backup_restore_confirm_title">Restore backup?</string>
+    <string name="settings_backup_restore_confirm_message">This will replace your playlists, collections, album notes, custom covers, GIFs, playback stats and home preferences with the selected backup.</string>
+    <string name="settings_backup_restore_confirm_action">Restore</string>
+    <string name="settings_backup_export_success">Backup exported (%1$d playlists, %2$d media files)</string>
+    <string name="settings_backup_restore_success">Backup restored (%1$d playlists, %2$d media files)</string>
+    <string name="settings_backup_error">Backup failed: %s</string>
 </resources>

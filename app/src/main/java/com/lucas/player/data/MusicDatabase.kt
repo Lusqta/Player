@@ -92,6 +92,35 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         val pausedDisplayMode: String = PAUSED_MODE_GIF_FRAME
     )
 
+    data class PlayEventRow(
+        val trackId: Long,
+        val playedAtMs: Long
+    )
+
+    data class RestoredPlaylist(
+        val oldId: Long,
+        val name: String,
+        val createdMs: Long,
+        val coverPath: String,
+        val trackIds: List<Long>
+    )
+
+    data class RestoredAlbumCollection(
+        val name: String,
+        val createdMs: Long,
+        val albumNames: List<String>
+    )
+
+    data class BackupRestoreSnapshot(
+        val albumMeta: List<AlbumMeta>,
+        val artistStyles: List<ArtistStyle>,
+        val customMedia: List<CustomMedia>,
+        val albumCollections: List<RestoredAlbumCollection>,
+        val playlists: List<RestoredPlaylist>,
+        val trackStats: List<TrackStat>,
+        val playEvents: List<PlayEventRow>
+    )
+
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             """
@@ -473,6 +502,23 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
             }
         } catch (_: Exception) {}
         return counts
+    }
+
+    fun getAllPlayEvents(): List<PlayEventRow> {
+        val list = mutableListOf<PlayEventRow>()
+        try {
+            readableDatabase.rawQuery(
+                "SELECT $COL_PLAY_EVENT_TRACK_ID, $COL_PLAY_EVENT_PLAYED_AT FROM $TABLE_PLAY_EVENTS ORDER BY $COL_PLAY_EVENT_PLAYED_AT ASC",
+                null
+            ).use { cursor ->
+                val trackIdCol = cursor.getColumnIndexOrThrow(COL_PLAY_EVENT_TRACK_ID)
+                val timeCol = cursor.getColumnIndexOrThrow(COL_PLAY_EVENT_PLAYED_AT)
+                while (cursor.moveToNext()) {
+                    list.add(PlayEventRow(trackId = cursor.getLong(trackIdCol), playedAtMs = cursor.getLong(timeCol)))
+                }
+            }
+        } catch (_: Exception) {}
+        return list
     }
 
     fun setRating(trackId: Long, rating: Int) {
@@ -1428,6 +1474,180 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
                     db.insert(TABLE_ALBUM_COLLECTION_ITEMS, null, values)
                 }
             }
+            db.setTransactionSuccessful()
+        } finally {
+            try {
+                db.endTransaction()
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun restoreBackupSnapshot(snapshot: BackupRestoreSnapshot) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            db.delete(TABLE_ALBUM_META, null, null)
+            db.delete(TABLE_ARTIST_STYLE, null, null)
+            db.delete(TABLE_ARTIST_MEDIA, null, null)
+            db.delete(TABLE_CUSTOM_MEDIA, null, null)
+            db.delete(TABLE_ALBUM_COLLECTION_ITEMS, null, null)
+            db.delete(TABLE_ALBUM_COLLECTIONS, null, null)
+            db.delete(TABLE_PLAYLIST_ITEMS, null, null)
+            db.delete(TABLE_PLAYLISTS, null, null)
+            db.delete(TABLE_STATS, null, null)
+            db.delete(TABLE_PLAY_EVENTS, null, null)
+
+            for (meta in snapshot.albumMeta) {
+                val key = meta.albumKey.trim().lowercase()
+                if (key.isEmpty()) continue
+                val cv = ContentValues().apply {
+                    put(COL_ALBUM_KEY, key)
+                    put(COL_ALBUM_MEDIA_PATH, meta.mediaPath)
+                    put(COL_ALBUM_IS_GIF, if (meta.isGif) 1 else 0)
+                    put(COL_ALBUM_NOTES, meta.notes)
+                }
+                db.insertWithOnConflict(TABLE_ALBUM_META, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+            }
+
+            for (style in snapshot.artistStyles) {
+                val key = style.artistKey.trim().lowercase()
+                if (key.isEmpty()) continue
+                val cv = ContentValues().apply {
+                    put(COL_AS_KEY, key)
+                    put(COL_AS_FONT_ID, style.fontId.ifBlank { "default" })
+                    put(COL_AS_LOGO_PATH, style.logoPath)
+                    put(COL_AS_COLOR_MODE, style.colorMode.ifBlank { "AUTO" })
+                    put(COL_AS_CUSTOM_COLOR, style.customColorArgb)
+                }
+                db.insertWithOnConflict(TABLE_ARTIST_STYLE, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+            }
+
+            val playlistIdMap = mutableMapOf<Long, Long>()
+            for (pl in snapshot.playlists) {
+                val plValues = ContentValues().apply {
+                    put(COL_PL_NAME, pl.name.ifBlank { "Playlist" })
+                    put(COL_PL_CREATED, pl.createdMs)
+                    put(COL_PL_COVER_PATH, pl.coverPath)
+                }
+                val newId = db.insert(TABLE_PLAYLISTS, null, plValues)
+                if (newId > 0L) {
+                    if (pl.oldId > 0L) {
+                        playlistIdMap[pl.oldId] = newId
+                    }
+                    val seenTracks = HashSet<Long>()
+                    var order = 0
+                    for (trackId in pl.trackIds) {
+                        if (trackId != 0L && seenTracks.add(trackId)) {
+                            val itemValues = ContentValues().apply {
+                                put(COL_ITEM_PL_ID, newId)
+                                put(COL_ITEM_TRACK_ID, trackId)
+                                put(COL_ITEM_ORDER, order++)
+                            }
+                            db.insertWithOnConflict(TABLE_PLAYLIST_ITEMS, null, itemValues, SQLiteDatabase.CONFLICT_IGNORE)
+                        }
+                    }
+                }
+            }
+
+            for (collection in snapshot.albumCollections) {
+                val colValues = ContentValues().apply {
+                    put(COL_AC_NAME, collection.name.ifBlank { "Coleção" })
+                    put(COL_AC_CREATED, collection.createdMs)
+                }
+                val newColId = db.insert(TABLE_ALBUM_COLLECTIONS, null, colValues)
+                if (newColId > 0L) {
+                    val seenAlbums = HashSet<String>()
+                    var order = 0
+                    for (rawName in collection.albumNames) {
+                        val trimmed = rawName.trim()
+                        val key = trimmed.lowercase()
+                        if (trimmed.isNotEmpty() && seenAlbums.add(key)) {
+                            val itemValues = ContentValues().apply {
+                                put(COL_ACI_COLLECTION_ID, newColId)
+                                put(COL_ACI_ALBUM_NAME, trimmed)
+                                put(COL_ACI_SORT_ORDER, order++)
+                            }
+                            db.insertWithOnConflict(TABLE_ALBUM_COLLECTION_ITEMS, null, itemValues, SQLiteDatabase.CONFLICT_IGNORE)
+                        }
+                    }
+                }
+            }
+
+            for (cm in snapshot.customMedia) {
+                val normType = cm.entityType.trim().uppercase()
+                val rawKey = cm.entityKey.trim().lowercase()
+                if (normType.isEmpty() || rawKey.isEmpty()) continue
+                val mappedKey = if (normType == ENTITY_PLAYLIST) {
+                    val oldPlId = rawKey.toLongOrNull()
+                    if (oldPlId != null && playlistIdMap.containsKey(oldPlId)) {
+                        playlistIdMap.getValue(oldPlId).toString()
+                    } else {
+                        rawKey
+                    }
+                } else {
+                    rawKey
+                }
+                val cv = ContentValues().apply {
+                    put(COL_CM_ENTITY_TYPE, normType)
+                    put(COL_CM_ENTITY_KEY, mappedKey)
+                    put(COL_CM_GIF_PATH, cm.gifPath)
+                    put(COL_CM_GIF_FRAME_INDEX, cm.gifFrameIndex.coerceAtLeast(0))
+                    put(COL_CM_GIF_FROZEN_FRAME_PATH, cm.gifFrozenFramePath)
+                    put(COL_CM_STATIC_IMAGE_PATH, cm.staticImagePath)
+                    put(
+                        COL_CM_PAUSED_DISPLAY_MODE,
+                        if (cm.pausedDisplayMode == PAUSED_MODE_STATIC_IMAGE) PAUSED_MODE_STATIC_IMAGE else PAUSED_MODE_GIF_FRAME
+                    )
+                }
+                db.insertWithOnConflict(TABLE_CUSTOM_MEDIA, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+
+                if (normType == ENTITY_ARTIST) {
+                    val legacyPath = cm.gifPath.ifBlank { cm.staticImagePath }
+                    if (legacyPath.isNotBlank()) {
+                        val amCv = ContentValues().apply {
+                            put(COL_ARTIST_KEY, mappedKey)
+                            put(COL_ARTIST_MEDIA_PATH, legacyPath)
+                            put(COL_ARTIST_IS_GIF, if (cm.gifPath.isNotBlank()) 1 else 0)
+                        }
+                        db.insertWithOnConflict(TABLE_ARTIST_MEDIA, null, amCv, SQLiteDatabase.CONFLICT_REPLACE)
+                    }
+                }
+            }
+
+            val mergedStats = LinkedHashMap<Long, TrackStat>()
+            for (stat in snapshot.trackStats) {
+                if (stat.trackId == 0L) continue
+                val existing = mergedStats[stat.trackId]
+                mergedStats[stat.trackId] = if (existing == null) {
+                    stat
+                } else {
+                    TrackStat(
+                        trackId = stat.trackId,
+                        playCount = maxOf(existing.playCount, stat.playCount),
+                        lastPlayedMs = maxOf(existing.lastPlayedMs, stat.lastPlayedMs),
+                        rating = maxOf(existing.rating, stat.rating)
+                    )
+                }
+            }
+            for (stat in mergedStats.values) {
+                val cv = ContentValues().apply {
+                    put(COL_TRACK_ID, stat.trackId)
+                    put(COL_PLAY_COUNT, stat.playCount.coerceAtLeast(0))
+                    put(COL_LAST_PLAYED, stat.lastPlayedMs.coerceAtLeast(0L))
+                    put(COL_RATING, stat.rating.coerceIn(0, 5))
+                }
+                db.insertWithOnConflict(TABLE_STATS, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+            }
+
+            for (ev in snapshot.playEvents) {
+                if (ev.trackId == 0L) continue
+                val cv = ContentValues().apply {
+                    put(COL_PLAY_EVENT_TRACK_ID, ev.trackId)
+                    put(COL_PLAY_EVENT_PLAYED_AT, ev.playedAtMs)
+                }
+                db.insert(TABLE_PLAY_EVENTS, null, cv)
+            }
+
             db.setTransactionSuccessful()
         } finally {
             try {

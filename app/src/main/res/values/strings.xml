@@ -510,4 +510,17 @@
     <string name="media_editor_mode_gif_frame">Frame do GIF</string>
     <string name="media_editor_mode_static_image">Imagem estática</string>
     <string name="media_editor_updated">Mídia atualizada</string>
+    <string name="settings_section_backup">Backup e Permanência</string>
+    <string name="settings_backup_export">Exportar backup (.zip)</string>
+    <string name="settings_backup_export_desc">Salva playlists, coleções, anotações, capas personalizadas, GIFs e estatísticas</string>
+    <string name="settings_backup_restore">Restaurar backup (.zip)</string>
+    <string name="settings_backup_restore_desc">Substitui a curadoria atual pelo conteúdo de um arquivo de backup</string>
+    <string name="settings_backup_exporting">Exportando backup…</string>
+    <string name="settings_backup_restoring">Restaurando backup…</string>
+    <string name="settings_backup_restore_confirm_title">Restaurar backup?</string>
+    <string name="settings_backup_restore_confirm_message">Esta ação substituirá suas playlists, coleções, anotações, capas personalizadas, GIFs, estatísticas e preferências da tela inicial pelo backup selecionado.</string>
+    <string name="settings_backup_restore_confirm_action">Restaurar</string>
+    <string name="settings_backup_export_success">Backup exportado (%1$d playlists, %2$d mídias)</string>
+    <string name="settings_backup_restore_success">Backup restaurado (%1$d playlists, %2$d mídias)</string>
+    <string name="settings_backup_error">Falha no backup: %s</string>
 </resources>
