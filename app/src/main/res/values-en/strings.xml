@@ -443,6 +443,8 @@
     <string name="album_notes_placeholder">Tap to write notes about this album</string>
     <string name="album_notes_hint">Write your notes about this album...</string>
     <string name="album_notes_saved">Notes saved</string>
+    <string name="cd_show_album_back">View album notes</string>
+    <string name="cd_show_album_front">Show album cover</string>
 
     <!-- Phase 4B: Album Collections & Customizable Home -->
     <string name="albums_count_zero">0 albums</string>

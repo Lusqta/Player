@@ -813,7 +813,7 @@ private fun QuickMixCard(
     modifier: Modifier = Modifier
 ) {
     val view = LocalView.current
-    val mixShape = RoundedCornerShape(AuroRadius.mix)
+    val mixShape = RectangleShape
     Box(
         modifier = modifier
             .height(106.dp)
@@ -879,7 +879,7 @@ private fun WideAlbumCard(
     onPlay: () -> Unit = {}
 ) {
     val view = LocalView.current
-    val cardShape = RoundedCornerShape(24.dp)
+    val cardShape = RectangleShape
     val coverShape = RectangleShape
 
     Box(

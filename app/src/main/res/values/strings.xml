@@ -444,6 +444,8 @@
     <string name="album_notes_placeholder">Toque para anotar algo sobre este álbum</string>
     <string name="album_notes_hint">Escreva suas anotações sobre este álbum...</string>
     <string name="album_notes_saved">Anotações salvas</string>
+    <string name="cd_show_album_back">Ver verso e anotações</string>
+    <string name="cd_show_album_front">Voltar para a capa</string>
 
     <!-- Fase 4B: Coleções de Álbuns & Início Personalizável -->
     <string name="albums_count_zero">0 álbuns</string>

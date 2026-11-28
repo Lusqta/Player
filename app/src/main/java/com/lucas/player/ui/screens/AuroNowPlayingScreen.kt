@@ -6,6 +6,7 @@ import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -21,14 +22,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.PlaylistAdd
 import androidx.compose.material.icons.automirrored.outlined.QueueMusic
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -71,8 +75,33 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
+
+internal fun formatTrackTechnicalFooter(track: Track): String {
+    val parts = mutableListOf<String>()
+    if (track.formatTag.isNotBlank()) {
+        parts += track.formatTag.trim().uppercase(Locale.US)
+    }
+    if (track.bitrateKbps > 0) {
+        parts += "${track.bitrateKbps} kbps"
+    }
+    if (track.sampleRateHz > 0) {
+        parts += if (track.sampleRateHz % 1000 == 0) {
+            "${track.sampleRateHz / 1000} kHz"
+        } else {
+            String.format(Locale.US, "%.1f kHz", track.sampleRateHz / 1000f)
+        }
+    }
+    if (track.year > 0) {
+        parts += track.year.toString()
+    }
+    if (track.replayGainTrackGain != 0f) {
+        parts += String.format(Locale.US, "RG %+.2f dB", track.replayGainTrackGain)
+    }
+    return parts.joinToString("  ·  ")
+}
 
 enum class PlayerSheetTab {
     LYRICS,
@@ -91,6 +120,8 @@ fun AuroNowPlayingScreen(
     isAlbumGif: Boolean = false,
     albumMediaVersion: Int = 0,
     customAlbumMedia: com.lucas.player.data.MusicDatabase.CustomMedia? = null,
+    albumNotes: String = "",
+    onSaveAlbumNotes: ((String, String) -> Unit)? = null,
     shuffleMode: ShuffleMode,
     repeatMode: RepeatMode,
     priorityTracks: List<Track> = emptyList(),
@@ -141,6 +172,7 @@ fun AuroNowPlayingScreen(
 
     val context = LocalContext.current
     val view = LocalView.current
+    val density = LocalDensity.current
     val accentState = LocalAuroAccent.current
     val color1 = accentState.mesh1.value
     val color2 = accentState.mesh2.value
@@ -151,6 +183,13 @@ fun AuroNowPlayingScreen(
     var activeSheetTab by remember { mutableStateOf(PlayerSheetTab.LYRICS) }
     val snackbarState = rememberAuroSnackbarState()
     var showOptionsMenu by remember { mutableStateOf(false) }
+    var isFlipped by remember(track.id) { mutableStateOf(false) }
+    var showNotesDialog by remember(track.id) { mutableStateOf(false) }
+    val flipRotation by animateFloatAsState(
+        targetValue = if (isFlipped) 180f else 0f,
+        animationSpec = if (reduceMotion) snap() else spring(dampingRatio = 0.82f, stiffness = 320f),
+        label = "playerCoverFlipRotation"
+    )
 
     var lyricsData by remember(track.id) { mutableStateOf<LyricsManager.Lyrics?>(null) }
     LaunchedEffect(track.id) {
@@ -264,7 +303,7 @@ fun AuroNowPlayingScreen(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
-                    // Capa quadrada centralizada
+                    // Capa quadrada centralizada com verso em flip 3D
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -274,6 +313,8 @@ fun AuroNowPlayingScreen(
                             .graphicsLayer {
                                 scaleX = coverScale
                                 scaleY = coverScale
+                                rotationY = flipRotation
+                                cameraDistance = 12f * density.density
                             }
                             .clip(RectangleShape)
                             .pointerInput(Unit) {
@@ -302,18 +343,171 @@ fun AuroNowPlayingScreen(
                                 }
                             }
                     ) {
-                        AlbumArtworkImage(
-                            albumName = track.album,
-                            customMediaPath = customAlbumMediaPath,
-                            isGif = isAlbumGif,
-                            fallbackTrack = track,
-                            shape = RectangleShape,
-                            mediaStamp = albumMediaVersion.toLong(),
-                            targetSizeDp = 600,
-                            preloadedFallbackBitmap = coverBitmap,
-                            customMedia = customAlbumMedia,
-                            modifier = Modifier.fillMaxSize()
-                        )
+                        if (flipRotation > 90f) {
+                            val savedNotes = albumNotes.trim()
+                            val technicalFooter = remember(
+                                track.id,
+                                track.formatTag,
+                                track.bitrateKbps,
+                                track.sampleRateHz,
+                                track.year,
+                                track.replayGainTrackGain
+                            ) {
+                                formatTrackTechnicalFooter(track)
+                            }
+                            val canEditNotes = track.album.isNotBlank() && onSaveAlbumNotes != null
+
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer { rotationY = 180f }
+                                    .background(Color(0xFF141416))
+                                    .border(0.75.dp, Color(0xFF242428), RectangleShape)
+                                    .padding(20.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.album_notes_title),
+                                        style = AuroType.MicroLabel.copy(
+                                            color = AuroColor.TextSecondary,
+                                            fontWeight = FontWeight.SemiBold,
+                                            letterSpacing = 0.6.sp
+                                        )
+                                    )
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        if (canEditNotes) {
+                                            IconButton(
+                                                onClick = {
+                                                    AuroHaptics.click(view)
+                                                    showNotesDialog = true
+                                                },
+                                                modifier = Modifier.size(34.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Outlined.Edit,
+                                                    contentDescription = stringResource(R.string.album_notes_action),
+                                                    tint = AuroColor.TextSecondary,
+                                                    modifier = Modifier.size(18.dp)
+                                                )
+                                            }
+                                        }
+                                        IconButton(
+                                            onClick = {
+                                                AuroHaptics.click(view)
+                                                isFlipped = false
+                                            },
+                                            modifier = Modifier.size(34.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Rounded.FlipCameraAndroid,
+                                                contentDescription = stringResource(R.string.cd_show_album_front),
+                                                tint = AuroColor.TextSecondary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth()
+                                        .then(
+                                            if (canEditNotes) {
+                                                Modifier.clickable {
+                                                    AuroHaptics.click(view)
+                                                    showNotesDialog = true
+                                                }
+                                            } else {
+                                                Modifier
+                                            }
+                                        )
+                                        .padding(vertical = 8.dp)
+                                        .verticalScroll(rememberScrollState())
+                                ) {
+                                    Text(
+                                        text = if (savedNotes.isNotEmpty()) {
+                                            savedNotes
+                                        } else {
+                                            stringResource(R.string.album_notes_placeholder)
+                                        },
+                                        style = AuroType.Body.copy(
+                                            fontSize = 14.sp,
+                                            lineHeight = 20.sp,
+                                            color = if (savedNotes.isNotEmpty()) AuroColor.TextPrimary else AuroColor.TextTertiary
+                                        )
+                                    )
+                                }
+
+                                if (technicalFooter.isNotEmpty()) {
+                                    Text(
+                                        text = technicalFooter,
+                                        style = AuroType.MicroLabel.copy(
+                                            color = AuroColor.TextTertiary,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontFeatureSettings = "tnum"
+                                        ),
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .pointerInput(track.id) {
+                                        detectTapGestures(
+                                            onTap = {
+                                                AuroHaptics.click(view)
+                                                isFlipped = true
+                                            }
+                                        )
+                                    }
+                            ) {
+                                AlbumArtworkImage(
+                                    albumName = track.album,
+                                    customMediaPath = customAlbumMediaPath,
+                                    isGif = isAlbumGif,
+                                    fallbackTrack = track,
+                                    shape = RectangleShape,
+                                    mediaStamp = albumMediaVersion.toLong(),
+                                    targetSizeDp = 600,
+                                    preloadedFallbackBitmap = coverBitmap,
+                                    customMedia = customAlbumMedia,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.BottomEnd)
+                                        .padding(10.dp)
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0x99121215))
+                                        .border(0.5.dp, Color.White.copy(alpha = 0.16f), CircleShape)
+                                        .clickable {
+                                            AuroHaptics.click(view)
+                                            isFlipped = true
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.FlipCameraAndroid,
+                                        contentDescription = stringResource(R.string.cd_show_album_back),
+                                        tint = Color.White.copy(alpha = 0.85f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
                     }
 
                     Spacer(modifier = Modifier.heightIn(min = 12.dp).weight(0.7f))
@@ -965,6 +1159,17 @@ fun AuroNowPlayingScreen(
                 }
             }
         }
+    }
+
+    if (showNotesDialog && track.album.isNotBlank() && onSaveAlbumNotes != null) {
+        AuroAlbumNotesDialog(
+            initialNotes = albumNotes,
+            onSave = { trimmedNotes ->
+                showNotesDialog = false
+                onSaveAlbumNotes.invoke(track.album, trimmedNotes)
+            },
+            onDismiss = { showNotesDialog = false }
+        )
     }
 }
 

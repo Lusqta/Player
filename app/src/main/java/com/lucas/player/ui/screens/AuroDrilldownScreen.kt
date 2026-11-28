@@ -793,57 +793,14 @@ fun AuroDrilldownScreen(
         }
 
         if (showNotesDialog && category == LibraryCategory.ALBUMS) {
-            var draftNotes by remember(albumMeta?.notes) { mutableStateOf(albumMeta?.notes ?: "") }
-            AuroOverlay(
-                visible = true,
-                onDismiss = { showNotesDialog = false },
-                type = AuroOverlayType.Dialog
-            ) {
-                AuroDialogContainer(
-                    title = stringResource(R.string.album_notes_action),
-                    onDismiss = { showNotesDialog = false },
-                    actions = {
-                        AuroDialogTextButton(
-                            text = stringResource(R.string.cancel),
-                            onClick = { showNotesDialog = false }
-                        )
-                        AuroDialogTextButton(
-                            text = stringResource(R.string.save),
-                            onClick = {
-                                showNotesDialog = false
-                                onSaveAlbumNotes?.invoke(draftNotes.trim())
-                            }
-                        )
-                    }
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 120.dp, max = 220.dp)
-                            .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
-                            .padding(14.dp)
-                    ) {
-                        if (draftNotes.isEmpty()) {
-                            Text(
-                                text = stringResource(R.string.album_notes_hint),
-                                style = AuroType.Body.copy(color = AuroColor.TextTertiary)
-                            )
-                        }
-                        BasicTextField(
-                            value = draftNotes,
-                            onValueChange = { draftNotes = it },
-                            textStyle = AuroType.Body.copy(
-                                color = AuroColor.TextPrimary,
-                                lineHeight = 20.sp
-                            ),
-                            cursorBrush = SolidColor(Color.White),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .verticalScroll(rememberScrollState())
-                        )
-                    }
-                }
-            }
+            AuroAlbumNotesDialog(
+                initialNotes = albumMeta?.notes ?: "",
+                onSave = { trimmedNotes ->
+                    showNotesDialog = false
+                    onSaveAlbumNotes?.invoke(trimmedNotes)
+                },
+                onDismiss = { showNotesDialog = false }
+            )
         }
 
         // FastScroller translúcido na margem direita (dinâmico abaixo do Hero, apenas se houver 20+ faixas)
@@ -861,6 +818,62 @@ fun AuroDrilldownScreen(
                     .align(Alignment.TopEnd)
                     .padding(top = fastScrollerTopDp, bottom = bottomInset + 30.dp, end = 2.dp)
             )
+        }
+    }
+}
+
+@Composable
+internal fun AuroAlbumNotesDialog(
+    initialNotes: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var draftNotes by remember(initialNotes) { mutableStateOf(initialNotes) }
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.Dialog
+    ) {
+        AuroDialogContainer(
+            title = stringResource(R.string.album_notes_action),
+            onDismiss = onDismiss,
+            actions = {
+                AuroDialogTextButton(
+                    text = stringResource(R.string.cancel),
+                    onClick = onDismiss
+                )
+                AuroDialogTextButton(
+                    text = stringResource(R.string.save),
+                    onClick = { onSave(draftNotes.trim()) }
+                )
+            }
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 120.dp, max = 220.dp)
+                    .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+                    .padding(14.dp)
+            ) {
+                if (draftNotes.isEmpty()) {
+                    Text(
+                        text = stringResource(R.string.album_notes_hint),
+                        style = AuroType.Body.copy(color = AuroColor.TextTertiary)
+                    )
+                }
+                BasicTextField(
+                    value = draftNotes,
+                    onValueChange = { draftNotes = it },
+                    textStyle = AuroType.Body.copy(
+                        color = AuroColor.TextPrimary,
+                        lineHeight = 20.sp
+                    ),
+                    cursorBrush = SolidColor(Color.White),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                )
+            }
         }
     }
 }

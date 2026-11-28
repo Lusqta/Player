@@ -1889,6 +1889,17 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     isAlbumGif = npAlbumMeta?.isGif ?: false,
                                     albumMediaVersion = albumMediaVersion + customMediaVersion,
                                     customAlbumMedia = npCustomAlbumMedia,
+                                    albumNotes = npAlbumMeta?.notes.orEmpty(),
+                                    onSaveAlbumNotes = { albumTitle, notes ->
+                                        lifecycleScope.launch(Dispatchers.IO) {
+                                            libraryRepo.setAlbumNotes(albumTitle, notes)
+                                            withContext(Dispatchers.Main) {
+                                                albumMediaVersionState.intValue++
+                                                AuroHaptics.confirm(window.decorView)
+                                                snackbarState.show(text = getString(R.string.album_notes_saved))
+                                            }
+                                        }
+                                    },
                                     shuffleMode = shuffleMode,
                                     repeatMode = repeatMode,
                                     priorityTracks = upcomingPriorityQueueState.value,
