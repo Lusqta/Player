@@ -74,6 +74,14 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         val albumCount: Int = 0
     )
 
+    data class ArtistStyle(
+        val artistKey: String,
+        val fontId: String = "default",
+        val logoPath: String = "",
+        val colorMode: String = "AUTO",
+        val customColorArgb: Int = 0
+    )
+
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             """
@@ -116,6 +124,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         createPlayEventsTable(db)
         createAlbumMetaTable(db)
         createAlbumCollectionsTables(db)
+        createArtistStyleTable(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -150,6 +159,23 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         if (oldVersion < 10) {
             createAlbumCollectionsTables(db)
         }
+        if (oldVersion < 11) {
+            createArtistStyleTable(db)
+        }
+    }
+
+    private fun createArtistStyleTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_ARTIST_STYLE (
+                $COL_AS_KEY TEXT PRIMARY KEY,
+                $COL_AS_FONT_ID TEXT DEFAULT 'default',
+                $COL_AS_LOGO_PATH TEXT DEFAULT '',
+                $COL_AS_COLOR_MODE TEXT DEFAULT 'AUTO',
+                $COL_AS_CUSTOM_COLOR INTEGER DEFAULT 0
+            )
+            """.trimIndent()
+        )
     }
 
     private fun createAlbumCollectionsTables(db: SQLiteDatabase) {
@@ -856,6 +882,87 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         } catch (_: Exception) {}
     }
 
+    // --- Estilo Editorial de Artista (Fonte, Logo PNG, Cor da Página) ---
+
+    fun getArtistStyle(artistName: String): ArtistStyle? {
+        val key = artistName.trim().lowercase()
+        if (key.isEmpty()) return null
+        try {
+            readableDatabase.query(
+                TABLE_ARTIST_STYLE,
+                arrayOf(COL_AS_KEY, COL_AS_FONT_ID, COL_AS_LOGO_PATH, COL_AS_COLOR_MODE, COL_AS_CUSTOM_COLOR),
+                "$COL_AS_KEY = ?",
+                arrayOf(key),
+                null, null, null
+            ).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    return ArtistStyle(
+                        artistKey = cursor.getString(0) ?: key,
+                        fontId = cursor.getString(1)?.ifBlank { "default" } ?: "default",
+                        logoPath = cursor.getString(2) ?: "",
+                        colorMode = cursor.getString(3)?.ifBlank { "AUTO" } ?: "AUTO",
+                        customColorArgb = cursor.getInt(4)
+                    )
+                }
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    fun getAllArtistStyles(): Map<String, ArtistStyle> {
+        val result = mutableMapOf<String, ArtistStyle>()
+        try {
+            readableDatabase.query(
+                TABLE_ARTIST_STYLE,
+                arrayOf(COL_AS_KEY, COL_AS_FONT_ID, COL_AS_LOGO_PATH, COL_AS_COLOR_MODE, COL_AS_CUSTOM_COLOR),
+                null, null, null, null, null
+            ).use { cursor ->
+                val keyCol = cursor.getColumnIndexOrThrow(COL_AS_KEY)
+                val fontCol = cursor.getColumnIndexOrThrow(COL_AS_FONT_ID)
+                val logoCol = cursor.getColumnIndexOrThrow(COL_AS_LOGO_PATH)
+                val modeCol = cursor.getColumnIndexOrThrow(COL_AS_COLOR_MODE)
+                val colorCol = cursor.getColumnIndexOrThrow(COL_AS_CUSTOM_COLOR)
+                while (cursor.moveToNext()) {
+                    val key = cursor.getString(keyCol) ?: continue
+                    result[key] = ArtistStyle(
+                        artistKey = key,
+                        fontId = cursor.getString(fontCol)?.ifBlank { "default" } ?: "default",
+                        logoPath = cursor.getString(logoCol) ?: "",
+                        colorMode = cursor.getString(modeCol)?.ifBlank { "AUTO" } ?: "AUTO",
+                        customColorArgb = cursor.getInt(colorCol)
+                    )
+                }
+            }
+        } catch (_: Exception) {}
+        return result
+    }
+
+    fun upsertArtistStyle(
+        artistName: String,
+        fontId: String? = null,
+        logoPath: String? = null,
+        colorMode: String? = null,
+        customColorArgb: Int? = null
+    ) {
+        val key = artistName.trim().lowercase()
+        if (key.isEmpty()) return
+        try {
+            val existing = getArtistStyle(key)
+            val finalFont = fontId ?: existing?.fontId ?: "default"
+            val finalLogo = logoPath ?: existing?.logoPath ?: ""
+            val finalMode = colorMode ?: existing?.colorMode ?: "AUTO"
+            val finalColor = customColorArgb ?: existing?.customColorArgb ?: 0
+            val cv = ContentValues().apply {
+                put(COL_AS_KEY, key)
+                put(COL_AS_FONT_ID, finalFont)
+                put(COL_AS_LOGO_PATH, finalLogo)
+                put(COL_AS_COLOR_MODE, finalMode)
+                put(COL_AS_CUSTOM_COLOR, finalColor)
+            }
+            writableDatabase.insertWithOnConflict(TABLE_ARTIST_STYLE, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+        } catch (_: Exception) {}
+    }
+
     // --- Metadados Customizados de Álbum (Capa / GIF + Anotações) ---
 
     fun setAlbumMedia(albumName: String, path: String, isGif: Boolean) {
@@ -1117,7 +1224,14 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
 
     companion object {
         const val DATABASE_NAME = "poweramp_library.db"
-        const val DATABASE_VERSION = 10
+        const val DATABASE_VERSION = 11
+
+        const val TABLE_ARTIST_STYLE = "artist_style"
+        const val COL_AS_KEY = "artist_key"
+        const val COL_AS_FONT_ID = "font_id"
+        const val COL_AS_LOGO_PATH = "logo_path"
+        const val COL_AS_COLOR_MODE = "color_mode"
+        const val COL_AS_CUSTOM_COLOR = "custom_color_argb"
 
         const val TABLE_ALBUM_COLLECTIONS = "album_collections"
         const val COL_AC_ID = "id"

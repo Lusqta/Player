@@ -1,6 +1,10 @@
 package com.lucas.player.ui.screens
 
 import android.graphics.Bitmap
+import android.os.Build
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,12 +15,17 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PushPin
@@ -26,27 +35,47 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.layer.GraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
+import com.lucas.player.data.CoverArtLoader
 import com.lucas.player.data.LibraryRepository
 import com.lucas.player.data.MusicDatabase
 import com.lucas.player.model.*
 import com.lucas.player.model.formatArtistsDisplay
-import com.lucas.player.model.splitArtists
-import com.lucas.player.model.isValidHighlightName
-import com.lucas.player.model.isJunkAudio
 import com.lucas.player.ui.components.*
 import com.lucas.player.ui.theme.*
 import kotlinx.coroutines.Dispatchers
@@ -54,12 +83,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * TELA PRINCIPAL DE ARTISTA (Editorial Dark OLED - Estilo Streaming)
- * - Fundo Bleed Atmosférico de 520dp via CoverGlow (da mídia salva ou fallbackTrack)
- * - Top Bar transparente com Glass Actions (Voltar, Fixar, Mais Opções -> Alterar / Remover foto)
- * - Hero Avatar 160×160dp com TranslucentPlayButton flutuante de 56dp
- * - Seção 1: Principais músicas (Top 5) clicável com atalho Aleatório
- * - Seção 2: Álbuns / Discografia com carrossel horizontal de até 3 lançamentos
+ * TELA PRINCIPAL DE ARTISTA (Editorial Dark OLED - Estilo Apple Music)
+ * - Fundo em degradê proporcional à altura rolável completa (cor viva -> #050505)
+ * - Hero Full-Bleed (380dp) com blur gradiente incolor progressivo (API 31+) e fade sem bordas
+ * - Identidade centralizada (fonte editorial selecionada ou logo PNG transparente)
+ * - Menu •••: Alterar foto/GIF, Personalizar identidade, Cor da página e Remover mídia
  */
 private data class ArtistProfileData(
     val top5Tracks: List<Track> = emptyList(),
@@ -69,6 +97,75 @@ private data class ArtistProfileData(
     val featTracks: List<Track> = emptyList(),
     val fallbackTrack: Track? = null
 )
+
+private val ARTIST_FONT_IDS = listOf("default", "manrope", "serif", "mono_caps", "condensed")
+
+private val ARTIST_PRESET_COLORS = listOf(
+    0xFFD72638.toInt(),
+    0xFFE84855.toInt(),
+    0xFFD97706.toInt(),
+    0xFF1D4ED8.toInt(),
+    0xFF4F46E5.toInt(),
+    0xFF7C3AED.toInt(),
+    0xFF0F766E.toInt(),
+    0xFF15803D.toInt(),
+    0xFFBE185D.toInt(),
+    0xFF78350F.toInt()
+)
+
+private fun artistIdentityTextStyle(fontId: String): TextStyle {
+    return when (fontId) {
+        "manrope" -> TextStyle(
+            fontFamily = ManropeFontFamily,
+            fontSize = 30.sp,
+            lineHeight = 36.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.4).sp,
+            color = AuroColor.TextPrimary
+        )
+        "serif" -> TextStyle(
+            fontFamily = FontFamily.Serif,
+            fontSize = 31.sp,
+            lineHeight = 37.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.2.sp,
+            color = AuroColor.TextPrimary
+        )
+        "mono_caps" -> TextStyle(
+            fontFamily = FontFamily.Monospace,
+            fontSize = 23.sp,
+            lineHeight = 29.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 2.6.sp,
+            color = AuroColor.TextPrimary
+        )
+        "condensed" -> TextStyle(
+            fontFamily = FontFamily.SansSerif,
+            fontSize = 28.sp,
+            lineHeight = 33.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = (-1.1).sp,
+            color = AuroColor.TextPrimary
+        )
+        else -> TextStyle(
+            fontFamily = PlusJakartaFontFamily,
+            fontSize = 30.sp,
+            lineHeight = 36.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.4).sp,
+            color = AuroColor.TextPrimary
+        )
+    }
+}
+
+private fun formatArtistIdentityText(artistName: String, fontId: String): String {
+    val display = formatArtistsDisplay(artistName, artistName)
+    return if (fontId == "mono_caps" || fontId == "condensed") {
+        display.uppercase()
+    } else {
+        display
+    }
+}
 
 @Composable
 fun AuroArtistScreen(
@@ -90,6 +187,12 @@ fun AuroArtistScreen(
     customMediaPath: String? = null,
     isGif: Boolean = false,
     artistMediaVersion: Int = 0,
+    artistStyle: MusicDatabase.ArtistStyle? = null,
+    artistStyleVersion: Int = 0,
+    onUpdateArtistFont: (String) -> Unit = {},
+    onPickArtistLogo: () -> Unit = {},
+    onRemoveArtistLogo: () -> Unit = {},
+    onUpdateArtistColorMode: (String, Int) -> Unit = { _, _ -> },
     libraryVersion: Int = 0,
     albumMetaMap: Map<String, MusicDatabase.AlbumMeta> = emptyMap(),
     albumMediaVersion: Int = 0,
@@ -99,11 +202,36 @@ fun AuroArtistScreen(
     modifier: Modifier = Modifier
 ) {
     val view = LocalView.current
+    val context = LocalContext.current
+    val density = LocalDensity.current
     val bottomInset = LocalAuroBottomInset.current
     val listState = rememberLazyListState()
 
     val mediaStamp = remember(customMediaPath, artistMediaVersion) {
         customMediaPath?.let { java.io.File(it).takeIf(java.io.File::exists)?.lastModified() } ?: 0L
+    }
+
+    val effectiveStyle = artistStyle ?: MusicDatabase.ArtistStyle(
+        artistKey = artistName.trim().lowercase()
+    )
+    var showIdentitySheet by remember { mutableStateOf(false) }
+    var showColorSheet by remember { mutableStateOf(false) }
+
+    val logoPath = effectiveStyle.logoPath.takeIf { it.isNotBlank() }
+    val logoStamp = remember(logoPath, artistStyleVersion) {
+        logoPath?.let { java.io.File(it).takeIf(java.io.File::exists)?.lastModified() } ?: 0L
+    }
+    var artistLogoBitmap by remember(logoPath, logoStamp) {
+        mutableStateOf(CoverArtLoader.getCachedArtistLogo(logoPath))
+    }
+    LaunchedEffect(logoPath, logoStamp) {
+        if (logoPath != null) {
+            CoverArtLoader.loadArtistLogo(logoPath, 800) { bmp ->
+                artistLogoBitmap = bmp
+            }
+        } else {
+            artistLogoBitmap = null
+        }
     }
 
     val profileData by produceState(
@@ -129,6 +257,93 @@ fun AuroArtistScreen(
     val featTracks = profileData.featTracks
     val fallbackTrack = profileData.fallbackTrack
 
+    // Cor automática viva extraída da foto/1º frame do GIF ou fallbackTrack
+    var autoSourceBitmap by remember(customMediaPath, mediaStamp, fallbackTrack?.id) {
+        mutableStateOf<Bitmap?>(null)
+    }
+    LaunchedEffect(customMediaPath, mediaStamp, fallbackTrack?.id, effectiveStyle.colorMode) {
+        if (effectiveStyle.colorMode == "AUTO") {
+            val mediaFile = customMediaPath?.takeIf { it.isNotBlank() }
+                ?.let { java.io.File(it) }
+                ?.takeIf { it.exists() }
+            if (mediaFile != null) {
+                CoverArtLoader.loadArtistStaticBitmap(mediaFile.absolutePath, 400) { bmp ->
+                    autoSourceBitmap = bmp
+                }
+            } else if (fallbackTrack != null) {
+                CoverArtLoader.loadCover(context, fallbackTrack, 300) { bmp ->
+                    autoSourceBitmap = bmp
+                }
+            } else {
+                autoSourceBitmap = null
+            }
+        }
+    }
+
+    val autoExtractedColor by produceState(
+        initialValue = AuroColor.Canvas,
+        key1 = autoSourceBitmap,
+        key2 = effectiveStyle.colorMode
+    ) {
+        value = if (effectiveStyle.colorMode == "AUTO" && autoSourceBitmap != null) {
+            CoverGlow.extractVibrantPageColor(autoSourceBitmap)
+        } else {
+            AuroColor.Canvas
+        }
+    }
+
+    val targetTopColor = when (effectiveStyle.colorMode) {
+        "OLED_BLACK" -> AuroColor.Canvas
+        "MANUAL" -> if (effectiveStyle.customColorArgb != 0) {
+            GlowTone.clampManualPageColor(effectiveStyle.customColorArgb)
+        } else {
+            AuroColor.Canvas
+        }
+        else -> autoExtractedColor
+    }
+    val animatedTopColor by animateColorAsState(
+        targetValue = targetTopColor,
+        animationSpec = tween(durationMillis = 520, easing = FastOutSlowInEasing),
+        label = "artist_page_top_color"
+    )
+
+    // Cálculo proporcional do degradê ao longo de toda a altura rolável
+    val heroHeightPx = with(density) { 380.dp.toPx() }
+    val defaultRowPx = with(density) { 64.dp.toPx() }
+    val measuredItemHeights = remember(artistName) { mutableStateMapOf<Int, Int>() }
+    val scrollMetrics by remember(listState, heroHeightPx, defaultRowPx) {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            info.visibleItemsInfo.forEach { item ->
+                measuredItemHeights[item.index] = item.size
+            }
+            val viewportH = info.viewportSize.height.toFloat().coerceAtLeast(1f)
+            val totalItems = info.totalItemsCount
+            if (totalItems == 0) {
+                Pair(0f, viewportH)
+            } else {
+                var totalH = 0f
+                var currentScroll = 0f
+                val firstIdx = listState.firstVisibleItemIndex
+                for (i in 0 until totalItems) {
+                    val h = measuredItemHeights[i]?.toFloat()
+                        ?: if (i == 0) heroHeightPx else defaultRowPx
+                    if (i < firstIdx) currentScroll += h
+                    totalH += h
+                }
+                currentScroll += listState.firstVisibleItemScrollOffset
+                val docH = maxOf(viewportH, totalH)
+                val maxScroll = (docH - viewportH).coerceAtLeast(0f)
+                val clampedScroll = if (!listState.canScrollForward && listState.canScrollBackward) {
+                    maxScroll
+                } else {
+                    currentScroll.coerceIn(0f, maxScroll)
+                }
+                Pair(clampedScroll, docH)
+            }
+        }
+    }
+
     val totalTracksCount = primaryTracks.size + featTracks.size
     val albumCount = releases.count { it.isAlbum }
     val singleCount = releases.count { !it.isAlbum }
@@ -147,102 +362,58 @@ fun AuroArtistScreen(
         modifier = modifier
             .fillMaxSize()
             .background(AuroColor.Canvas)
+            .drawBehind {
+                val (scrollY, docH) = scrollMetrics
+                val effectiveDocH = maxOf(size.height, docH)
+                val midColor = lerp(animatedTopColor, AuroColor.Canvas, 0.55f)
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        0.00f to animatedTopColor,
+                        0.55f to midColor,
+                        1.00f to AuroColor.Canvas,
+                        startY = -scrollY,
+                        endY = effectiveDocH - scrollY
+                    )
+                )
+                // Véu escuro leve atrás da área de listas para leitura nítida sem apagar a cor viva
+                val veilTop = heroHeightPx - with(density) { 40.dp.toPx() } - scrollY
+                if (veilTop < size.height) {
+                    val clampedTop = veilTop.coerceAtLeast(0f)
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            0.0f to Color.Transparent,
+                            0.18f to Color.Black.copy(alpha = 0.20f),
+                            1.0f to Color.Black.copy(alpha = 0.20f),
+                            startY = veilTop,
+                            endY = veilTop + with(density) { 96.dp.toPx() }
+                        ),
+                        topLeft = Offset(0f, clampedTop),
+                        size = Size(size.width, (size.height - clampedTop).coerceAtLeast(0f))
+                    )
+                }
+            }
     ) {
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = bottomInset + 80.dp)
         ) {
-            // Hero Full-Bleed Estilo Streaming (380dp)
+            // Hero Full-Bleed Editorial (380dp) com blur gradiente incolor
             item(key = "artist_hero") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(380.dp)
-                ) {
-                    ArtistAvatarImage(
-                        artistName = artistName,
-                        customMediaPath = customMediaPath,
-                        isGif = isGif,
-                        fallbackTrack = fallbackTrack,
-                        shape = RectangleShape,
-                        mediaStamp = mediaStamp,
-                        modifier = Modifier.fillMaxSize()
-                    )
-
-                    // Vinheta superior sutil para contraste da Top Bar
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(110.dp)
-                            .align(Alignment.TopCenter)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Black.copy(alpha = 0.58f),
-                                        Color.Transparent
-                                    )
-                                )
-                            )
-                    )
-
-                    // Vinheta inferior dissolvendo no preto absoluto OLED
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(190.dp)
-                            .align(Alignment.BottomCenter)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        AuroColor.Canvas.copy(alpha = 0.80f),
-                                        AuroColor.Canvas
-                                    )
-                                )
-                            )
-                    )
-
-                    // Identificação à esquerda + Play flutuante à direita
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .align(Alignment.BottomCenter)
-                            .padding(start = AuroSpace.ScreenMargin, end = AuroSpace.ScreenMargin, bottom = 16.dp),
-                        verticalAlignment = Alignment.Bottom,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = formatArtistsDisplay(artistName, artistName),
-                                style = AuroType.HeroName.copy(fontSize = 30.sp, fontWeight = FontWeight.Bold),
-                                color = AuroColor.TextPrimary,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = subtitleText,
-                                style = AuroType.Caption,
-                                color = Color.White.copy(alpha = 0.78f),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        TranslucentPlayButton(
-                            isPlaying = false,
-                            size = 56.dp,
-                            containerColor = AuroColor.ControlGlass,
-                            onClick = {
-                                AuroHaptics.click(view)
-                                onPlayAll()
-                            }
-                        )
+                ArtistHeroSection(
+                    artistName = artistName,
+                    subtitleText = subtitleText,
+                    fontId = effectiveStyle.fontId,
+                    logoBitmap = artistLogoBitmap,
+                    customMediaPath = customMediaPath,
+                    isGif = isGif,
+                    fallbackTrack = fallbackTrack,
+                    mediaStamp = mediaStamp,
+                    onPlayAll = {
+                        AuroHaptics.click(view)
+                        onPlayAll()
                     }
-                }
+                )
             }
 
             // Seção 1: Principais músicas (Top 5)
@@ -498,6 +669,32 @@ fun AuroArtistScreen(
                                 onChangeMedia()
                             }
                         )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = stringResource(R.string.artist_customize_identity),
+                                    style = AuroType.Body,
+                                    color = AuroColor.TextPrimary
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                showIdentitySheet = true
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = stringResource(R.string.artist_page_color),
+                                    style = AuroType.Body,
+                                    color = AuroColor.TextPrimary
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                showColorSheet = true
+                            }
+                        )
                         if (customMediaPath != null) {
                             DropdownMenuItem(
                                 text = {
@@ -513,6 +710,771 @@ fun AuroArtistScreen(
                                 }
                             )
                         }
+                    }
+                }
+            }
+        }
+
+        if (showIdentitySheet) {
+            ArtistIdentitySheet(
+                artistName = artistName,
+                currentFontId = effectiveStyle.fontId,
+                logoPath = logoPath,
+                logoBitmap = artistLogoBitmap,
+                onSelectFont = onUpdateArtistFont,
+                onPickLogo = {
+                    showIdentitySheet = false
+                    onPickArtistLogo()
+                },
+                onRemoveLogo = onRemoveArtistLogo,
+                onDismiss = { showIdentitySheet = false }
+            )
+        }
+
+        if (showColorSheet) {
+            ArtistPageColorSheet(
+                currentMode = effectiveStyle.colorMode,
+                currentCustomArgb = effectiveStyle.customColorArgb,
+                onSelectMode = onUpdateArtistColorMode,
+                onDismiss = { showColorSheet = false }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ArtistHeroSection(
+    artistName: String,
+    subtitleText: String,
+    fontId: String,
+    logoBitmap: Bitmap?,
+    customMediaPath: String?,
+    isGif: Boolean,
+    fallbackTrack: Track?,
+    mediaStamp: Long,
+    onPlayAll: () -> Unit
+) {
+    val density = LocalDensity.current
+    val heroLayer = rememberGraphicsLayer()
+    val isHeroRecorded = remember { booleanArrayOf(false) }
+    val blurTopOffsetDp = 160.dp
+    val blurTopOffsetPx = with(density) { blurTopOffsetDp.toPx() }
+    val blurSoftPx = with(density) { 10.dp.toPx() }
+    val blurMidPx = with(density) { 22.dp.toPx() }
+    val blurStrongPx = with(density) { 36.dp.toPx() }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(380.dp)
+            .clipToBounds()
+    ) {
+        // Camada base: foto/GIF dissolvendo suavemente na metade inferior sem vinheta preta
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    compositingStrategy = CompositingStrategy.Offscreen
+                }
+                .drawWithContent {
+                    if (!heroLayer.isReleased && size.width > 0f && size.height > 0f) {
+                        val recorded = try {
+                            heroLayer.record {
+                                this@drawWithContent.drawContent()
+                            }
+                            isHeroRecorded[0] = true
+                            drawLayer(heroLayer)
+                            true
+                        } catch (_: Throwable) {
+                            false
+                        }
+                        if (!recorded) {
+                            drawContent()
+                        }
+                    } else {
+                        drawContent()
+                    }
+                    // Máscara alfa na metade inferior para dissolver no degradê vivo da página
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            0.00f to Color.Black,
+                            0.48f to Color.Black,
+                            0.74f to Color.Black.copy(alpha = 0.56f),
+                            0.90f to Color.Black.copy(alpha = 0.16f),
+                            1.00f to Color.Transparent
+                        ),
+                        blendMode = BlendMode.DstIn
+                    )
+                }
+        ) {
+            ArtistAvatarImage(
+                artistName = artistName,
+                customMediaPath = customMediaPath,
+                isGif = isGif,
+                fallbackTrack = fallbackTrack,
+                shape = RectangleShape,
+                mediaStamp = mediaStamp,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        // Blur gradiente incolor progressivo (API 31+) na metade inferior do Hero
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .align(Alignment.BottomCenter)
+                    .clipToBounds()
+            ) {
+                HeroProgressiveBlurTier(
+                    heroLayer = heroLayer,
+                    isHeroReady = {
+                        isHeroRecorded[0] &&
+                            !heroLayer.isReleased &&
+                            heroLayer.size.width > 0 &&
+                            heroLayer.size.height > 0
+                    },
+                    topOffsetPx = blurTopOffsetPx,
+                    blurRadiusPx = blurSoftPx,
+                    maskBrush = remember {
+                        Brush.verticalGradient(
+                            0.00f to Color.Transparent,
+                            0.25f to Color.Black.copy(alpha = 0.70f),
+                            0.65f to Color.Black.copy(alpha = 0.85f),
+                            0.90f to Color.Black.copy(alpha = 0.25f),
+                            1.00f to Color.Transparent
+                        )
+                    }
+                )
+                HeroProgressiveBlurTier(
+                    heroLayer = heroLayer,
+                    isHeroReady = {
+                        isHeroRecorded[0] &&
+                            !heroLayer.isReleased &&
+                            heroLayer.size.width > 0 &&
+                            heroLayer.size.height > 0
+                    },
+                    topOffsetPx = blurTopOffsetPx,
+                    blurRadiusPx = blurMidPx,
+                    maskBrush = remember {
+                        Brush.verticalGradient(
+                            0.00f to Color.Transparent,
+                            0.30f to Color.Black.copy(alpha = 0.45f),
+                            0.70f to Color.Black.copy(alpha = 0.72f),
+                            0.93f to Color.Black.copy(alpha = 0.18f),
+                            1.00f to Color.Transparent
+                        )
+                    }
+                )
+                HeroProgressiveBlurTier(
+                    heroLayer = heroLayer,
+                    isHeroReady = {
+                        isHeroRecorded[0] &&
+                            !heroLayer.isReleased &&
+                            heroLayer.size.width > 0 &&
+                            heroLayer.size.height > 0
+                    },
+                    topOffsetPx = blurTopOffsetPx,
+                    blurRadiusPx = blurStrongPx,
+                    maskBrush = remember {
+                        Brush.verticalGradient(
+                            0.00f to Color.Transparent,
+                            0.45f to Color.Transparent,
+                            0.75f to Color.Black.copy(alpha = 0.52f),
+                            0.95f to Color.Black.copy(alpha = 0.12f),
+                            1.00f to Color.Transparent
+                        )
+                    }
+                )
+            }
+        }
+
+        // Proteção sutil no topo para os ícones da barra de status
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(100.dp)
+                .align(Alignment.TopCenter)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Black.copy(alpha = 0.42f),
+                            Color.Transparent
+                        )
+                    )
+                )
+        )
+
+        // Identidade centralizada no meio da área do blur gradiente + Play discreto à direita
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(185.dp)
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 14.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth()
+                    .padding(horizontal = 76.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (logoBitmap != null) {
+                    Image(
+                        bitmap = logoBitmap.asImageBitmap(),
+                        contentDescription = artistName,
+                        contentScale = ContentScale.Fit,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 72.dp)
+                    )
+                } else {
+                    Text(
+                        text = formatArtistIdentityText(artistName, fontId),
+                        style = artistIdentityTextStyle(fontId),
+                        color = AuroColor.TextPrimary,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = subtitleText,
+                    style = AuroType.Caption,
+                    color = Color.White.copy(alpha = 0.80f),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            TranslucentPlayButton(
+                isPlaying = false,
+                size = 50.dp,
+                containerColor = AuroColor.ControlGlass,
+                onClick = onPlayAll,
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = AuroSpace.ScreenMargin, bottom = 4.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.HeroProgressiveBlurTier(
+    heroLayer: GraphicsLayer,
+    isHeroReady: () -> Boolean,
+    topOffsetPx: Float,
+    blurRadiusPx: Float,
+    maskBrush: Brush
+) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+    Box(
+        modifier = Modifier
+            .matchParentSize()
+            .clipToBounds()
+            .graphicsLayer {
+                compositingStrategy = CompositingStrategy.Offscreen
+            }
+            .drawWithContent {
+                drawContent()
+                drawRect(
+                    brush = maskBrush,
+                    blendMode = BlendMode.DstIn
+                )
+            }
+    ) {
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .graphicsLayer {
+                    renderEffect = BlurEffect(
+                        radiusX = blurRadiusPx,
+                        radiusY = blurRadiusPx,
+                        edgeTreatment = TileMode.Clamp
+                    )
+                }
+                .drawBehind {
+                    if (!isHeroReady()) return@drawBehind
+                    try {
+                        clipRect(0f, 0f, size.width, size.height) {
+                            translate(left = 0f, top = -topOffsetPx) {
+                                drawLayer(heroLayer)
+                            }
+                        }
+                    } catch (_: Throwable) {}
+                }
+        )
+    }
+}
+
+@Composable
+private fun ArtistIdentitySheet(
+    artistName: String,
+    currentFontId: String,
+    logoPath: String?,
+    logoBitmap: Bitmap?,
+    onSelectFont: (String) -> Unit,
+    onPickLogo: () -> Unit,
+    onRemoveLogo: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val view = LocalView.current
+    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.BottomSheet
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Surface(
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                color = AuroColor.SurfaceGrouped,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = screenHeight * 0.85f)
+                    .align(Alignment.BottomCenter)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = AuroSpace.ScreenMargin, vertical = 20.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.artist_customize_identity),
+                        style = AuroType.SectionTitle,
+                        color = AuroColor.TextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Prévia ao vivo
+                    Text(
+                        text = stringResource(R.string.artist_identity_preview),
+                        style = AuroType.MicroLabel,
+                        color = AuroColor.TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(92.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFF101013))
+                            .border(0.75.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                            .padding(horizontal = 20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (logoBitmap != null) {
+                            Image(
+                                bitmap = logoBitmap.asImageBitmap(),
+                                contentDescription = artistName,
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier
+                                    .fillMaxWidth(0.75f)
+                                    .heightIn(max = 64.dp)
+                            )
+                        } else {
+                            Text(
+                                text = formatArtistIdentityText(artistName, currentFontId),
+                                style = artistIdentityTextStyle(currentFontId),
+                                color = AuroColor.TextPrimary,
+                                textAlign = TextAlign.Center,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Botões de Logo PNG
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color.White.copy(alpha = 0.10f))
+                                .clickable {
+                                    AuroHaptics.click(view)
+                                    onPickLogo()
+                                }
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Image,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(R.string.artist_logo_upload),
+                                style = AuroType.Label.copy(color = Color.White, fontWeight = FontWeight.Medium),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        if (!logoPath.isNullOrBlank()) {
+                            Row(
+                                modifier = Modifier
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(AuroColor.Danger.copy(alpha = 0.16f))
+                                    .clickable {
+                                        AuroHaptics.click(view)
+                                        onRemoveLogo()
+                                    }
+                                    .padding(horizontal = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.DeleteOutline,
+                                    contentDescription = null,
+                                    tint = AuroColor.Danger,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(R.string.artist_logo_remove),
+                                    style = AuroType.Label.copy(color = AuroColor.Danger, fontWeight = FontWeight.Medium)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Text(
+                        text = stringResource(R.string.artist_font_section),
+                        style = AuroType.MicroLabel,
+                        color = AuroColor.TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    ARTIST_FONT_IDS.forEach { fontId ->
+                        val isSelected = fontId == currentFontId
+                        val label = when (fontId) {
+                            "manrope" -> stringResource(R.string.artist_font_manrope)
+                            "serif" -> stringResource(R.string.artist_font_serif)
+                            "mono_caps" -> stringResource(R.string.artist_font_mono_caps)
+                            "condensed" -> stringResource(R.string.artist_font_condensed)
+                            else -> stringResource(R.string.artist_font_default)
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                .clickable {
+                                    AuroHaptics.click(view)
+                                    onSelectFont(fontId)
+                                }
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = label,
+                                    style = AuroType.Caption,
+                                    color = AuroColor.TextSecondary
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = formatArtistIdentityText(artistName, fontId),
+                                    style = artistIdentityTextStyle(fontId).copy(fontSize = 18.sp, lineHeight = 22.sp),
+                                    color = AuroColor.TextPrimary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ArtistPageColorSheet(
+    currentMode: String,
+    currentCustomArgb: Int,
+    onSelectMode: (String, Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val view = LocalView.current
+    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+
+    val initialHsl = remember(currentCustomArgb) {
+        val base = if (currentCustomArgb != 0) currentCustomArgb else 0xFFD72638.toInt()
+        val r = ((base shr 16) and 0xFF) / 255f
+        val g = ((base shr 8) and 0xFF) / 255f
+        val b = (base and 0xFF) / 255f
+        GlowTone.rgbToHsl(r, g, b)
+    }
+    var hue by remember(currentCustomArgb) { mutableFloatStateOf(initialHsl[0] * 360f) }
+    var sat by remember(currentCustomArgb) { mutableFloatStateOf(initialHsl[1].coerceIn(0f, 1f)) }
+    var light by remember(currentCustomArgb) { mutableFloatStateOf(initialHsl[2].coerceIn(0.08f, 0.42f)) }
+    val previewArgb = GlowTone.hslToArgb((hue / 360f).coerceIn(0f, 1f), sat.coerceIn(0f, 1f), light.coerceIn(0.04f, 0.42f))
+    val previewColor = GlowTone.clampManualPageColor(previewArgb)
+
+    AuroOverlay(
+        visible = true,
+        onDismiss = onDismiss,
+        type = AuroOverlayType.BottomSheet
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Surface(
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                color = AuroColor.SurfaceGrouped,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = screenHeight * 0.85f)
+                    .align(Alignment.BottomCenter)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = AuroSpace.ScreenMargin, vertical = 20.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.artist_page_color),
+                        style = AuroType.SectionTitle,
+                        color = AuroColor.TextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    val modes = listOf(
+                        "AUTO" to stringResource(R.string.artist_color_mode_auto),
+                        "OLED_BLACK" to stringResource(R.string.artist_color_mode_oled),
+                        "MANUAL" to stringResource(R.string.artist_color_mode_manual)
+                    )
+                    modes.forEach { (mode, label) ->
+                        val isSelected = currentMode == mode
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSelected) Color.White.copy(alpha = 0.12f) else Color.Transparent)
+                                .clickable {
+                                    AuroHaptics.click(view)
+                                    val argb = if (mode == "MANUAL") previewColor.toArgb() else currentCustomArgb
+                                    onSelectMode(mode, argb)
+                                }
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = label,
+                                style = AuroType.Body.copy(
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = AuroColor.TextPrimary
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Check,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = stringResource(R.string.artist_color_presets),
+                        style = AuroType.MicroLabel,
+                        color = AuroColor.TextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        ARTIST_PRESET_COLORS.take(5).forEach { argb ->
+                            val clamped = GlowTone.clampManualPageColor(argb)
+                            val selected = currentMode == "MANUAL" && currentCustomArgb == clamped.toArgb()
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(clamped)
+                                    .border(
+                                        width = if (selected) 2.dp else 1.dp,
+                                        color = if (selected) Color.White else Color.White.copy(alpha = 0.20f),
+                                        shape = CircleShape
+                                    )
+                                    .clickable {
+                                        AuroHaptics.click(view)
+                                        val hsl = GlowTone.rgbToHsl(clamped.red, clamped.green, clamped.blue)
+                                        hue = hsl[0] * 360f
+                                        sat = hsl[1]
+                                        light = hsl[2]
+                                        onSelectMode("MANUAL", clamped.toArgb())
+                                    }
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        ARTIST_PRESET_COLORS.drop(5).forEach { argb ->
+                            val clamped = GlowTone.clampManualPageColor(argb)
+                            val selected = currentMode == "MANUAL" && currentCustomArgb == clamped.toArgb()
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(clamped)
+                                    .border(
+                                        width = if (selected) 2.dp else 1.dp,
+                                        color = if (selected) Color.White else Color.White.copy(alpha = 0.20f),
+                                        shape = CircleShape
+                                    )
+                                    .clickable {
+                                        AuroHaptics.click(view)
+                                        val hsl = GlowTone.rgbToHsl(clamped.red, clamped.green, clamped.blue)
+                                        hue = hsl[0] * 360f
+                                        sat = hsl[1]
+                                        light = hsl[2]
+                                        onSelectMode("MANUAL", clamped.toArgb())
+                                    }
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // Seletor HSL livre
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "${stringResource(R.string.artist_color_hue)} (${hue.toInt()}°)",
+                            style = AuroType.Caption,
+                            color = AuroColor.TextSecondary
+                        )
+                        Box(
+                            modifier = Modifier
+                                .size(26.dp)
+                                .clip(CircleShape)
+                                .background(previewColor)
+                                .border(1.dp, Color.White.copy(alpha = 0.35f), CircleShape)
+                        )
+                    }
+                    Slider(
+                        value = hue,
+                        onValueChange = {
+                            hue = it
+                            val nextColor = GlowTone.clampManualPageColor(
+                                GlowTone.hslToArgb((it / 360f).coerceIn(0f, 1f), sat, light)
+                            )
+                            onSelectMode("MANUAL", nextColor.toArgb())
+                        },
+                        valueRange = 0f..360f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color.White,
+                            activeTrackColor = previewColor,
+                            inactiveTrackColor = Color.White.copy(alpha = 0.16f)
+                        )
+                    )
+
+                    Text(
+                        text = "${stringResource(R.string.artist_color_saturation)} (${(sat * 100).toInt()}%)",
+                        style = AuroType.Caption,
+                        color = AuroColor.TextSecondary
+                    )
+                    Slider(
+                        value = sat,
+                        onValueChange = {
+                            sat = it
+                            val nextColor = GlowTone.clampManualPageColor(
+                                GlowTone.hslToArgb((hue / 360f).coerceIn(0f, 1f), it, light)
+                            )
+                            onSelectMode("MANUAL", nextColor.toArgb())
+                        },
+                        valueRange = 0f..1f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color.White,
+                            activeTrackColor = previewColor,
+                            inactiveTrackColor = Color.White.copy(alpha = 0.16f)
+                        )
+                    )
+
+                    Text(
+                        text = "${stringResource(R.string.artist_color_lightness)} (${(light * 100).toInt()}%)",
+                        style = AuroType.Caption,
+                        color = AuroColor.TextSecondary
+                    )
+                    Slider(
+                        value = light,
+                        onValueChange = {
+                            light = it
+                            val nextColor = GlowTone.clampManualPageColor(
+                                GlowTone.hslToArgb((hue / 360f).coerceIn(0f, 1f), sat, it)
+                            )
+                            onSelectMode("MANUAL", nextColor.toArgb())
+                        },
+                        valueRange = 0.06f..0.42f,
+                        colors = SliderDefaults.colors(
+                            thumbColor = Color.White,
+                            activeTrackColor = previewColor,
+                            inactiveTrackColor = Color.White.copy(alpha = 0.16f)
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .clickable {
+                                AuroHaptics.confirm(view)
+                                onSelectMode("MANUAL", previewColor.toArgb())
+                                onDismiss()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.artist_color_apply),
+                            style = AuroType.Label.copy(color = Color.Black, fontWeight = FontWeight.Bold)
+                        )
                     }
                 }
             }

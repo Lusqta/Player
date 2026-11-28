@@ -353,6 +353,29 @@ object GlowTone {
         return Color(hslToArgb(hsl[0], s, l))
     }
 
+    fun fitVibrantPageColor(argb: Int): Color {
+        val r = ((argb shr 16) and 0xFF) / 255f
+        val g = ((argb shr 8) and 0xFF) / 255f
+        val b = (argb and 0xFF) / 255f
+        val hsl = rgbToHsl(r, g, b)
+        if (hsl[1] < 0.10f) {
+            val l = hsl[2].coerceIn(0.16f, 0.24f)
+            return Color(hslToArgb(0f, 0f, l))
+        }
+        val s = hsl[1].coerceIn(0.60f, 0.82f)
+        val l = hsl[2].coerceIn(0.22f, 0.34f)
+        return Color(hslToArgb(hsl[0], s, l))
+    }
+
+    fun clampManualPageColor(argb: Int): Color {
+        val r = ((argb shr 16) and 0xFF) / 255f
+        val g = ((argb shr 8) and 0xFF) / 255f
+        val b = (argb and 0xFF) / 255f
+        val hsl = rgbToHsl(r, g, b)
+        val l = hsl[2].coerceAtMost(0.42f)
+        return Color(hslToArgb(hsl[0], hsl[1], l))
+    }
+
     fun rgbToHsl(r: Float, g: Float, b: Float): FloatArray {
         val mx = maxOf(r, g, b); val mn = minOf(r, g, b)
         val l = (mx + mn) / 2f
@@ -393,6 +416,39 @@ object GlowTone {
 
 object CoverGlow {
     private val memoryCache = mutableMapOf<Int, AuroAccent>()
+    private val vibrantPageCache = mutableMapOf<Int, Color>()
+
+    suspend fun extractVibrantPageColor(cover: Bitmap?): Color = withContext(Dispatchers.Default) {
+        if (cover == null) return@withContext AuroColor.Canvas
+
+        val cacheKey = cover.hashCode()
+        vibrantPageCache[cacheKey]?.let { return@withContext it }
+
+        try {
+            val swBitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && cover.config == Bitmap.Config.HARDWARE) {
+                cover.copy(Bitmap.Config.ARGB_8888, false) ?: return@withContext AuroColor.Canvas
+            } else {
+                cover
+            }
+
+            val p = Palette.from(swBitmap).maximumColorCount(24).resizeBitmapArea(96 * 96).generate()
+            val swatches = listOfNotNull(
+                p.vibrantSwatch,
+                p.lightVibrantSwatch,
+                p.darkVibrantSwatch,
+                p.dominantSwatch,
+                p.mutedSwatch
+            )
+            val seed = swatches.maxByOrNull { it.population * (0.25f + it.hsl[1]) }
+            val result = GlowTone.fitVibrantPageColor(seed?.rgb ?: 0xFF28282C.toInt())
+
+            if (vibrantPageCache.size > 100) vibrantPageCache.clear()
+            vibrantPageCache[cacheKey] = result
+            result
+        } catch (_: Exception) {
+            AuroColor.Canvas
+        }
+    }
 
     suspend fun from(cover: Bitmap?): AuroAccent = withContext(Dispatchers.Default) {
         if (cover == null) return@withContext AuroAccent.Neutral

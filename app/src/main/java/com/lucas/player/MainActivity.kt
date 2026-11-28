@@ -200,6 +200,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
     private val targetArtistForMediaState = mutableStateOf<String?>(null)
     private val artistMediaVersionState = mutableIntStateOf(0)
+    private val targetArtistForLogoState = mutableStateOf<String?>(null)
+    private val artistStyleVersionState = mutableIntStateOf(0)
 
     private val pickArtistMediaLauncher = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         val artist = targetArtistForMediaState.value
@@ -210,6 +212,38 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 artistMediaVersionState.intValue++
                 AuroHaptics.confirm(window.decorView)
                 snackbarState.show(text = getString(R.string.artist_media_updated))
+            }
+        }
+    }
+
+    private val pickArtistLogoLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val artist = targetArtistForLogoState.value
+        if (uri != null && !artist.isNullOrBlank()) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val savedPath = CoverArtLoader.saveArtistLogo(this@MainActivity, artist, uri)
+                if (savedPath != null) {
+                    libraryRepo.upsertArtistStyle(artist, logoPath = savedPath)
+                    withContext(Dispatchers.Main) {
+                        artistStyleVersionState.intValue++
+                        AuroHaptics.confirm(window.decorView)
+                        snackbarState.show(text = getString(R.string.artist_logo_updated))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun removeArtistLogo(artistName: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val existing = libraryRepo.getArtistStyle(artistName)
+            if (existing != null && existing.logoPath.isNotBlank()) {
+                CoverArtLoader.deleteArtistLogo(existing.logoPath)
+            }
+            libraryRepo.upsertArtistStyle(artistName, logoPath = "")
+            withContext(Dispatchers.Main) {
+                artistStyleVersionState.intValue++
+                AuroHaptics.confirm(window.decorView)
+                snackbarState.show(text = getString(R.string.artist_logo_removed))
             }
         }
     }
@@ -702,6 +736,19 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                 value = withContext(Dispatchers.IO) {
                     try {
                         libraryRepo.getAllAlbumMeta()
+                    } catch (_: Throwable) {
+                        value
+                    }
+                }
+            }
+            val artistStyleVersion by artistStyleVersionState
+            val artistStyleMap by produceState<Map<String, MusicDatabase.ArtistStyle>>(
+                initialValue = emptyMap(),
+                key1 = artistStyleVersion
+            ) {
+                value = withContext(Dispatchers.IO) {
+                    try {
+                        libraryRepo.getAllArtistStyles()
                     } catch (_: Throwable) {
                         value
                     }
@@ -1561,6 +1608,7 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 val artistName = activeScreen.artistName
                                 val isPinned = preferencesManager.isGroupPinned("ARTISTS_$artistName")
                                 val artistMedia = artistMediaMap[artistName.trim().lowercase()]
+                                val artistStyle = artistStyleMap[artistName.trim().lowercase()]
                                 AuroArtistScreen(
                                     artistName = artistName,
                                     onBack = { navController.navigateUp() },
@@ -1620,6 +1668,35 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     customMediaPath = artistMedia?.first,
                                     isGif = artistMedia?.second ?: false,
                                     artistMediaVersion = artistMediaVersion,
+                                    artistStyle = artistStyle,
+                                    artistStyleVersion = artistStyleVersion,
+                                    onUpdateArtistFont = { fontId ->
+                                        lifecycleScope.launch(Dispatchers.IO) {
+                                            libraryRepo.upsertArtistStyle(artistName, fontId = fontId)
+                                            withContext(Dispatchers.Main) {
+                                                artistStyleVersionState.intValue++
+                                            }
+                                        }
+                                    },
+                                    onPickArtistLogo = {
+                                        targetArtistForLogoState.value = artistName
+                                        pickArtistLogoLauncher.launch("image/*")
+                                    },
+                                    onRemoveArtistLogo = {
+                                        removeArtistLogo(artistName)
+                                    },
+                                    onUpdateArtistColorMode = { mode, customArgb ->
+                                        lifecycleScope.launch(Dispatchers.IO) {
+                                            libraryRepo.upsertArtistStyle(
+                                                artistName,
+                                                colorMode = mode,
+                                                customColorArgb = customArgb
+                                            )
+                                            withContext(Dispatchers.Main) {
+                                                artistStyleVersionState.intValue++
+                                            }
+                                        }
+                                    },
                                     libraryVersion = libraryVersion,
                                     albumMetaMap = albumMetaMap,
                                     albumMediaVersion = albumMediaVersion,

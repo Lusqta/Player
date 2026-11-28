@@ -473,4 +473,25 @@
     <string name="crash_dialog_copy">Copiar log</string>
     <string name="crash_dialog_copied">Log copiado</string>
     <string name="crash_dialog_close">Fechar</string>
+    <string name="artist_customize_identity">Personalizar identidade</string>
+    <string name="artist_page_color">Cor da página</string>
+    <string name="artist_identity_preview">Prévia da identidade</string>
+    <string name="artist_font_section">Tipografia</string>
+    <string name="artist_font_default">Padrão (Plus Jakarta)</string>
+    <string name="artist_font_manrope">Manrope Moderna</string>
+    <string name="artist_font_serif">Serifada Editorial</string>
+    <string name="artist_font_mono_caps">Mono Espaçada</string>
+    <string name="artist_font_condensed">Condensada Forte</string>
+    <string name="artist_logo_upload">Enviar logo PNG</string>
+    <string name="artist_logo_remove">Remover logo</string>
+    <string name="artist_logo_updated">Logo do artista atualizada</string>
+    <string name="artist_logo_removed">Logo do artista removida</string>
+    <string name="artist_color_mode_auto">Automático</string>
+    <string name="artist_color_mode_oled">Preto Puro</string>
+    <string name="artist_color_mode_manual">Personalizada</string>
+    <string name="artist_color_presets">Cores vivas</string>
+    <string name="artist_color_hue">Matiz</string>
+    <string name="artist_color_saturation">Saturação</string>
+    <string name="artist_color_lightness">Luminosidade</string>
+    <string name="artist_color_apply">Aplicar cor</string>
 </resources>

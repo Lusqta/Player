@@ -472,4 +472,25 @@
     <string name="crash_dialog_copy">Copy log</string>
     <string name="crash_dialog_copied">Log copied</string>
     <string name="crash_dialog_close">Close</string>
+    <string name="artist_customize_identity">Customize identity</string>
+    <string name="artist_page_color">Page color</string>
+    <string name="artist_identity_preview">Identity preview</string>
+    <string name="artist_font_section">Typography</string>
+    <string name="artist_font_default">Default (Plus Jakarta)</string>
+    <string name="artist_font_manrope">Modern Manrope</string>
+    <string name="artist_font_serif">Editorial Serif</string>
+    <string name="artist_font_mono_caps">Spaced Mono Caps</string>
+    <string name="artist_font_condensed">Bold Condensed</string>
+    <string name="artist_logo_upload">Upload PNG logo</string>
+    <string name="artist_logo_remove">Remove logo</string>
+    <string name="artist_logo_updated">Artist logo updated</string>
+    <string name="artist_logo_removed">Artist logo removed</string>
+    <string name="artist_color_mode_auto">Automatic</string>
+    <string name="artist_color_mode_oled">Pure Black</string>
+    <string name="artist_color_mode_manual">Custom</string>
+    <string name="artist_color_presets">Vibrant colors</string>
+    <string name="artist_color_hue">Hue</string>
+    <string name="artist_color_saturation">Saturation</string>
+    <string name="artist_color_lightness">Lightness</string>
+    <string name="artist_color_apply">Apply color</string>
 </resources>

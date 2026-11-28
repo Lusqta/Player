@@ -342,6 +342,133 @@ object CoverArtLoader {
         }
     }
 
+    // --- Logo PNG Transparente de Artista ---
+
+    fun saveArtistLogo(context: Context, artistName: String, sourceUri: Uri): String? {
+        return try {
+            val cleanName = artistName.trim().lowercase()
+            if (cleanName.isEmpty()) return null
+            val hash = cleanName.hashCode().toString().replace("-", "n")
+            val dir = File(context.filesDir, "artist_logos")
+            if (!dir.exists()) {
+                dir.mkdirs()
+            }
+            val targetFile = File(dir, "logo_${hash}.png")
+            val resolver = context.contentResolver
+
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            resolver.openInputStream(sourceUri)?.use { input ->
+                BitmapFactory.decodeStream(input, null, options)
+            }
+
+            if (options.outWidth <= 0 || options.outHeight <= 0) return null
+            options.inSampleSize = calculateInSampleSize(options, 800, 800)
+            options.inJustDecodeBounds = false
+            options.inPreferredConfig = Bitmap.Config.ARGB_8888
+
+            val decodedBitmap = resolver.openInputStream(sourceUri)?.use { input ->
+                BitmapFactory.decodeStream(input, null, options)
+            } ?: return null
+
+            val finalBitmap = if (decodedBitmap.width > 800) {
+                val targetHeight = ((decodedBitmap.height.toFloat() / decodedBitmap.width.toFloat()) * 800f)
+                    .toInt()
+                    .coerceAtLeast(1)
+                Bitmap.createScaledBitmap(decodedBitmap, 800, targetHeight, true)
+            } else {
+                decodedBitmap
+            }
+
+            FileOutputStream(targetFile).use { out ->
+                finalBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+            }
+
+            deleteArtistLogoCache(targetFile.absolutePath)
+            targetFile.absolutePath
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun deleteArtistLogo(path: String?) {
+        if (path.isNullOrBlank()) return
+        try {
+            val file = File(path)
+            if (file.exists()) {
+                file.delete()
+            }
+            deleteArtistLogoCache(path)
+        } catch (_: Exception) {}
+    }
+
+    private fun deleteArtistLogoCache(path: String) {
+        val snapshot = memoryCache.snapshot()
+        for (key in snapshot.keys) {
+            if (key.startsWith("logo_${path}")) {
+                memoryCache.remove(key)
+            }
+        }
+    }
+
+    fun getCachedArtistLogo(path: String?): Bitmap? {
+        if (path.isNullOrBlank()) return null
+        val file = File(path)
+        if (!file.exists()) return null
+        val cacheKey = "logo_${path}_${file.lastModified()}"
+        return memoryCache.get(cacheKey)
+    }
+
+    fun loadArtistLogo(
+        path: String?,
+        targetMaxWidthPx: Int = 800,
+        onLoaded: (Bitmap?) -> Unit
+    ) {
+        if (path.isNullOrBlank()) {
+            onLoaded(null)
+            return
+        }
+        val file = File(path)
+        if (!file.exists()) {
+            onLoaded(null)
+            return
+        }
+        val cacheKey = "logo_${path}_${file.lastModified()}"
+        val cached = memoryCache.get(cacheKey)
+        if (cached != null) {
+            onLoaded(cached)
+            return
+        }
+
+        executor.execute {
+            val bitmap = try {
+                val options = BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                }
+                BitmapFactory.decodeFile(path, options)
+                if (options.outWidth > 0 && options.outHeight > 0) {
+                    options.inSampleSize = calculateInSampleSize(options, targetMaxWidthPx, targetMaxWidthPx)
+                    options.inJustDecodeBounds = false
+                    options.inPreferredConfig = Bitmap.Config.ARGB_8888
+                    BitmapFactory.decodeFile(path, options)
+                } else {
+                    null
+                }
+            } catch (_: Exception) {
+                null
+            }
+
+            if (bitmap != null) {
+                memoryCache.put(cacheKey, bitmap)
+            }
+
+            mainHandler.post {
+                onLoaded(bitmap)
+            }
+        }
+    }
+
     // --- Mídia Customizada de Álbum (Capa / GIF) ---
 
     fun saveAlbumMedia(context: Context, albumName: String, sourceUri: Uri): Pair<String, Boolean>? {

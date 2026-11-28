@@ -849,6 +849,32 @@ class LibraryRepository() {
         getOrCreateDb()?.removeArtistMedia(artistName)
     }
 
+    // --- Estilo Editorial de Artista ---
+
+    fun getArtistStyle(artistName: String): MusicDatabase.ArtistStyle? {
+        return getOrCreateDb()?.getArtistStyle(artistName)
+    }
+
+    fun getAllArtistStyles(): Map<String, MusicDatabase.ArtistStyle> {
+        return getOrCreateDb()?.getAllArtistStyles() ?: emptyMap()
+    }
+
+    fun upsertArtistStyle(
+        artistName: String,
+        fontId: String? = null,
+        logoPath: String? = null,
+        colorMode: String? = null,
+        customColorArgb: Int? = null
+    ) {
+        getOrCreateDb()?.upsertArtistStyle(
+            artistName = artistName,
+            fontId = fontId,
+            logoPath = logoPath,
+            colorMode = colorMode,
+            customColorArgb = customColorArgb
+        )
+    }
+
     // --- Metadados Customizados de Álbum (Capa / GIF + Anotações) ---
 
     fun setAlbumMedia(albumName: String, path: String, isGif: Boolean) {
