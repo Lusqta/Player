@@ -187,6 +187,9 @@ fun AuroArtistScreen(
     customMediaPath: String? = null,
     isGif: Boolean = false,
     artistMediaVersion: Int = 0,
+    customMedia: MusicDatabase.CustomMedia? = null,
+    customMediaMap: Map<String, MusicDatabase.CustomMedia> = emptyMap(),
+    customMediaVersion: Int = 0,
     artistStyle: MusicDatabase.ArtistStyle? = null,
     artistStyleVersion: Int = 0,
     onUpdateArtistFont: (String) -> Unit = {},
@@ -207,8 +210,14 @@ fun AuroArtistScreen(
     val bottomInset = LocalAuroBottomInset.current
     val listState = rememberLazyListState()
 
-    val mediaStamp = remember(customMediaPath, artistMediaVersion) {
-        customMediaPath?.let { java.io.File(it).takeIf(java.io.File::exists)?.lastModified() } ?: 0L
+    val resolvedAutoMediaPath = remember(customMedia, customMediaPath) {
+        customMedia?.staticImagePath?.ifBlank {
+            customMedia.gifFrozenFramePath.ifBlank { customMedia.gifPath }
+        }?.ifBlank { null } ?: customMediaPath
+    }
+    val mediaStamp = remember(customMediaPath, resolvedAutoMediaPath, customMedia, artistMediaVersion, customMediaVersion) {
+        val fileMod = resolvedAutoMediaPath?.let { java.io.File(it).takeIf(java.io.File::exists)?.lastModified() } ?: 0L
+        fileMod xor ((artistMediaVersion + customMediaVersion).toLong() shl 16)
     }
 
     val effectiveStyle = artistStyle ?: MusicDatabase.ArtistStyle(
@@ -258,16 +267,16 @@ fun AuroArtistScreen(
     val fallbackTrack = profileData.fallbackTrack
 
     // Cor automática viva extraída da foto/1º frame do GIF ou fallbackTrack
-    var autoSourceBitmap by remember(customMediaPath, mediaStamp, fallbackTrack?.id) {
+    var autoSourceBitmap by remember(resolvedAutoMediaPath, mediaStamp, fallbackTrack?.id) {
         mutableStateOf<Bitmap?>(null)
     }
-    LaunchedEffect(customMediaPath, mediaStamp, fallbackTrack?.id, effectiveStyle.colorMode) {
+    LaunchedEffect(resolvedAutoMediaPath, mediaStamp, fallbackTrack?.id, effectiveStyle.colorMode) {
         if (effectiveStyle.colorMode == "AUTO") {
-            val mediaFile = customMediaPath?.takeIf { it.isNotBlank() }
+            val mediaFile = resolvedAutoMediaPath?.takeIf { it.isNotBlank() }
                 ?.let { java.io.File(it) }
                 ?.takeIf { it.exists() }
             if (mediaFile != null) {
-                CoverArtLoader.loadArtistStaticBitmap(mediaFile.absolutePath, 400) { bmp ->
+                CoverArtLoader.loadFileBitmap(mediaFile.absolutePath, 400) { bmp ->
                     autoSourceBitmap = bmp
                 }
             } else if (fallbackTrack != null) {
@@ -407,6 +416,7 @@ fun AuroArtistScreen(
                     logoBitmap = artistLogoBitmap,
                     customMediaPath = customMediaPath,
                     isGif = isGif,
+                    customMedia = customMedia,
                     fallbackTrack = fallbackTrack,
                     mediaStamp = mediaStamp,
                     onPlayAll = {
@@ -538,6 +548,9 @@ fun AuroArtistScreen(
                         ) {
                             items(carouselReleases, key = { it.albumName }) { release ->
                                 val albumMeta = albumMetaMap[release.albumName.trim().lowercase()]
+                                val albumCustomMedia = customMediaMap[
+                                    MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, release.albumName)
+                                ]
                                 Column(
                                     modifier = Modifier
                                         .width(140.dp)
@@ -560,8 +573,9 @@ fun AuroArtistScreen(
                                             isGif = albumMeta?.isGif ?: false,
                                             fallbackTrack = release.coverTrack,
                                             shape = AuroSquircle,
-                                            mediaStamp = albumMediaVersion.toLong(),
+                                            mediaStamp = (albumMediaVersion + customMediaVersion).toLong(),
                                             targetSizeDp = 300,
+                                            customMedia = albumCustomMedia,
                                             modifier = Modifier.fillMaxSize()
                                         )
                                     }
@@ -750,6 +764,7 @@ private fun ArtistHeroSection(
     logoBitmap: Bitmap?,
     customMediaPath: String?,
     isGif: Boolean,
+    customMedia: MusicDatabase.CustomMedia? = null,
     fallbackTrack: Track?,
     mediaStamp: Long,
     onPlayAll: () -> Unit
@@ -814,6 +829,7 @@ private fun ArtistHeroSection(
                 fallbackTrack = fallbackTrack,
                 shape = RectangleShape,
                 mediaStamp = mediaStamp,
+                customMedia = customMedia,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -1713,6 +1729,8 @@ fun AuroArtistDiscographyScreen(
     libraryVersion: Int = 0,
     albumMetaMap: Map<String, MusicDatabase.AlbumMeta> = emptyMap(),
     albumMediaVersion: Int = 0,
+    customMediaMap: Map<String, MusicDatabase.CustomMedia> = emptyMap(),
+    customMediaVersion: Int = 0,
     libraryRepository: LibraryRepository = LibraryRepository.getInstance(),
     modifier: Modifier = Modifier
 ) {
@@ -1813,12 +1831,16 @@ fun AuroArtistDiscographyScreen(
                     ) {
                         for (album in pair) {
                             val albumMeta = albumMetaMap[album.albumName.trim().lowercase()]
+                            val albumCustomMedia = customMediaMap[
+                                MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, album.albumName)
+                            ]
                             Box(modifier = Modifier.weight(1f)) {
                                 DiscographyCard(
                                     release = album,
                                     customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
                                     isGif = albumMeta?.isGif ?: false,
-                                    albumMediaVersion = albumMediaVersion,
+                                    albumMediaVersion = albumMediaVersion + customMediaVersion,
+                                    customMedia = albumCustomMedia,
                                     onClick = {
                                         AuroHaptics.click(view)
                                         onAlbumClick(album.albumName)
@@ -1854,12 +1876,16 @@ fun AuroArtistDiscographyScreen(
                     ) {
                         for (release in pair) {
                             val albumMeta = albumMetaMap[release.albumName.trim().lowercase()]
+                            val albumCustomMedia = customMediaMap[
+                                MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, release.albumName)
+                            ]
                             Box(modifier = Modifier.weight(1f)) {
                                 DiscographyCard(
                                     release = release,
                                     customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
                                     isGif = albumMeta?.isGif ?: false,
-                                    albumMediaVersion = albumMediaVersion,
+                                    albumMediaVersion = albumMediaVersion + customMediaVersion,
+                                    customMedia = albumCustomMedia,
                                     onClick = {
                                         AuroHaptics.click(view)
                                         onAlbumClick(release.albumName)
@@ -1883,6 +1909,7 @@ private fun DiscographyCard(
     customMediaPath: String? = null,
     isGif: Boolean = false,
     albumMediaVersion: Int = 0,
+    customMedia: MusicDatabase.CustomMedia? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1908,6 +1935,7 @@ private fun DiscographyCard(
                 shape = AuroSquircle,
                 mediaStamp = albumMediaVersion.toLong(),
                 targetSizeDp = 300,
+                customMedia = customMedia,
                 modifier = Modifier.fillMaxSize()
             )
         }

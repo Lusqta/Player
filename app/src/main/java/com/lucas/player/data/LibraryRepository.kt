@@ -429,13 +429,20 @@ class LibraryRepository() {
 
     fun getRecentLibraryItems(limit: Int = 12): List<RecentLibraryItem> {
         val playlists = getUserPlaylists()
-        val playlistCoverTracks = playlists.associate { pl ->
-            pl.id to getTracksForUserPlaylist(pl.id).firstOrNull()
+        val playlistTracksMap = playlists.associate { pl ->
+            pl.id to getTracksForUserPlaylist(pl.id)
+        }
+        val playlistCoverTracks = playlistTracksMap.mapValues { (_, plTracks) ->
+            plTracks.firstOrNull()
+        }
+        val playlistMosaicTracks = playlistTracksMap.mapValues { (_, plTracks) ->
+            selectPlaylistMosaicTracks(plTracks)
         }
         return buildRecentLibraryItems(
             tracks = getAllTracks(),
             playlists = playlists,
             playlistCoverTracks = playlistCoverTracks,
+            playlistMosaicTracks = playlistMosaicTracks,
             limit = limit
         )
     }
@@ -444,6 +451,7 @@ class LibraryRepository() {
         tracks: List<Track>,
         playlists: List<UserPlaylist> = emptyList(),
         playlistCoverTracks: Map<Long, Track?> = emptyMap(),
+        playlistMosaicTracks: Map<Long, List<Track>> = emptyMap(),
         limit: Int = 12
     ): List<RecentLibraryItem> {
         val items = mutableListOf<RecentLibraryItem>()
@@ -501,7 +509,8 @@ class LibraryRepository() {
                     playlist = playlist,
                     coverTrack = playlistCoverTracks[playlist.id],
                     timestampSec = playlist.createdMs / 1000L,
-                    subtitle = subtitle
+                    subtitle = subtitle,
+                    mosaicTracks = playlistMosaicTracks[playlist.id].orEmpty()
                 )
             )
         }
@@ -873,6 +882,24 @@ class LibraryRepository() {
             colorMode = colorMode,
             customColorArgb = customColorArgb
         )
+    }
+
+    // --- Mídia Customizada Unificada ---
+
+    fun getCustomMedia(entityType: String, entityKey: String): MusicDatabase.CustomMedia? {
+        return getOrCreateDb()?.getCustomMedia(entityType, entityKey)
+    }
+
+    fun getAllCustomMedia(): Map<String, MusicDatabase.CustomMedia> {
+        return getOrCreateDb()?.getAllCustomMedia() ?: emptyMap()
+    }
+
+    fun upsertCustomMedia(media: MusicDatabase.CustomMedia) {
+        getOrCreateDb()?.upsertCustomMedia(media)
+    }
+
+    fun deleteCustomMedia(entityType: String, entityKey: String) {
+        getOrCreateDb()?.deleteCustomMedia(entityType, entityKey)
     }
 
     // --- Metadados Customizados de Álbum (Capa / GIF + Anotações) ---

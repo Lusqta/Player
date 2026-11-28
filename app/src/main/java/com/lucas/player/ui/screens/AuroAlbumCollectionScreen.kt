@@ -92,6 +92,8 @@ fun AuroAlbumCollectionScreen(
     albumCollectionsVersion: Int = 0,
     albumMetaMap: Map<String, MusicDatabase.AlbumMeta> = emptyMap(),
     albumMediaVersion: Int = 0,
+    customMediaMap: Map<String, MusicDatabase.CustomMedia> = emptyMap(),
+    customMediaVersion: Int = 0,
     libraryRepository: LibraryRepository = LibraryRepository.getInstance(),
     modifier: Modifier = Modifier
 ) {
@@ -340,6 +342,9 @@ fun AuroAlbumCollectionScreen(
                 ) { index, entry ->
                     val itemKey = entry.albumName.trim().lowercase()
                     val albumMeta = albumMetaMap[itemKey]
+                    val albumCustomMedia = customMediaMap[
+                        MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, entry.albumName)
+                    ]
                     val isDragging = draggingIndex == index
 
                     Row(
@@ -374,8 +379,9 @@ fun AuroAlbumCollectionScreen(
                                 isGif = albumMeta?.isGif ?: false,
                                 fallbackTrack = entry.coverTrack,
                                 shape = RectangleShape,
-                                mediaStamp = albumMediaVersion.toLong(),
+                                mediaStamp = (albumMediaVersion + customMediaVersion).toLong(),
                                 targetSizeDp = 180,
+                                customMedia = albumCustomMedia,
                                 modifier = Modifier.fillMaxSize()
                             )
                         }
@@ -500,6 +506,8 @@ fun AuroAlbumCollectionScreen(
             albumCoverMap = screenData.albumCoverMap,
             albumMetaMap = albumMetaMap,
             albumMediaVersion = albumMediaVersion,
+            customMediaMap = customMediaMap,
+            customMediaVersion = customMediaVersion,
             onAddAlbums = { selectedNames ->
                 showAddAlbumsSheet = false
                 if (selectedNames.isNotEmpty()) {
@@ -599,6 +607,8 @@ private fun AlbumPickerSheet(
     albumCoverMap: Map<String, Track?>,
     albumMetaMap: Map<String, MusicDatabase.AlbumMeta>,
     albumMediaVersion: Int,
+    customMediaMap: Map<String, MusicDatabase.CustomMedia> = emptyMap(),
+    customMediaVersion: Int = 0,
     onAddAlbums: (List<String>) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -729,6 +739,9 @@ private fun AlbumPickerSheet(
                     val isAlreadyIn = existingAlbumKeys.contains(key)
                     val isSelected = selectedAlbums.any { it.equals(album.name, ignoreCase = true) }
                     val albumMeta = albumMetaMap[key]
+                    val albumCustomMedia = customMediaMap[
+                        MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, album.name)
+                    ]
 
                     Row(
                         modifier = Modifier
@@ -798,8 +811,9 @@ private fun AlbumPickerSheet(
                                 isGif = albumMeta?.isGif ?: false,
                                 fallbackTrack = albumCoverMap[key],
                                 shape = RectangleShape,
-                                mediaStamp = albumMediaVersion.toLong(),
+                                mediaStamp = (albumMediaVersion + customMediaVersion).toLong(),
                                 targetSizeDp = 120,
+                                customMedia = albumCustomMedia,
                                 modifier = Modifier.fillMaxSize()
                             )
                         }

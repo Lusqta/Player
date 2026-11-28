@@ -249,18 +249,34 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     }
 
     private fun removeArtistMedia(artistName: String) {
-        val media = libraryRepo.getArtistMedia(artistName)
-        if (media != null) {
-            libraryRepo.removeArtistMedia(artistName)
-            CoverArtLoader.deleteArtistMedia(media.first)
-            artistMediaVersionState.intValue++
-            AuroHaptics.confirm(window.decorView)
-            snackbarState.show(text = getString(R.string.artist_media_removed))
+        lifecycleScope.launch(Dispatchers.IO) {
+            val media = libraryRepo.getArtistMedia(artistName)
+            val custom = libraryRepo.getCustomMedia(MusicDatabase.ENTITY_ARTIST, artistName)
+            if (media != null) {
+                libraryRepo.removeArtistMedia(artistName)
+                CoverArtLoader.deleteArtistMedia(media.first)
+            }
+            if (custom != null) {
+                CoverArtLoader.deleteCustomFile(custom.gifPath)
+                CoverArtLoader.deleteCustomFile(custom.gifFrozenFramePath)
+                CoverArtLoader.deleteCustomFile(custom.staticImagePath)
+                libraryRepo.deleteCustomMedia(MusicDatabase.ENTITY_ARTIST, artistName)
+            }
+            if (media != null || custom != null) {
+                withContext(Dispatchers.Main) {
+                    artistMediaVersionState.intValue++
+                    customMediaVersionState.intValue++
+                    AuroHaptics.confirm(window.decorView)
+                    snackbarState.show(text = getString(R.string.artist_media_removed))
+                }
+            }
         }
     }
 
     private val targetAlbumForMediaState = mutableStateOf<String?>(null)
     private val albumMediaVersionState = mutableIntStateOf(0)
+    private val customMediaVersionState = mutableIntStateOf(0)
+    private val mediaEditorTargetState = mutableStateOf<Triple<String, String, String>?>(null)
     private val albumCollectionsVersionState = mutableIntStateOf(0)
     private val showCreateAlbumCollectionDialogState = mutableStateOf(false)
     private val addAlbumToCollectionTargetState = mutableStateOf<String?>(null)
@@ -288,11 +304,21 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
     private fun removeAlbumMedia(albumName: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             val meta = libraryRepo.getAlbumMeta(albumName)
+            val custom = libraryRepo.getCustomMedia(MusicDatabase.ENTITY_ALBUM, albumName)
             if (meta != null && meta.mediaPath.isNotBlank()) {
                 libraryRepo.removeAlbumMedia(albumName)
                 CoverArtLoader.deleteAlbumMedia(meta.mediaPath)
+            }
+            if (custom != null) {
+                CoverArtLoader.deleteCustomFile(custom.gifPath)
+                CoverArtLoader.deleteCustomFile(custom.gifFrozenFramePath)
+                CoverArtLoader.deleteCustomFile(custom.staticImagePath)
+                libraryRepo.deleteCustomMedia(MusicDatabase.ENTITY_ALBUM, albumName)
+            }
+            if ((meta != null && meta.mediaPath.isNotBlank()) || custom != null) {
                 withContext(Dispatchers.Main) {
                     albumMediaVersionState.intValue++
+                    customMediaVersionState.intValue++
                     AuroHaptics.confirm(window.decorView)
                     snackbarState.show(text = getString(R.string.album_cover_removed))
                 }
@@ -677,12 +703,14 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                         val most = libraryRepo.getMostPlayed().take(60)
                         val userPls = libraryRepo.getUserPlaylists()
                         val homePls = userPls.map { pl ->
+                            val plTracks = libraryRepo.getTracksForUserPlaylist(pl.id)
                             HomePlaylist(
                                 id = pl.id,
                                 name = pl.name,
                                 countText = formatTracksCount(this@MainActivity, pl.trackCount),
-                                coverTrack = libraryRepo.getTracksForUserPlaylist(pl.id).firstOrNull(),
-                                coverPath = pl.coverPath
+                                coverTrack = plTracks.firstOrNull(),
+                                coverPath = pl.coverPath,
+                                mosaicTracks = selectPlaylistMosaicTracks(plTracks)
                             )
                         }
                         val albumCols = libraryRepo.getAlbumCollections()
@@ -754,6 +782,22 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                     }
                 }
             }
+            val customMediaVersion by customMediaVersionState
+            val customMediaMap by produceState<Map<String, MusicDatabase.CustomMedia>>(
+                initialValue = emptyMap(),
+                key1 = customMediaVersion,
+                key2 = artistMediaVersion,
+                key3 = albumMediaVersion
+            ) {
+                value = withContext(Dispatchers.IO) {
+                    try {
+                        libraryRepo.getAllCustomMedia()
+                    } catch (_: Throwable) {
+                        value
+                    }
+                }
+            }
+            var pauseGifs by remember { mutableStateOf(preferencesManager.isPauseGifsEnabled()) }
 
             val totalTracksCount by totalTracksCountState
             val displayedTracks by displayedTracksState
@@ -890,7 +934,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
 
                     CompositionLocalProvider(
                         LocalAuroBottomInset provides activeBottomInset,
-                        LocalAuroIsPlaying provides isPlaying
+                        LocalAuroIsPlaying provides isPlaying,
+                        LocalAuroPauseGifs provides pauseGifs
                     ) {
                         Box(
                             modifier = Modifier
@@ -1158,6 +1203,13 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     artistMediaMap = artistMediaMap,
                                     albumMetaMap = albumMetaMap,
                                     albumMediaVersion = albumMediaVersion,
+                                    customMediaMap = customMediaMap,
+                                    customMediaVersion = customMediaVersion,
+                                    pauseGifs = pauseGifs,
+                                    onTogglePauseGifs = { enabled ->
+                                        pauseGifs = enabled
+                                        preferencesManager.setPauseGifsEnabled(enabled)
+                                    },
                                     albumCollections = homeSnapshot.albumCollections,
                                     albumCoverMap = homeSnapshot.albumCoverMap,
                                     onAlbumCollectionClick = { colId ->
@@ -1228,6 +1280,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     pinnedGroups = pinnedKeys,
                                     pinnedItems = pinnedItems,
                                     recentLibraryItems = homeSnapshot.recentLibraryItems,
+                                    customMediaMap = customMediaMap,
+                                    customMediaVersion = customMediaVersion,
                                     coverTrackFinder = { group -> all.firstOrNull { it.album.equals(group.title, ignoreCase = true) || it.artist.equals(group.title, ignoreCase = true) } },
                                     onShuffleAll = {
                                         val tracks = homeSnapshot.allTracks
@@ -1436,6 +1490,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                             showFileFormat = preferencesManager.isShowFileFormatEnabled(),
                                             albumMetaMap = albumMetaMap,
                                             albumMediaVersion = albumMediaVersion,
+                                            customMediaMap = customMediaMap,
+                                            customMediaVersion = customMediaVersion,
                                             coverTrackFinder = { group -> albumCoverMap[group.title.lowercase()] },
                                             onBackClick = { navController.navigateUp() },
                                             onTrackClick = { _, position ->
@@ -1514,6 +1570,17 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         libraryRepo.getUserPlaylists().firstOrNull { it.name.equals(activeScreen.title, ignoreCase = true) }
                                     }
                                 } else null
+                                val drilldownCustomMedia = when (activeScreen.category) {
+                                    LibraryCategory.ALBUMS -> customMediaMap[
+                                        MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, activeScreen.title)
+                                    ]
+                                    LibraryCategory.PLAYLISTS -> currentPlaylist?.let {
+                                        customMediaMap[
+                                            MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_PLAYLIST, it.id.toString())
+                                        ]
+                                    }
+                                    else -> null
+                                }
                                 AuroDrilldownScreen(
                                     category = activeScreen.category,
                                     groupTitle = activeScreen.title,
@@ -1529,6 +1596,29 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         albumMetaMap[activeScreen.title.trim().lowercase()]
                                     } else null,
                                     albumMediaVersion = albumMediaVersion,
+                                    customMedia = drilldownCustomMedia,
+                                    customMediaVersion = customMediaVersion,
+                                    onCustomizeMedia = when {
+                                        activeScreen.category == LibraryCategory.ALBUMS -> {
+                                            {
+                                                mediaEditorTargetState.value = Triple(
+                                                    MusicDatabase.ENTITY_ALBUM,
+                                                    activeScreen.title,
+                                                    activeScreen.title
+                                                )
+                                            }
+                                        }
+                                        activeScreen.category == LibraryCategory.PLAYLISTS && currentPlaylist != null -> {
+                                            {
+                                                mediaEditorTargetState.value = Triple(
+                                                    MusicDatabase.ENTITY_PLAYLIST,
+                                                    currentPlaylist.id.toString(),
+                                                    currentPlaylist.name
+                                                )
+                                            }
+                                        }
+                                        else -> null
+                                    },
                                     onChangeAlbumCover = if (activeScreen.category == LibraryCategory.ALBUMS) {
                                         {
                                             targetAlbumForMediaState.value = activeScreen.title
@@ -1609,6 +1699,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 val isPinned = preferencesManager.isGroupPinned("ARTISTS_$artistName")
                                 val artistMedia = artistMediaMap[artistName.trim().lowercase()]
                                 val artistStyle = artistStyleMap[artistName.trim().lowercase()]
+                                val artistCustomMedia = customMediaMap[
+                                    MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ARTIST, artistName)
+                                ]
                                 AuroArtistScreen(
                                     artistName = artistName,
                                     onBack = { navController.navigateUp() },
@@ -1659,8 +1752,11 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         preferencesManager.togglePinnedGroup("ARTISTS_$artistName")
                                     },
                                     onChangeMedia = {
-                                        targetArtistForMediaState.value = artistName
-                                        pickArtistMediaLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                        mediaEditorTargetState.value = Triple(
+                                            MusicDatabase.ENTITY_ARTIST,
+                                            artistName,
+                                            artistName
+                                        )
                                     },
                                     onRemoveMedia = {
                                         removeArtistMedia(artistName)
@@ -1668,6 +1764,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     customMediaPath = artistMedia?.first,
                                     isGif = artistMedia?.second ?: false,
                                     artistMediaVersion = artistMediaVersion,
+                                    customMedia = artistCustomMedia,
+                                    customMediaMap = customMediaMap,
+                                    customMediaVersion = customMediaVersion,
                                     artistStyle = artistStyle,
                                     artistStyleVersion = artistStyleVersion,
                                     onUpdateArtistFont = { fontId ->
@@ -1766,6 +1865,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     libraryVersion = libraryVersion,
                                     albumMetaMap = albumMetaMap,
                                     albumMediaVersion = albumMediaVersion,
+                                    customMediaMap = customMediaMap,
+                                    customMediaVersion = customMediaVersion,
                                     libraryRepository = libraryRepo,
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -1775,6 +1876,9 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 val npAlbumMeta = currentTrack?.album?.takeIf { it.isNotBlank() }?.let { albumName ->
                                     albumMetaMap[albumName.trim().lowercase()]
                                 }
+                                val npCustomAlbumMedia = currentTrack?.album?.takeIf { it.isNotBlank() }?.let { albumName ->
+                                    customMediaMap[MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, albumName)]
+                                }
                                 AuroNowPlayingScreen(
                                     track = currentTrack,
                                     isPlaying = isPlaying,
@@ -1783,7 +1887,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     coverBitmap = currentCover,
                                     customAlbumMediaPath = npAlbumMeta?.mediaPath?.takeIf { it.isNotBlank() },
                                     isAlbumGif = npAlbumMeta?.isGif ?: false,
-                                    albumMediaVersion = albumMediaVersion,
+                                    albumMediaVersion = albumMediaVersion + customMediaVersion,
+                                    customAlbumMedia = npCustomAlbumMedia,
                                     shuffleMode = shuffleMode,
                                     repeatMode = repeatMode,
                                     priorityTracks = upcomingPriorityQueueState.value,
@@ -2064,6 +2169,10 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                         loadLibrary()
                                         snackbarState.show(getString(R.string.snackbar_folder_cleared))
                                     },
+                                    pauseGifs = pauseGifs,
+                                    onPauseGifsChanged = { enabled ->
+                                        pauseGifs = enabled
+                                    },
                                     onSettingsChanged = {
                                         playbackService?.let { s -> s.queueManager.currentTrack?.let { s.applyEffectivePreamp(it) } }
                                         renderCurrentCategory()
@@ -2119,6 +2228,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     artistMediaMap = artistMediaMap,
                                     albumMetaMap = albumMetaMap,
                                     albumMediaVersion = albumMediaVersion,
+                                    customMediaMap = customMediaMap,
+                                    customMediaVersion = customMediaVersion,
                                     showFileFormat = preferencesManager.isShowFileFormatEnabled(),
                                     libraryRepository = libraryRepo,
                                     modifier = Modifier.fillMaxSize()
@@ -2165,6 +2276,8 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                     albumCollectionsVersion = albumCollectionsVersion,
                                     albumMetaMap = albumMetaMap,
                                     albumMediaVersion = albumMediaVersion,
+                                    customMediaMap = customMediaMap,
+                                    customMediaVersion = customMediaVersion,
                                     libraryRepository = libraryRepo,
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -2620,6 +2733,31 @@ class MainActivity : ComponentActivity(), PlaybackService.PlaybackListener {
                                 deletePresetTargetState.value = null
                             },
                             onDismiss = { deletePresetTargetState.value = null }
+                        )
+                    }
+
+                    mediaEditorTargetState.value?.let { (entityType, entityKey, entityTitle) ->
+                        val lookupKey = MusicDatabase.customMediaLookupKey(entityType, entityKey)
+                        BackHandler {
+                            mediaEditorTargetState.value = null
+                        }
+                        AuroMediaEditorSheet(
+                            entityType = entityType,
+                            entityKey = entityKey,
+                            entityTitle = entityTitle,
+                            initialMedia = customMediaMap[lookupKey],
+                            libraryRepository = libraryRepo,
+                            onSaved = {
+                                customMediaVersionState.intValue++
+                                artistMediaVersionState.intValue++
+                                albumMediaVersionState.intValue++
+                                playlistsVersionState.intValue++
+                                mediaEditorTargetState.value = null
+                                AuroHaptics.confirm(window.decorView)
+                            },
+                            onDismiss = {
+                                mediaEditorTargetState.value = null
+                            }
                         )
                     }
                 }

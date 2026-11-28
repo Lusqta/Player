@@ -82,6 +82,16 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         val customColorArgb: Int = 0
     )
 
+    data class CustomMedia(
+        val entityType: String,
+        val entityKey: String,
+        val gifPath: String = "",
+        val gifFrameIndex: Int = 0,
+        val gifFrozenFramePath: String = "",
+        val staticImagePath: String = "",
+        val pausedDisplayMode: String = PAUSED_MODE_GIF_FRAME
+    )
+
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             """
@@ -125,6 +135,7 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         createAlbumMetaTable(db)
         createAlbumCollectionsTables(db)
         createArtistStyleTable(db)
+        createCustomMediaTable(db)
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
@@ -162,6 +173,103 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         if (oldVersion < 11) {
             createArtistStyleTable(db)
         }
+        if (oldVersion < 12) {
+            createCustomMediaTable(db)
+            migrateLegacyCustomMedia(db)
+        }
+    }
+
+    private fun createCustomMediaTable(db: SQLiteDatabase) {
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS $TABLE_CUSTOM_MEDIA (
+                $COL_CM_ENTITY_TYPE TEXT NOT NULL,
+                $COL_CM_ENTITY_KEY TEXT NOT NULL,
+                $COL_CM_GIF_PATH TEXT DEFAULT '',
+                $COL_CM_GIF_FRAME_INDEX INTEGER DEFAULT 0,
+                $COL_CM_GIF_FROZEN_FRAME_PATH TEXT DEFAULT '',
+                $COL_CM_STATIC_IMAGE_PATH TEXT DEFAULT '',
+                $COL_CM_PAUSED_DISPLAY_MODE TEXT DEFAULT '$PAUSED_MODE_GIF_FRAME',
+                PRIMARY KEY ($COL_CM_ENTITY_TYPE, $COL_CM_ENTITY_KEY)
+            )
+            """.trimIndent()
+        )
+    }
+
+    private fun migrateLegacyCustomMedia(db: SQLiteDatabase) {
+        try {
+            db.rawQuery(
+                "SELECT $COL_ARTIST_KEY, $COL_ARTIST_MEDIA_PATH, $COL_ARTIST_IS_GIF FROM $TABLE_ARTIST_MEDIA WHERE $COL_ARTIST_MEDIA_PATH != ''",
+                null
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val key = cursor.getString(0)?.trim()?.lowercase() ?: continue
+                    val path = cursor.getString(1) ?: ""
+                    val isGif = cursor.getInt(2) == 1
+                    if (key.isNotEmpty() && path.isNotBlank()) {
+                        val cv = ContentValues().apply {
+                            put(COL_CM_ENTITY_TYPE, ENTITY_ARTIST)
+                            put(COL_CM_ENTITY_KEY, key)
+                            put(COL_CM_GIF_PATH, if (isGif) path else "")
+                            put(COL_CM_GIF_FRAME_INDEX, 0)
+                            put(COL_CM_GIF_FROZEN_FRAME_PATH, "")
+                            put(COL_CM_STATIC_IMAGE_PATH, if (isGif) "" else path)
+                            put(COL_CM_PAUSED_DISPLAY_MODE, if (isGif) PAUSED_MODE_GIF_FRAME else PAUSED_MODE_STATIC_IMAGE)
+                        }
+                        db.insertWithOnConflict(TABLE_CUSTOM_MEDIA, null, cv, SQLiteDatabase.CONFLICT_IGNORE)
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        try {
+            db.rawQuery(
+                "SELECT $COL_ALBUM_KEY, $COL_ALBUM_MEDIA_PATH, $COL_ALBUM_IS_GIF FROM $TABLE_ALBUM_META WHERE $COL_ALBUM_MEDIA_PATH != ''",
+                null
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val key = cursor.getString(0)?.trim()?.lowercase() ?: continue
+                    val path = cursor.getString(1) ?: ""
+                    val isGif = cursor.getInt(2) == 1
+                    if (key.isNotEmpty() && path.isNotBlank()) {
+                        val cv = ContentValues().apply {
+                            put(COL_CM_ENTITY_TYPE, ENTITY_ALBUM)
+                            put(COL_CM_ENTITY_KEY, key)
+                            put(COL_CM_GIF_PATH, if (isGif) path else "")
+                            put(COL_CM_GIF_FRAME_INDEX, 0)
+                            put(COL_CM_GIF_FROZEN_FRAME_PATH, "")
+                            put(COL_CM_STATIC_IMAGE_PATH, if (isGif) "" else path)
+                            put(COL_CM_PAUSED_DISPLAY_MODE, if (isGif) PAUSED_MODE_GIF_FRAME else PAUSED_MODE_STATIC_IMAGE)
+                        }
+                        db.insertWithOnConflict(TABLE_CUSTOM_MEDIA, null, cv, SQLiteDatabase.CONFLICT_IGNORE)
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
+        try {
+            db.rawQuery(
+                "SELECT $COL_PL_ID, $COL_PL_COVER_PATH FROM $TABLE_PLAYLISTS WHERE $COL_PL_COVER_PATH IS NOT NULL AND $COL_PL_COVER_PATH != ''",
+                null
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(0)
+                    val path = cursor.getString(1) ?: ""
+                    if (id > 0 && path.isNotBlank()) {
+                        val cv = ContentValues().apply {
+                            put(COL_CM_ENTITY_TYPE, ENTITY_PLAYLIST)
+                            put(COL_CM_ENTITY_KEY, id.toString())
+                            put(COL_CM_GIF_PATH, "")
+                            put(COL_CM_GIF_FRAME_INDEX, 0)
+                            put(COL_CM_GIF_FROZEN_FRAME_PATH, "")
+                            put(COL_CM_STATIC_IMAGE_PATH, path)
+                            put(COL_CM_PAUSED_DISPLAY_MODE, PAUSED_MODE_STATIC_IMAGE)
+                        }
+                        db.insertWithOnConflict(TABLE_CUSTOM_MEDIA, null, cv, SQLiteDatabase.CONFLICT_IGNORE)
+                    }
+                }
+            }
+        } catch (_: Exception) {}
     }
 
     private fun createArtistStyleTable(db: SQLiteDatabase) {
@@ -963,6 +1071,112 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
         } catch (_: Exception) {}
     }
 
+    // --- Mídia Customizada Unificada (GIF + Imagem Estática + Frame Congelado) ---
+
+    fun getCustomMedia(entityType: String, entityKey: String): CustomMedia? {
+        val normType = entityType.trim().uppercase()
+        val normKey = entityKey.trim().lowercase()
+        if (normType.isEmpty() || normKey.isEmpty()) return null
+        try {
+            readableDatabase.query(
+                TABLE_CUSTOM_MEDIA,
+                arrayOf(
+                    COL_CM_ENTITY_TYPE,
+                    COL_CM_ENTITY_KEY,
+                    COL_CM_GIF_PATH,
+                    COL_CM_GIF_FRAME_INDEX,
+                    COL_CM_GIF_FROZEN_FRAME_PATH,
+                    COL_CM_STATIC_IMAGE_PATH,
+                    COL_CM_PAUSED_DISPLAY_MODE
+                ),
+                "$COL_CM_ENTITY_TYPE = ? AND $COL_CM_ENTITY_KEY = ?",
+                arrayOf(normType, normKey),
+                null, null, null
+            ).use { cursor ->
+                if (cursor.moveToFirst()) {
+                    return CustomMedia(
+                        entityType = cursor.getString(0) ?: normType,
+                        entityKey = cursor.getString(1) ?: normKey,
+                        gifPath = cursor.getString(2) ?: "",
+                        gifFrameIndex = cursor.getInt(3),
+                        gifFrozenFramePath = cursor.getString(4) ?: "",
+                        staticImagePath = cursor.getString(5) ?: "",
+                        pausedDisplayMode = cursor.getString(6)?.ifBlank { PAUSED_MODE_GIF_FRAME } ?: PAUSED_MODE_GIF_FRAME
+                    )
+                }
+            }
+        } catch (_: Exception) {}
+        return null
+    }
+
+    fun getAllCustomMedia(): Map<String, CustomMedia> {
+        val result = mutableMapOf<String, CustomMedia>()
+        try {
+            readableDatabase.query(
+                TABLE_CUSTOM_MEDIA,
+                arrayOf(
+                    COL_CM_ENTITY_TYPE,
+                    COL_CM_ENTITY_KEY,
+                    COL_CM_GIF_PATH,
+                    COL_CM_GIF_FRAME_INDEX,
+                    COL_CM_GIF_FROZEN_FRAME_PATH,
+                    COL_CM_STATIC_IMAGE_PATH,
+                    COL_CM_PAUSED_DISPLAY_MODE
+                ),
+                null, null, null, null, null
+            ).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val type = cursor.getString(0)?.trim()?.uppercase() ?: continue
+                    val key = cursor.getString(1)?.trim()?.lowercase() ?: continue
+                    result[customMediaLookupKey(type, key)] = CustomMedia(
+                        entityType = type,
+                        entityKey = key,
+                        gifPath = cursor.getString(2) ?: "",
+                        gifFrameIndex = cursor.getInt(3),
+                        gifFrozenFramePath = cursor.getString(4) ?: "",
+                        staticImagePath = cursor.getString(5) ?: "",
+                        pausedDisplayMode = cursor.getString(6)?.ifBlank { PAUSED_MODE_GIF_FRAME } ?: PAUSED_MODE_GIF_FRAME
+                    )
+                }
+            }
+        } catch (_: Exception) {}
+        return result
+    }
+
+    fun upsertCustomMedia(media: CustomMedia) {
+        val normType = media.entityType.trim().uppercase()
+        val normKey = media.entityKey.trim().lowercase()
+        if (normType.isEmpty() || normKey.isEmpty()) return
+        try {
+            val cv = ContentValues().apply {
+                put(COL_CM_ENTITY_TYPE, normType)
+                put(COL_CM_ENTITY_KEY, normKey)
+                put(COL_CM_GIF_PATH, media.gifPath)
+                put(COL_CM_GIF_FRAME_INDEX, media.gifFrameIndex.coerceAtLeast(0))
+                put(COL_CM_GIF_FROZEN_FRAME_PATH, media.gifFrozenFramePath)
+                put(COL_CM_STATIC_IMAGE_PATH, media.staticImagePath)
+                put(
+                    COL_CM_PAUSED_DISPLAY_MODE,
+                    if (media.pausedDisplayMode == PAUSED_MODE_STATIC_IMAGE) PAUSED_MODE_STATIC_IMAGE else PAUSED_MODE_GIF_FRAME
+                )
+            }
+            writableDatabase.insertWithOnConflict(TABLE_CUSTOM_MEDIA, null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+        } catch (_: Exception) {}
+    }
+
+    fun deleteCustomMedia(entityType: String, entityKey: String) {
+        val normType = entityType.trim().uppercase()
+        val normKey = entityKey.trim().lowercase()
+        if (normType.isEmpty() || normKey.isEmpty()) return
+        try {
+            writableDatabase.delete(
+                TABLE_CUSTOM_MEDIA,
+                "$COL_CM_ENTITY_TYPE = ? AND $COL_CM_ENTITY_KEY = ?",
+                arrayOf(normType, normKey)
+            )
+        } catch (_: Exception) {}
+    }
+
     // --- Metadados Customizados de Álbum (Capa / GIF + Anotações) ---
 
     fun setAlbumMedia(albumName: String, path: String, isGif: Boolean) {
@@ -1224,7 +1438,26 @@ class MusicDatabase(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME,
 
     companion object {
         const val DATABASE_NAME = "poweramp_library.db"
-        const val DATABASE_VERSION = 11
+        const val DATABASE_VERSION = 12
+
+        const val ENTITY_ARTIST = "ARTIST"
+        const val ENTITY_ALBUM = "ALBUM"
+        const val ENTITY_PLAYLIST = "PLAYLIST"
+        const val PAUSED_MODE_GIF_FRAME = "GIF_FRAME"
+        const val PAUSED_MODE_STATIC_IMAGE = "STATIC_IMAGE"
+
+        fun customMediaLookupKey(entityType: String, entityKey: String): String {
+            return "${entityType.trim().uppercase()}:${entityKey.trim().lowercase()}"
+        }
+
+        const val TABLE_CUSTOM_MEDIA = "custom_media"
+        const val COL_CM_ENTITY_TYPE = "entity_type"
+        const val COL_CM_ENTITY_KEY = "entity_key"
+        const val COL_CM_GIF_PATH = "gif_path"
+        const val COL_CM_GIF_FRAME_INDEX = "gif_frame_index"
+        const val COL_CM_GIF_FROZEN_FRAME_PATH = "gif_frozen_frame_path"
+        const val COL_CM_STATIC_IMAGE_PATH = "static_image_path"
+        const val COL_CM_PAUSED_DISPLAY_MODE = "paused_display_mode"
 
         const val TABLE_ARTIST_STYLE = "artist_style"
         const val COL_AS_KEY = "artist_key"

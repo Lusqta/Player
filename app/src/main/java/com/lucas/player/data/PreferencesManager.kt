@@ -307,6 +307,14 @@ class PreferencesManager(context: Context) {
         prefs.edit().putBoolean(KEY_RESUME_PLAYBACK, enabled).apply()
     }
 
+    fun isPauseGifsEnabled(): Boolean {
+        return prefs.getBoolean(KEY_PAUSE_GIFS, false)
+    }
+
+    fun setPauseGifsEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_PAUSE_GIFS, enabled).apply()
+    }
+
     // --- Buscas Recentes (Fase 3.3) ---
 
     fun getRecentSearches(): List<String> {
@@ -447,6 +455,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_IGNORE_SHORTER_THAN_SEC = "ignore_shorter_than_sec"
         private const val KEY_GAPLESS_ENABLED = "gapless_enabled"
         private const val KEY_RESUME_PLAYBACK = "resume_playback"
+        private const val KEY_PAUSE_GIFS = "pause_gifs_enabled"
         private const val KEY_HOME_SECTION_ORDER = "home_section_order"
         private const val KEY_HOME_HIDDEN_SECTIONS = "home_hidden_sections"
     }

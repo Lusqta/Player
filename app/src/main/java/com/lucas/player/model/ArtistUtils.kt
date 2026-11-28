@@ -106,3 +106,47 @@ data class RankedArtist(
     val fallbackTrack: Track?,
     val plays: Int
 )
+
+enum class ResolvedMediaMode {
+    ANIMATED_GIF,
+    STATIC_IMAGE,
+    FROZEN_GIF_FRAME,
+    FALLBACK
+}
+
+fun resolveCustomMediaMode(
+    gifPath: String,
+    staticImagePath: String,
+    pausedDisplayMode: String,
+    pauseGifs: Boolean,
+    reduceMotion: Boolean
+): ResolvedMediaMode {
+    val hasGif = gifPath.isNotBlank()
+    val hasStatic = staticImagePath.isNotBlank()
+    if (!pauseGifs && !reduceMotion && hasGif) {
+        return ResolvedMediaMode.ANIMATED_GIF
+    }
+    if (hasGif && hasStatic) {
+        return if (pausedDisplayMode == "STATIC_IMAGE") {
+            ResolvedMediaMode.STATIC_IMAGE
+        } else {
+            ResolvedMediaMode.FROZEN_GIF_FRAME
+        }
+    }
+    if (hasStatic) return ResolvedMediaMode.STATIC_IMAGE
+    if (hasGif) return ResolvedMediaMode.FROZEN_GIF_FRAME
+    return ResolvedMediaMode.FALLBACK
+}
+
+fun selectPlaylistMosaicTracks(tracks: List<Track>): List<Track> {
+    if (tracks.size < 4) return emptyList()
+    val distinctByAlbum = LinkedHashMap<String, Track>()
+    for (track in tracks) {
+        val albumKey = track.album.trim().lowercase().ifEmpty { "track_${track.id}" }
+        if (!distinctByAlbum.containsKey(albumKey)) {
+            distinctByAlbum[albumKey] = track
+            if (distinctByAlbum.size == 4) break
+        }
+    }
+    return if (distinctByAlbum.size >= 4) distinctByAlbum.values.toList() else emptyList()
+}

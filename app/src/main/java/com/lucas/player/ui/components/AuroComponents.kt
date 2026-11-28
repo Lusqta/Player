@@ -90,6 +90,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lucas.player.R
 import com.lucas.player.data.CoverArtLoader
+import com.lucas.player.data.MusicDatabase
 import com.lucas.player.model.*
 import com.lucas.player.ui.navigation.NavScreen
 import com.lucas.player.ui.theme.*
@@ -171,6 +172,197 @@ fun formatAlbumsCount(count: Int): String {
 }
 
 @Composable
+private fun rememberSanitizedCustomMedia(
+    customMedia: MusicDatabase.CustomMedia?,
+    legacyMediaPath: String?,
+    legacyIsGif: Boolean,
+    mediaStamp: Long
+): MusicDatabase.CustomMedia? {
+    return remember(customMedia, legacyMediaPath, legacyIsGif, mediaStamp) {
+        val raw = customMedia ?: if (!legacyMediaPath.isNullOrBlank()) {
+            MusicDatabase.CustomMedia(
+                entityType = "",
+                entityKey = "",
+                gifPath = if (legacyIsGif) legacyMediaPath else "",
+                gifFrameIndex = 0,
+                gifFrozenFramePath = "",
+                staticImagePath = if (!legacyIsGif) legacyMediaPath else "",
+                pausedDisplayMode = MusicDatabase.PAUSED_MODE_GIF_FRAME
+            )
+        } else {
+            null
+        }
+        raw?.let { m ->
+            val gifOk = m.gifPath.takeIf { it.isNotBlank() && File(it).exists() }.orEmpty()
+            val frozenOk = m.gifFrozenFramePath.takeIf { it.isNotBlank() && File(it).exists() }.orEmpty()
+            val staticOk = m.staticImagePath.takeIf { it.isNotBlank() && File(it).exists() }.orEmpty()
+            if (gifOk.isEmpty() && staticOk.isEmpty()) null
+            else m.copy(
+                gifPath = gifOk,
+                gifFrozenFramePath = frozenOk,
+                staticImagePath = staticOk
+            )
+        }
+    }
+}
+
+@Composable
+private fun CustomMediaArtworkContent(
+    contentDescription: String,
+    customMedia: MusicDatabase.CustomMedia?,
+    shape: Shape,
+    mediaStamp: Long,
+    targetSizeDp: Int,
+    modifier: Modifier = Modifier,
+    fallbackContent: @Composable () -> Unit
+) {
+    val reduceMotion = rememberReduceMotion()
+    val pauseGifs = LocalAuroPauseGifs.current
+    val mode = resolveCustomMediaMode(
+        gifPath = customMedia?.gifPath.orEmpty(),
+        staticImagePath = customMedia?.staticImagePath.orEmpty(),
+        pausedDisplayMode = customMedia?.pausedDisplayMode ?: MusicDatabase.PAUSED_MODE_GIF_FRAME,
+        pauseGifs = pauseGifs,
+        reduceMotion = reduceMotion
+    )
+
+    when (mode) {
+        ResolvedMediaMode.ANIMATED_GIF -> {
+            val gifPath = customMedia?.gifPath.orEmpty()
+            val gifFile = remember(gifPath, mediaStamp) {
+                gifPath.takeIf { it.isNotBlank() }?.let(::File)?.takeIf(File::exists)
+            }
+            if (gifFile == null) {
+                fallbackContent()
+                return
+            }
+            val gifStamp = remember(gifFile.absolutePath, mediaStamp) {
+                if (mediaStamp != 0L) mediaStamp else gifFile.lastModified()
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                var gifDrawable by remember(gifFile.absolutePath, gifStamp) {
+                    mutableStateOf<Drawable?>(null)
+                }
+                LaunchedEffect(gifFile.absolutePath, gifStamp) {
+                    gifDrawable = withContext(Dispatchers.IO) {
+                        try {
+                            val source = ImageDecoder.createSource(gifFile)
+                            ImageDecoder.decodeDrawable(source)
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+                }
+                val loadedDrawable = gifDrawable
+                if (loadedDrawable != null) {
+                    AndroidView(
+                        factory = { ctx ->
+                            ImageView(ctx).apply {
+                                scaleType = ImageView.ScaleType.CENTER_CROP
+                                setImageDrawable(loadedDrawable)
+                                (loadedDrawable as? AnimatedImageDrawable)?.start()
+                            }
+                        },
+                        update = { iv ->
+                            if (iv.drawable !== loadedDrawable) {
+                                iv.setImageDrawable(loadedDrawable)
+                            }
+                            (loadedDrawable as? AnimatedImageDrawable)?.let {
+                                if (!it.isRunning) it.start()
+                            }
+                        },
+                        modifier = modifier.clip(shape)
+                    )
+                    return
+                }
+            }
+            val stillPath = customMedia?.gifFrozenFramePath?.ifBlank { gifPath } ?: gifPath
+            FileBitmapOrFallback(
+                filePath = stillPath,
+                stamp = gifStamp,
+                targetSizeDp = targetSizeDp,
+                contentDescription = contentDescription,
+                shape = shape,
+                modifier = modifier,
+                fallbackContent = fallbackContent
+            )
+        }
+
+        ResolvedMediaMode.STATIC_IMAGE -> {
+            val staticPath = customMedia?.staticImagePath.orEmpty()
+            val stamp = remember(staticPath, mediaStamp) {
+                if (mediaStamp != 0L) mediaStamp
+                else staticPath.takeIf { it.isNotBlank() }?.let(::File)?.takeIf(File::exists)?.lastModified() ?: 0L
+            }
+            FileBitmapOrFallback(
+                filePath = staticPath,
+                stamp = stamp,
+                targetSizeDp = targetSizeDp,
+                contentDescription = contentDescription,
+                shape = shape,
+                modifier = modifier,
+                fallbackContent = fallbackContent
+            )
+        }
+
+        ResolvedMediaMode.FROZEN_GIF_FRAME -> {
+            val frozenOrGifPath = customMedia?.gifFrozenFramePath?.ifBlank { customMedia.gifPath }.orEmpty()
+            val stamp = remember(frozenOrGifPath, mediaStamp, customMedia?.gifFrameIndex) {
+                val base = if (mediaStamp != 0L) mediaStamp
+                else frozenOrGifPath.takeIf { it.isNotBlank() }?.let(::File)?.takeIf(File::exists)?.lastModified() ?: 0L
+                base xor ((customMedia?.gifFrameIndex ?: 0).toLong() shl 20)
+            }
+            FileBitmapOrFallback(
+                filePath = frozenOrGifPath,
+                stamp = stamp,
+                targetSizeDp = targetSizeDp,
+                contentDescription = contentDescription,
+                shape = shape,
+                modifier = modifier,
+                fallbackContent = fallbackContent
+            )
+        }
+
+        ResolvedMediaMode.FALLBACK -> fallbackContent()
+    }
+}
+
+@Composable
+private fun FileBitmapOrFallback(
+    filePath: String,
+    stamp: Long,
+    targetSizeDp: Int,
+    contentDescription: String,
+    shape: Shape,
+    modifier: Modifier,
+    fallbackContent: @Composable () -> Unit
+) {
+    if (filePath.isBlank()) {
+        fallbackContent()
+        return
+    }
+    var bmp by remember(filePath, stamp, targetSizeDp) {
+        mutableStateOf(CoverArtLoader.getCachedFileBitmap(filePath))
+    }
+    LaunchedEffect(filePath, stamp, targetSizeDp) {
+        CoverArtLoader.loadFileBitmap(filePath, targetSizeDp) { loaded ->
+            bmp = loaded
+        }
+    }
+    val resolved = bmp
+    if (resolved != null) {
+        Image(
+            bitmap = resolved.asImageBitmap(),
+            contentDescription = contentDescription,
+            contentScale = ContentScale.Crop,
+            modifier = modifier.clip(shape)
+        )
+    } else {
+        fallbackContent()
+    }
+}
+
+@Composable
 fun ArtistAvatarImage(
     artistName: String,
     customMediaPath: String?,
@@ -178,144 +370,23 @@ fun ArtistAvatarImage(
     fallbackTrack: Track?,
     shape: Shape = RectangleShape,
     mediaStamp: Long = 0L,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    customMedia: MusicDatabase.CustomMedia? = null
 ) {
-    val reduceMotion = rememberReduceMotion()
-    val resolvedStamp = remember(customMediaPath, mediaStamp) {
-        if (mediaStamp != 0L) mediaStamp
-        else customMediaPath?.let { File(it).takeIf(File::exists)?.lastModified() } ?: 0L
-    }
-    val mediaFile = remember(customMediaPath, resolvedStamp) {
-        if (!customMediaPath.isNullOrBlank()) {
-            val f = File(customMediaPath)
-            if (f.exists()) f else null
-        } else null
-    }
-
-    if (mediaFile != null && isGif) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            var gifDrawable by remember(mediaFile.absolutePath, resolvedStamp) {
-                mutableStateOf<Drawable?>(null)
-            }
-            LaunchedEffect(mediaFile.absolutePath, resolvedStamp) {
-                val d = withContext(Dispatchers.IO) {
-                    try {
-                        val source = ImageDecoder.createSource(mediaFile)
-                        ImageDecoder.decodeDrawable(source)
-                    } catch (_: Exception) {
-                        null
-                    }
-                }
-                gifDrawable = d
-            }
-
-            if (gifDrawable != null) {
-                AndroidView(
-                    factory = { ctx ->
-                        ImageView(ctx).apply {
-                            scaleType = ImageView.ScaleType.CENTER_CROP
-                            setImageDrawable(gifDrawable)
-                            (gifDrawable as? AnimatedImageDrawable)?.let {
-                                if (!reduceMotion) it.start() else it.stop()
-                            }
-                        }
-                    },
-                    update = { iv ->
-                        if (iv.drawable !== gifDrawable) {
-                            iv.setImageDrawable(gifDrawable)
-                        }
-                        (gifDrawable as? AnimatedImageDrawable)?.let {
-                            if (!reduceMotion) {
-                                if (!it.isRunning) it.start()
-                            } else {
-                                if (it.isRunning) it.stop()
-                            }
-                        }
-                    },
-                    modifier = modifier.clip(shape)
-                )
-            } else {
-                // Enquanto carrega em background ou se der fallback para o 1º frame
-                var bmp by remember(mediaFile.absolutePath, resolvedStamp) {
-                    mutableStateOf(CoverArtLoader.getCachedArtistStaticBitmap(mediaFile.absolutePath))
-                }
-                LaunchedEffect(mediaFile.absolutePath, resolvedStamp) {
-                    CoverArtLoader.loadArtistStaticBitmap(mediaFile.absolutePath, 400) { loaded ->
-                        bmp = loaded
-                    }
-                }
-                if (bmp != null) {
-                    Image(
-                        bitmap = bmp!!.asImageBitmap(),
-                        contentDescription = artistName,
-                        contentScale = ContentScale.Crop,
-                        modifier = modifier.clip(shape)
-                    )
-                } else {
-                    val fallbackCover = rememberTrackCover(fallbackTrack, 400)
-                    if (fallbackCover != null) {
-                        Image(
-                            bitmap = fallbackCover.asImageBitmap(),
-                            contentDescription = artistName,
-                            contentScale = ContentScale.Crop,
-                            modifier = modifier.clip(shape)
-                        )
-                    } else {
-                        ArtistMonogram(name = artistName, modifier = modifier, shape = shape)
-                    }
-                }
-            }
-        } else {
-            // Android API 26-27 fallback: static 1st frame
-            var bmp by remember(mediaFile.absolutePath, resolvedStamp) {
-                mutableStateOf(CoverArtLoader.getCachedArtistStaticBitmap(mediaFile.absolutePath))
-            }
-            LaunchedEffect(mediaFile.absolutePath, resolvedStamp) {
-                CoverArtLoader.loadArtistStaticBitmap(mediaFile.absolutePath, 400) { loaded ->
-                    bmp = loaded
-                }
-            }
-            if (bmp != null) {
-                Image(
-                    bitmap = bmp!!.asImageBitmap(),
-                    contentDescription = artistName,
-                    contentScale = ContentScale.Crop,
-                    modifier = modifier.clip(shape)
-                )
-            } else {
-                ArtistMonogram(name = artistName, modifier = modifier, shape = shape)
-            }
-        }
-    } else if (mediaFile != null && !isGif) {
-        var bmp by remember(mediaFile.absolutePath, resolvedStamp) {
-            mutableStateOf(CoverArtLoader.getCachedArtistStaticBitmap(mediaFile.absolutePath))
-        }
-        LaunchedEffect(mediaFile.absolutePath, resolvedStamp) {
-            CoverArtLoader.loadArtistStaticBitmap(mediaFile.absolutePath, 400) { loaded ->
-                bmp = loaded
-            }
-        }
-        if (bmp != null) {
-            Image(
-                bitmap = bmp!!.asImageBitmap(),
-                contentDescription = artistName,
-                contentScale = ContentScale.Crop,
-                modifier = modifier.clip(shape)
-            )
-        } else {
-            val fallbackCover = rememberTrackCover(fallbackTrack, 400)
-            if (fallbackCover != null) {
-                Image(
-                    bitmap = fallbackCover.asImageBitmap(),
-                    contentDescription = artistName,
-                    contentScale = ContentScale.Crop,
-                    modifier = modifier.clip(shape)
-                )
-            } else {
-                ArtistMonogram(name = artistName, modifier = modifier, shape = shape)
-            }
-        }
-    } else {
+    val effectiveMedia = rememberSanitizedCustomMedia(
+        customMedia = customMedia,
+        legacyMediaPath = customMediaPath,
+        legacyIsGif = isGif,
+        mediaStamp = mediaStamp
+    )
+    CustomMediaArtworkContent(
+        contentDescription = artistName,
+        customMedia = effectiveMedia,
+        shape = shape,
+        mediaStamp = mediaStamp,
+        targetSizeDp = 400,
+        modifier = modifier
+    ) {
         val fallbackCover = rememberTrackCover(fallbackTrack, 400)
         if (fallbackCover != null) {
             Image(
@@ -340,128 +411,23 @@ fun AlbumArtworkImage(
     shape: Shape = RectangleShape,
     mediaStamp: Long = 0L,
     targetSizeDp: Int = 300,
-    preloadedFallbackBitmap: Bitmap? = null
+    preloadedFallbackBitmap: Bitmap? = null,
+    customMedia: MusicDatabase.CustomMedia? = null
 ) {
-    val reduceMotion = rememberReduceMotion()
-    val resolvedStamp = remember(customMediaPath, mediaStamp) {
-        if (mediaStamp != 0L) mediaStamp
-        else customMediaPath?.let { File(it).takeIf(File::exists)?.lastModified() } ?: 0L
-    }
-    val mediaFile = remember(customMediaPath, resolvedStamp) {
-        if (!customMediaPath.isNullOrBlank()) {
-            val f = File(customMediaPath)
-            if (f.exists()) f else null
-        } else null
-    }
-
-    if (mediaFile != null && isGif) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            var gifDrawable by remember(mediaFile.absolutePath, resolvedStamp) {
-                mutableStateOf<Drawable?>(null)
-            }
-            LaunchedEffect(mediaFile.absolutePath, resolvedStamp) {
-                val d = withContext(Dispatchers.IO) {
-                    try {
-                        val source = ImageDecoder.createSource(mediaFile)
-                        ImageDecoder.decodeDrawable(source)
-                    } catch (_: Exception) {
-                        null
-                    }
-                }
-                gifDrawable = d
-            }
-
-            if (gifDrawable != null) {
-                AndroidView(
-                    factory = { ctx ->
-                        ImageView(ctx).apply {
-                            scaleType = ImageView.ScaleType.CENTER_CROP
-                            setImageDrawable(gifDrawable)
-                            (gifDrawable as? AnimatedImageDrawable)?.let {
-                                if (!reduceMotion) it.start() else it.stop()
-                            }
-                        }
-                    },
-                    update = { iv ->
-                        if (iv.drawable !== gifDrawable) {
-                            iv.setImageDrawable(gifDrawable)
-                        }
-                        (gifDrawable as? AnimatedImageDrawable)?.let {
-                            if (!reduceMotion) {
-                                if (!it.isRunning) it.start()
-                            } else {
-                                if (it.isRunning) it.stop()
-                            }
-                        }
-                    },
-                    modifier = modifier.clip(shape)
-                )
-            } else {
-                var bmp by remember(mediaFile.absolutePath, resolvedStamp) {
-                    mutableStateOf(CoverArtLoader.getCachedAlbumStaticBitmap(mediaFile.absolutePath))
-                }
-                LaunchedEffect(mediaFile.absolutePath, resolvedStamp) {
-                    CoverArtLoader.loadAlbumStaticBitmap(mediaFile.absolutePath, targetSizeDp) { loaded ->
-                        bmp = loaded
-                    }
-                }
-                val fallbackCover = preloadedFallbackBitmap ?: rememberTrackCover(fallbackTrack, targetSizeDp)
-                val displayBmp = bmp ?: fallbackCover
-                if (displayBmp != null) {
-                    Image(
-                        bitmap = displayBmp.asImageBitmap(),
-                        contentDescription = albumName,
-                        contentScale = ContentScale.Crop,
-                        modifier = modifier.clip(shape)
-                    )
-                } else {
-                    AuroCoverPlaceholder(modifier = modifier, glass = false, shape = shape)
-                }
-            }
-        } else {
-            var bmp by remember(mediaFile.absolutePath, resolvedStamp) {
-                mutableStateOf(CoverArtLoader.getCachedAlbumStaticBitmap(mediaFile.absolutePath))
-            }
-            LaunchedEffect(mediaFile.absolutePath, resolvedStamp) {
-                CoverArtLoader.loadAlbumStaticBitmap(mediaFile.absolutePath, targetSizeDp) { loaded ->
-                    bmp = loaded
-                }
-            }
-            val fallbackCover = preloadedFallbackBitmap ?: rememberTrackCover(fallbackTrack, targetSizeDp)
-            val displayBmp = bmp ?: fallbackCover
-            if (displayBmp != null) {
-                Image(
-                    bitmap = displayBmp.asImageBitmap(),
-                    contentDescription = albumName,
-                    contentScale = ContentScale.Crop,
-                    modifier = modifier.clip(shape)
-                )
-            } else {
-                AuroCoverPlaceholder(modifier = modifier, glass = false, shape = shape)
-            }
-        }
-    } else if (mediaFile != null && !isGif) {
-        var bmp by remember(mediaFile.absolutePath, resolvedStamp) {
-            mutableStateOf(CoverArtLoader.getCachedAlbumStaticBitmap(mediaFile.absolutePath))
-        }
-        LaunchedEffect(mediaFile.absolutePath, resolvedStamp) {
-            CoverArtLoader.loadAlbumStaticBitmap(mediaFile.absolutePath, targetSizeDp) { loaded ->
-                bmp = loaded
-            }
-        }
-        val fallbackCover = preloadedFallbackBitmap ?: rememberTrackCover(fallbackTrack, targetSizeDp)
-        val displayBmp = bmp ?: fallbackCover
-        if (displayBmp != null) {
-            Image(
-                bitmap = displayBmp.asImageBitmap(),
-                contentDescription = albumName,
-                contentScale = ContentScale.Crop,
-                modifier = modifier.clip(shape)
-            )
-        } else {
-            AuroCoverPlaceholder(modifier = modifier, glass = false, shape = shape)
-        }
-    } else {
+    val effectiveMedia = rememberSanitizedCustomMedia(
+        customMedia = customMedia,
+        legacyMediaPath = customMediaPath,
+        legacyIsGif = isGif,
+        mediaStamp = mediaStamp
+    )
+    CustomMediaArtworkContent(
+        contentDescription = albumName,
+        customMedia = effectiveMedia,
+        shape = shape,
+        mediaStamp = mediaStamp,
+        targetSizeDp = targetSizeDp,
+        modifier = modifier
+    ) {
         val fallbackCover = preloadedFallbackBitmap ?: rememberTrackCover(fallbackTrack, targetSizeDp)
         if (fallbackCover != null) {
             Image(
@@ -472,6 +438,118 @@ fun AlbumArtworkImage(
             )
         } else {
             AuroCoverPlaceholder(modifier = modifier, glass = false, shape = shape)
+        }
+    }
+}
+
+@Composable
+private fun PlaylistMosaicTile(
+    track: Track,
+    targetSizeDp: Int,
+    modifier: Modifier = Modifier
+) {
+    val bmp = rememberTrackCover(track, targetSizeDp)
+    if (bmp != null) {
+        Image(
+            bitmap = bmp.asImageBitmap(),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = modifier
+        )
+    } else {
+        AuroCoverPlaceholder(
+            modifier = modifier,
+            glass = false,
+            shape = RectangleShape
+        )
+    }
+}
+
+@Composable
+fun PlaylistArtworkImage(
+    playlistName: String,
+    customMedia: MusicDatabase.CustomMedia? = null,
+    legacyCoverPath: String = "",
+    mosaicTracks: List<Track> = emptyList(),
+    fallbackTrack: Track? = null,
+    shape: Shape = RectangleShape,
+    mediaStamp: Long = 0L,
+    targetSizeDp: Int = 240,
+    useMonogramFallback: Boolean = true,
+    modifier: Modifier = Modifier
+) {
+    val effectiveMedia = rememberSanitizedCustomMedia(
+        customMedia = customMedia,
+        legacyMediaPath = legacyCoverPath,
+        legacyIsGif = false,
+        mediaStamp = mediaStamp
+    )
+    CustomMediaArtworkContent(
+        contentDescription = playlistName,
+        customMedia = effectiveMedia,
+        shape = shape,
+        mediaStamp = mediaStamp,
+        targetSizeDp = targetSizeDp,
+        modifier = modifier
+    ) {
+        if (mosaicTracks.size >= 4) {
+            val tileSize = (targetSizeDp / 2).coerceAtLeast(100)
+            Column(modifier = modifier.clip(shape)) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    PlaylistMosaicTile(
+                        track = mosaicTracks[0],
+                        targetSizeDp = tileSize,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                    PlaylistMosaicTile(
+                        track = mosaicTracks[1],
+                        targetSizeDp = tileSize,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    PlaylistMosaicTile(
+                        track = mosaicTracks[2],
+                        targetSizeDp = tileSize,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                    PlaylistMosaicTile(
+                        track = mosaicTracks[3],
+                        targetSizeDp = tileSize,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                }
+            }
+        } else {
+            val fallbackCover = rememberTrackCover(fallbackTrack, targetSizeDp)
+            if (fallbackCover != null) {
+                Image(
+                    bitmap = fallbackCover.asImageBitmap(),
+                    contentDescription = playlistName,
+                    contentScale = ContentScale.Crop,
+                    modifier = modifier.clip(shape)
+                )
+            } else if (useMonogramFallback) {
+                ArtistMonogram(name = playlistName, modifier = modifier, shape = shape)
+            } else {
+                AuroCoverPlaceholder(modifier = modifier, glass = false, shape = shape)
+            }
         }
     }
 }

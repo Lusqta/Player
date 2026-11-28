@@ -96,7 +96,9 @@ fun AuroCategoryListScreen(
     onToggleSelectTrack: (Track) -> Unit = {},
     showFileFormat: Boolean = true,
     albumMetaMap: Map<String, MusicDatabase.AlbumMeta> = emptyMap(),
-    albumMediaVersion: Int = 0
+    albumMediaVersion: Int = 0,
+    customMediaMap: Map<String, MusicDatabase.CustomMedia> = emptyMap(),
+    customMediaVersion: Int = 0
 ) {
     val view = LocalView.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -457,6 +459,9 @@ fun AuroCategoryListScreen(
                                 for (group in pair) {
                                     val coverTrack = remember(group.title) { coverTrackFinder(group) }
                                     val albumMeta = albumMetaMap[group.title.trim().lowercase()]
+                                    val albumCustomMedia = customMediaMap[
+                                        MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, group.title)
+                                    ]
                                     val groupInteraction = remember { MutableInteractionSource() }
                                     val isGroupPressed by groupInteraction.collectIsPressedAsState()
                                     val groupScale by animateFloatAsState(
@@ -501,8 +506,9 @@ fun AuroCategoryListScreen(
                                                 isGif = albumMeta?.isGif ?: false,
                                                 fallbackTrack = coverTrack,
                                                 shape = AuroSquircle,
-                                                mediaStamp = albumMediaVersion.toLong(),
+                                                mediaStamp = (albumMediaVersion + customMediaVersion).toLong(),
                                                 targetSizeDp = 220,
+                                                customMedia = albumCustomMedia,
                                                 modifier = Modifier.fillMaxSize()
                                             )
                                         }

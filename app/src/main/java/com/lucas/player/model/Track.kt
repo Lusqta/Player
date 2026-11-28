@@ -120,7 +120,8 @@ sealed class RecentLibraryItem {
         val playlist: UserPlaylist,
         val coverTrack: Track?,
         override val timestampSec: Long,
-        override val subtitle: String = "Playlist · ${playlist.trackCount}"
+        override val subtitle: String = "Playlist · ${playlist.trackCount}",
+        val mosaicTracks: List<Track> = emptyList()
     ) : RecentLibraryItem() {
         override val key: String = "playlist_${playlist.id}"
         override val title: String = playlist.name

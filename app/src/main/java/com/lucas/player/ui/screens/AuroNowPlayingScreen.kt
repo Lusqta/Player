@@ -90,6 +90,7 @@ fun AuroNowPlayingScreen(
     customAlbumMediaPath: String? = null,
     isAlbumGif: Boolean = false,
     albumMediaVersion: Int = 0,
+    customAlbumMedia: com.lucas.player.data.MusicDatabase.CustomMedia? = null,
     shuffleMode: ShuffleMode,
     repeatMode: RepeatMode,
     priorityTracks: List<Track> = emptyList(),
@@ -310,6 +311,7 @@ fun AuroNowPlayingScreen(
                             mediaStamp = albumMediaVersion.toLong(),
                             targetSizeDp = 600,
                             preloadedFallbackBitmap = coverBitmap,
+                            customMedia = customAlbumMedia,
                             modifier = Modifier.fillMaxSize()
                         )
                     }

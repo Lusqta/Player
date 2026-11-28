@@ -494,4 +494,18 @@
     <string name="artist_color_saturation">Saturação</string>
     <string name="artist_color_lightness">Luminosidade</string>
     <string name="artist_color_apply">Aplicar cor</string>
+    <string name="home_pause_gifs">Pausar GIFs</string>
+    <string name="settings_pause_gifs">Pausar GIFs animados</string>
+    <string name="settings_pause_gifs_desc">Exibe o frame escolhido ou a imagem estática em artistas, álbuns e playlists.</string>
+    <string name="media_editor_title">Personalizar mídia</string>
+    <string name="media_editor_set_gif">Definir GIF</string>
+    <string name="media_editor_change_gif">Alterar GIF</string>
+    <string name="media_editor_set_image">Definir imagem estática</string>
+    <string name="media_editor_change_image">Alterar imagem estática</string>
+    <string name="media_editor_remove">Remover</string>
+    <string name="media_editor_gif_frame_label">Frame congelado: %1$d / %2$d</string>
+    <string name="media_editor_paused_mode_title">Quando GIFs estiverem pausados</string>
+    <string name="media_editor_mode_gif_frame">Frame do GIF</string>
+    <string name="media_editor_mode_static_image">Imagem estática</string>
+    <string name="media_editor_updated">Mídia atualizada</string>
 </resources>

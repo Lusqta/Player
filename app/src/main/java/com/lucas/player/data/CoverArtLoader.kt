@@ -679,4 +679,265 @@ object CoverArtLoader {
     fun clearCache() {
         memoryCache.evictAll()
     }
+
+    // --- Mídia Dual Unificada (GIF + Imagem Estática + Frame Congelado) ---
+
+    private fun entityHash(entityType: String, entityKey: String): String {
+        val norm = "${entityType.trim().uppercase()}_${entityKey.trim().lowercase()}"
+        return norm.hashCode().toString().replace("-", "n")
+    }
+
+    fun saveCustomGif(context: Context, entityType: String, entityKey: String, sourceUri: Uri): String? {
+        return try {
+            if (entityKey.isBlank()) return null
+            val dir = File(context.filesDir, "custom_media")
+            if (!dir.exists()) dir.mkdirs()
+            val hash = entityHash(entityType, entityKey)
+            val stamp = System.currentTimeMillis()
+            val targetFile = File(dir, "gif_${hash}_${stamp}.gif")
+
+            // Remove versões anteriores deste mesmo slot para evitar lixo em disco
+            dir.listFiles()?.filter { it.name.startsWith("gif_${hash}_") }?.forEach { old ->
+                deleteFileMediaCache(old.absolutePath)
+                old.delete()
+            }
+
+            context.contentResolver.openInputStream(sourceUri)?.use { input ->
+                FileOutputStream(targetFile).use { out ->
+                    input.copyTo(out)
+                }
+            } ?: return null
+
+            deleteFileMediaCache(targetFile.absolutePath)
+            targetFile.absolutePath
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun saveCustomStaticImage(context: Context, entityType: String, entityKey: String, sourceUri: Uri): String? {
+        return try {
+            if (entityKey.isBlank()) return null
+            val dir = File(context.filesDir, "custom_media")
+            if (!dir.exists()) dir.mkdirs()
+            val hash = entityHash(entityType, entityKey)
+            val stamp = System.currentTimeMillis()
+            val targetFile = File(dir, "img_${hash}_${stamp}.jpg")
+
+            dir.listFiles()?.filter { it.name.startsWith("img_${hash}_") }?.forEach { old ->
+                deleteFileMediaCache(old.absolutePath)
+                old.delete()
+            }
+
+            val resolver = context.contentResolver
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            resolver.openInputStream(sourceUri)?.use { input ->
+                BitmapFactory.decodeStream(input, null, options)
+            }
+            if (options.outWidth <= 0 || options.outHeight <= 0) return null
+
+            options.inSampleSize = calculateInSampleSize(options, 900, 900)
+            options.inJustDecodeBounds = false
+            options.inPreferredConfig = Bitmap.Config.RGB_565
+
+            val decodedBitmap = resolver.openInputStream(sourceUri)?.use { input ->
+                BitmapFactory.decodeStream(input, null, options)
+            } ?: return null
+
+            val maxDim = maxOf(decodedBitmap.width, decodedBitmap.height)
+            val finalBitmap = if (maxDim > 900) {
+                val scale = 900f / maxDim.toFloat()
+                val w = (decodedBitmap.width * scale).toInt().coerceAtLeast(1)
+                val h = (decodedBitmap.height * scale).toInt().coerceAtLeast(1)
+                Bitmap.createScaledBitmap(decodedBitmap, w, h, true)
+            } else {
+                decodedBitmap
+            }
+
+            FileOutputStream(targetFile).use { out ->
+                finalBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            }
+
+            deleteFileMediaCache(targetFile.absolutePath)
+            targetFile.absolutePath
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun deleteCustomFile(path: String?) {
+        if (path.isNullOrBlank()) return
+        try {
+            val file = File(path)
+            if (file.exists()) {
+                file.delete()
+            }
+            deleteFileMediaCache(path)
+        } catch (_: Exception) {}
+    }
+
+    private fun deleteFileMediaCache(path: String) {
+        val snapshot = memoryCache.snapshot()
+        for (key in snapshot.keys) {
+            if (key.contains(path)) {
+                memoryCache.remove(key)
+            }
+        }
+    }
+
+    fun getCachedFileBitmap(path: String?): Bitmap? {
+        if (path.isNullOrBlank()) return null
+        val file = File(path)
+        if (!file.exists()) return null
+        val cacheKey = "file_${path}_${file.lastModified()}"
+        return memoryCache.get(cacheKey)
+    }
+
+    fun loadFileBitmap(
+        path: String?,
+        targetSizePx: Int = 400,
+        onLoaded: (Bitmap?) -> Unit
+    ) {
+        if (path.isNullOrBlank()) {
+            onLoaded(null)
+            return
+        }
+        val file = File(path)
+        if (!file.exists()) {
+            onLoaded(null)
+            return
+        }
+        val cacheKey = "file_${path}_${file.lastModified()}"
+        val cached = memoryCache.get(cacheKey)
+        if (cached != null) {
+            onLoaded(cached)
+            return
+        }
+
+        executor.execute {
+            val bitmap = try {
+                val options = BitmapFactory.Options().apply {
+                    inJustDecodeBounds = true
+                }
+                BitmapFactory.decodeFile(path, options)
+                if (options.outWidth > 0 && options.outHeight > 0) {
+                    options.inSampleSize = calculateInSampleSize(options, targetSizePx, targetSizePx)
+                    options.inJustDecodeBounds = false
+                    options.inPreferredConfig = Bitmap.Config.RGB_565
+                    BitmapFactory.decodeFile(path, options)
+                } else {
+                    null
+                }
+            } catch (_: Throwable) {
+                null
+            }
+
+            if (bitmap != null) {
+                memoryCache.put(cacheKey, bitmap)
+            }
+
+            mainHandler.post {
+                onLoaded(bitmap)
+            }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    fun extractGifFrameSamples(gifPath: String, maxSamples: Int = 20, thumbSizePx: Int = 128): List<Bitmap> {
+        val file = File(gifPath)
+        if (!file.exists()) return emptyList()
+        val count = maxSamples.coerceIn(4, 24)
+        return try {
+            val movie = android.graphics.Movie.decodeFile(gifPath)
+            if (movie != null && movie.width() > 0 && movie.height() > 0) {
+                val duration = movie.duration().let { if (it > 0) it else 1000 }
+                val mw = movie.width().toFloat()
+                val mh = movie.height().toFloat()
+                val scale = minOf(thumbSizePx / mw, thumbSizePx / mh).coerceAtMost(1f)
+                val outW = (mw * scale).toInt().coerceAtLeast(1)
+                val outH = (mh * scale).toInt().coerceAtLeast(1)
+                val frames = ArrayList<Bitmap>(count)
+                for (i in 0 until count) {
+                    val timeMs = if (count <= 1) 0 else ((i.toFloat() / (count - 1).toFloat()) * duration).toInt().coerceIn(0, duration)
+                    val bmp = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+                    val canvas = android.graphics.Canvas(bmp)
+                    canvas.scale(outW / mw, outH / mh)
+                    movie.setTime(timeMs)
+                    movie.draw(canvas, 0f, 0f)
+                    frames.add(bmp)
+                }
+                frames
+            } else {
+                val single = BitmapFactory.decodeFile(gifPath)
+                if (single != null) listOf(single) else emptyList()
+            }
+        } catch (_: Throwable) {
+            try {
+                val single = BitmapFactory.decodeFile(gifPath)
+                if (single != null) listOf(single) else emptyList()
+            } catch (_: Throwable) {
+                emptyList()
+            }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    fun saveFrozenGifFrame(
+        context: Context,
+        entityType: String,
+        entityKey: String,
+        gifPath: String,
+        frameIndex: Int,
+        sampleCount: Int = 20
+    ): String? {
+        return try {
+            val gifFile = File(gifPath)
+            if (!gifFile.exists()) return null
+            val dir = File(context.filesDir, "frozen_frames")
+            if (!dir.exists()) dir.mkdirs()
+            val hash = entityHash(entityType, entityKey)
+            val stamp = System.currentTimeMillis()
+            val targetFile = File(dir, "ff_${hash}_${frameIndex}_${stamp}.jpg")
+
+            dir.listFiles()?.filter { it.name.startsWith("ff_${hash}_") }?.forEach { old ->
+                deleteFileMediaCache(old.absolutePath)
+                old.delete()
+            }
+
+            val total = sampleCount.coerceIn(1, 24)
+            val clampedIdx = frameIndex.coerceIn(0, total - 1)
+            val frameBmp: Bitmap = (try {
+                val movie = android.graphics.Movie.decodeFile(gifPath)
+                if (movie != null && movie.width() > 0 && movie.height() > 0) {
+                    val duration = movie.duration().let { if (it > 0) it else 1000 }
+                    val timeMs = if (total <= 1) 0 else ((clampedIdx.toFloat() / (total - 1).toFloat()) * duration).toInt().coerceIn(0, duration)
+                    val mw = movie.width().toFloat()
+                    val mh = movie.height().toFloat()
+                    val scale = (720f / maxOf(mw, mh)).coerceAtMost(1f)
+                    val outW = (mw * scale).toInt().coerceAtLeast(1)
+                    val outH = (mh * scale).toInt().coerceAtLeast(1)
+                    val bmp = Bitmap.createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
+                    val canvas = android.graphics.Canvas(bmp)
+                    canvas.scale(outW / mw, outH / mh)
+                    movie.setTime(timeMs)
+                    movie.draw(canvas, 0f, 0f)
+                    bmp
+                } else {
+                    BitmapFactory.decodeFile(gifPath)
+                }
+            } catch (_: Throwable) {
+                BitmapFactory.decodeFile(gifPath)
+            }) ?: return null
+
+            FileOutputStream(targetFile).use { out ->
+                frameBmp.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            }
+            deleteFileMediaCache(targetFile.absolutePath)
+            targetFile.absolutePath
+        } catch (_: Throwable) {
+            null
+        }
+    }
 }

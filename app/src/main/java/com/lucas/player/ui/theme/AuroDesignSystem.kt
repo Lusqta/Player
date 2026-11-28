@@ -545,6 +545,7 @@ val LocalAuroAccent = staticCompositionLocalOf<AuroAccentState> {
 val LocalReduceMotionOverride = staticCompositionLocalOf<Boolean?> { null }
 val LocalAuroBottomInset = compositionLocalOf { 0.dp }
 val LocalAuroIsPlaying = compositionLocalOf { false }
+val LocalAuroPauseGifs = compositionLocalOf { false }
 
 @Composable
 fun rememberReduceMotion(): Boolean {

@@ -31,7 +31,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.asImageBitmap
+import com.lucas.player.data.MusicDatabase
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
@@ -80,6 +82,8 @@ fun AuroLibraryRootScreen(
     onRescanClick: () -> Unit,
     onSettingsClick: () -> Unit = {},
     selectedFolderName: String? = null,
+    customMediaMap: Map<String, MusicDatabase.CustomMedia> = emptyMap(),
+    customMediaVersion: Int = 0,
     listState: LazyListState = rememberLazyListState(),
     modifier: Modifier = Modifier
 ) {
@@ -407,42 +411,43 @@ fun AuroLibraryRootScreen(
                                         ) {
                                             when (recentItem) {
                                                 is RecentLibraryItem.PlaylistItem -> {
-                                                    val coverBitmap = rememberPlaylistCover(
-                                                        recentItem.playlist.coverPath,
-                                                        recentItem.coverTrack,
-                                                        200
+                                                    val playlistMedia = customMediaMap[
+                                                        MusicDatabase.customMediaLookupKey(
+                                                            MusicDatabase.ENTITY_PLAYLIST,
+                                                            recentItem.playlist.id.toString()
+                                                        )
+                                                    ]
+                                                    PlaylistArtworkImage(
+                                                        playlistName = recentItem.title,
+                                                        customMedia = playlistMedia,
+                                                        legacyCoverPath = recentItem.playlist.coverPath,
+                                                        mosaicTracks = recentItem.mosaicTracks,
+                                                        fallbackTrack = recentItem.coverTrack,
+                                                        shape = RectangleShape,
+                                                        mediaStamp = customMediaVersion.toLong(),
+                                                        targetSizeDp = 200,
+                                                        useMonogramFallback = true,
+                                                        modifier = Modifier.fillMaxSize()
                                                     )
-                                                    if (coverBitmap != null) {
-                                                        Image(
-                                                            bitmap = coverBitmap.asImageBitmap(),
-                                                            contentDescription = recentItem.title,
-                                                            contentScale = ContentScale.Crop,
-                                                            modifier = Modifier.fillMaxSize()
-                                                        )
-                                                    } else {
-                                                        ArtistMonogram(
-                                                            name = recentItem.title,
-                                                            modifier = Modifier.fillMaxSize(),
-                                                            shape = AuroSquircle
-                                                        )
-                                                    }
                                                 }
                                                 is RecentLibraryItem.AlbumItem -> {
-                                                    val coverBitmap = rememberTrackCover(recentItem.coverTrack, 200)
-                                                    if (coverBitmap != null) {
-                                                        Image(
-                                                            bitmap = coverBitmap.asImageBitmap(),
-                                                            contentDescription = recentItem.title,
-                                                            contentScale = ContentScale.Crop,
-                                                            modifier = Modifier.fillMaxSize()
+                                                    val albumMedia = customMediaMap[
+                                                        MusicDatabase.customMediaLookupKey(
+                                                            MusicDatabase.ENTITY_ALBUM,
+                                                            recentItem.albumName
                                                         )
-                                                    } else {
-                                                        AuroCoverPlaceholder(
-                                                            modifier = Modifier.fillMaxSize(),
-                                                            glass = false,
-                                                            shape = AuroSquircle
-                                                        )
-                                                    }
+                                                    ]
+                                                    AlbumArtworkImage(
+                                                        albumName = recentItem.albumName,
+                                                        customMediaPath = null,
+                                                        isGif = false,
+                                                        fallbackTrack = recentItem.coverTrack,
+                                                        shape = AuroSquircle,
+                                                        mediaStamp = customMediaVersion.toLong(),
+                                                        targetSizeDp = 200,
+                                                        customMedia = albumMedia,
+                                                        modifier = Modifier.fillMaxSize()
+                                                    )
                                                 }
                                                 is RecentLibraryItem.SingleTrackItem -> {
                                                     val coverBitmap = rememberTrackCover(recentItem.track, 200)

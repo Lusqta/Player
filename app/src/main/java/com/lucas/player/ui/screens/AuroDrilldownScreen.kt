@@ -100,6 +100,9 @@ fun AuroDrilldownScreen(
     playlistCoverPath: String? = null,
     albumMeta: MusicDatabase.AlbumMeta? = null,
     albumMediaVersion: Int = 0,
+    customMedia: MusicDatabase.CustomMedia? = null,
+    customMediaVersion: Int = 0,
+    onCustomizeMedia: (() -> Unit)? = null,
     onAddTracksToPlaylist: (() -> Unit)? = null,
     onEditPlaylist: (() -> Unit)? = null,
     onDeletePlaylist: (() -> Unit)? = null,
@@ -113,25 +116,41 @@ fun AuroDrilldownScreen(
     val coroutineScope = rememberCoroutineScope()
     val reduceMotion = rememberReduceMotion()
     val totalDurationMs = remember(tracks) { tracks.sumOf { it.durationMs } }
+    val mosaicTracks = remember(tracks, category) {
+        if (category == LibraryCategory.PLAYLISTS) {
+            com.lucas.player.model.selectPlaylistMosaicTracks(tracks)
+        } else emptyList()
+    }
 
     val firstTrack = tracks.firstOrNull()
     val customAlbumPath = if (category == LibraryCategory.ALBUMS) {
         albumMeta?.mediaPath?.takeIf { it.isNotBlank() }
     } else null
     val isAlbumGif = category == LibraryCategory.ALBUMS && (albumMeta?.isGif ?: false)
-    val albumMediaStamp = remember(customAlbumPath, albumMediaVersion) {
-        customAlbumPath?.let { File(it).takeIf(File::exists)?.lastModified() } ?: 0L
+    val effectiveAccentMediaPath = remember(customMedia, customAlbumPath, playlistCoverPath, category) {
+        val cmPath = customMedia?.staticImagePath?.ifBlank {
+            customMedia.gifFrozenFramePath.ifBlank { customMedia.gifPath }
+        }?.ifBlank { null }
+        when (category) {
+            LibraryCategory.ALBUMS -> cmPath ?: customAlbumPath
+            LibraryCategory.PLAYLISTS -> cmPath ?: playlistCoverPath?.ifBlank { null }
+            else -> cmPath
+        }
     }
-    var customAlbumBitmap by remember(customAlbumPath, albumMediaStamp) {
+    val albumMediaStamp = remember(customAlbumPath, effectiveAccentMediaPath, albumMediaVersion, customMediaVersion) {
+        val fileMod = effectiveAccentMediaPath?.let { File(it).takeIf(File::exists)?.lastModified() } ?: 0L
+        fileMod xor ((albumMediaVersion + customMediaVersion).toLong() shl 16)
+    }
+    var customAlbumBitmap by remember(effectiveAccentMediaPath, albumMediaStamp) {
         mutableStateOf(
-            if (customAlbumPath != null) CoverArtLoader.getCachedAlbumStaticBitmap(customAlbumPath) else null
+            if (effectiveAccentMediaPath != null) CoverArtLoader.getCachedFileBitmap(effectiveAccentMediaPath) else null
         )
     }
-    LaunchedEffect(customAlbumPath, albumMediaStamp) {
-        if (customAlbumPath == null) {
+    LaunchedEffect(effectiveAccentMediaPath, albumMediaStamp) {
+        if (effectiveAccentMediaPath == null) {
             customAlbumBitmap = null
         } else {
-            CoverArtLoader.loadAlbumStaticBitmap(customAlbumPath, 400) { loaded ->
+            CoverArtLoader.loadFileBitmap(effectiveAccentMediaPath, 400) { loaded ->
                 customAlbumBitmap = loaded
             }
         }
@@ -380,6 +399,20 @@ fun AuroDrilldownScreen(
                                             mediaStamp = albumMediaStamp,
                                             targetSizeDp = 600,
                                             preloadedFallbackBitmap = heroCover,
+                                            customMedia = customMedia,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else if (category == LibraryCategory.PLAYLISTS) {
+                                        PlaylistArtworkImage(
+                                            playlistName = groupTitle,
+                                            customMedia = customMedia,
+                                            legacyCoverPath = playlistCoverPath.orEmpty(),
+                                            mosaicTracks = mosaicTracks,
+                                            fallbackTrack = firstTrack,
+                                            shape = RectangleShape,
+                                            mediaStamp = (customMediaVersion.toLong() + albumMediaStamp),
+                                            targetSizeDp = 600,
+                                            useMonogramFallback = true,
                                             modifier = Modifier.fillMaxSize()
                                         )
                                     } else if (heroCover != null) {
@@ -640,6 +673,21 @@ fun AuroDrilldownScreen(
                             modifier = Modifier.background(AuroColor.SurfaceGrouped)
                         ) {
                             if (category == LibraryCategory.PLAYLISTS) {
+                                if (onCustomizeMedia != null) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                text = stringResource(R.string.artist_change_media),
+                                                style = AuroType.Body,
+                                                color = AuroColor.TextPrimary
+                                            )
+                                        },
+                                        onClick = {
+                                            showMenu = false
+                                            onCustomizeMedia()
+                                        }
+                                    )
+                                }
                                 DropdownMenuItem(
                                     text = {
                                         Text(
@@ -690,10 +738,10 @@ fun AuroDrilldownScreen(
                                     },
                                     onClick = {
                                         showMenu = false
-                                        onChangeAlbumCover?.invoke()
+                                        (onCustomizeMedia ?: onChangeAlbumCover)?.invoke()
                                     }
                                 )
-                                if (customAlbumPath != null) {
+                                if (customAlbumPath != null || customMedia != null) {
                                     DropdownMenuItem(
                                         text = {
                                             Text(

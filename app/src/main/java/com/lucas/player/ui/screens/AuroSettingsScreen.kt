@@ -58,6 +58,8 @@ fun AuroSettingsScreen(
     onRemoveMusicFolder: (String) -> Unit = {},
     onSelectMusicFolder: () -> Unit = {},
     onClearMusicFolder: () -> Unit = {},
+    pauseGifs: Boolean = false,
+    onPauseGifsChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
     onSettingsChanged: () -> Unit = {}
 ) {
@@ -426,6 +428,17 @@ fun AuroSettingsScreen(
                                 tint = AuroColor.TextTertiary,
                                 modifier = Modifier.size(20.dp)
                             )
+                        }
+                    )
+                    HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_pause_gifs),
+                        subtitle = stringResource(R.string.settings_pause_gifs_desc),
+                        checked = pauseGifs,
+                        onCheckedChange = {
+                            preferencesManager.setPauseGifsEnabled(it)
+                            onPauseGifsChanged(it)
+                            onSettingsChanged()
                         }
                     )
                     HorizontalDivider(color = AuroColor.Hairline, thickness = 0.5.dp, modifier = Modifier.padding(start = 16.dp))

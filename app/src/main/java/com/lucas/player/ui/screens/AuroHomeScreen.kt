@@ -75,7 +75,8 @@ data class HomePlaylist(
     val name: String,
     val countText: String,
     val coverTrack: Track?,
-    val coverPath: String = ""
+    val coverPath: String = "",
+    val mosaicTracks: List<Track> = emptyList()
 )
 
 /**
@@ -113,6 +114,10 @@ fun AuroHomeScreen(
     artistMediaMap: Map<String, Pair<String, Boolean>> = emptyMap(),
     albumMetaMap: Map<String, MusicDatabase.AlbumMeta> = emptyMap(),
     albumMediaVersion: Int = 0,
+    customMediaMap: Map<String, MusicDatabase.CustomMedia> = emptyMap(),
+    customMediaVersion: Int = 0,
+    pauseGifs: Boolean = false,
+    onTogglePauseGifs: (Boolean) -> Unit = {},
     albumCollections: List<AlbumCollection> = emptyList(),
     albumCoverMap: Map<String, Track?> = emptyMap(),
     onAlbumCollectionClick: (Long) -> Unit = {},
@@ -254,19 +259,59 @@ fun AuroHomeScreen(
                             color = AuroColor.TextPrimary,
                             modifier = Modifier.weight(1f)
                         )
-                        IconButton(
-                            onClick = {
-                                AuroHaptics.click(view)
-                                showCustomizeSheet = true
-                            },
-                            modifier = Modifier.size(40.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Tune,
-                                contentDescription = stringResource(R.string.home_customize_title),
-                                tint = AuroColor.TextSecondary,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(
+                                        if (pauseGifs) Color.White.copy(alpha = 0.16f)
+                                        else Color.White.copy(alpha = 0.06f)
+                                    )
+                                    .border(
+                                        0.5.dp,
+                                        if (pauseGifs) Color.White.copy(alpha = 0.35f)
+                                        else Color.White.copy(alpha = 0.12f),
+                                        CircleShape
+                                    )
+                                    .clickable {
+                                        AuroHaptics.click(view)
+                                        onTogglePauseGifs(!pauseGifs)
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (pauseGifs) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                    contentDescription = stringResource(R.string.home_pause_gifs),
+                                    tint = if (pauseGifs) Color.White else AuroColor.TextSecondary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = "GIF",
+                                    style = AuroType.Caption.copy(
+                                        color = if (pauseGifs) Color.White else AuroColor.TextSecondary,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    AuroHaptics.click(view)
+                                    showCustomizeSheet = true
+                                },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Tune,
+                                    contentDescription = stringResource(R.string.home_customize_title),
+                                    tint = AuroColor.TextSecondary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -345,13 +390,17 @@ fun AuroHomeScreen(
                                         ) {
                                             items(topAlbums, key = { it.album.trim().lowercase() }) { t ->
                                                 val albumMeta = albumMetaMap[t.album.trim().lowercase()]
+                                                val customMedia = customMediaMap[
+                                                    MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, t.album)
+                                                ]
                                                 WideAlbumCard(
                                                     coverTrack = t,
                                                     album = t.album,
                                                     artist = formatArtistsDisplay(t.artist, stringResource(R.string.unknown_artist)),
                                                     customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
                                                     isGif = albumMeta?.isGif ?: false,
-                                                    mediaStamp = albumMediaVersion.toLong(),
+                                                    customMedia = customMedia,
+                                                    mediaStamp = (albumMediaVersion + customMediaVersion).toLong(),
                                                     onClick = { onAlbumClick(t.album) },
                                                     onPlay = { onAlbumPlay(t.album) }
                                                 )
@@ -380,6 +429,9 @@ fun AuroHomeScreen(
                                             val firstAlbumName = collection.previewAlbumNames.firstOrNull()
                                             val firstKey = firstAlbumName?.trim()?.lowercase()
                                             val albumMeta = firstKey?.let { albumMetaMap[it] }
+                                            val customMedia = firstAlbumName?.let {
+                                                customMediaMap[MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, it)]
+                                            }
                                             val coverTrack = firstKey?.let { albumCoverMap[it] }
                                             AlbumCollectionHomeCard(
                                                 collection = collection,
@@ -387,7 +439,8 @@ fun AuroHomeScreen(
                                                 coverTrack = coverTrack,
                                                 customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
                                                 isGif = albumMeta?.isGif ?: false,
-                                                mediaStamp = albumMediaVersion.toLong(),
+                                                customMedia = customMedia,
+                                                mediaStamp = (albumMediaVersion + customMediaVersion).toLong(),
                                                 onClick = { onAlbumCollectionClick(collection.id) }
                                             )
                                         }
@@ -412,6 +465,9 @@ fun AuroHomeScreen(
                                         ) {
                                             items(artistEntries, key = { it.first.trim().lowercase() }) { (artistName, artistTrack) ->
                                                 val media = artistMediaMap[artistName.trim().lowercase()]
+                                                val customMedia = customMediaMap[
+                                                    MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ARTIST, artistName)
+                                                ]
 
                                                 Column(
                                                     modifier = Modifier
@@ -436,6 +492,8 @@ fun AuroHomeScreen(
                                                             isGif = media?.second ?: false,
                                                             fallbackTrack = artistTrack,
                                                             shape = AuroSquircle,
+                                                            mediaStamp = customMediaVersion.toLong(),
+                                                            customMedia = customMedia,
                                                             modifier = Modifier.fillMaxSize()
                                                         )
                                                     }
@@ -543,9 +601,15 @@ fun AuroHomeScreen(
                                         ) {
                                             item(key = "new_playlist") { NewPlaylistCard(onClick = onCreatePlaylist) }
                                             items(playlists, key = { it.id }) { pl ->
+                                                val customMedia = customMediaMap[
+                                                    MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_PLAYLIST, pl.id.toString())
+                                                ]
                                                 PlaylistCard(
                                                     coverTrack = pl.coverTrack,
                                                     coverPath = pl.coverPath,
+                                                    mosaicTracks = pl.mosaicTracks,
+                                                    customMedia = customMedia,
+                                                    mediaStamp = customMediaVersion.toLong(),
                                                     title = pl.name,
                                                     subtitle = pl.countText,
                                                     onClick = { onPlaylistClick(pl.name) }
@@ -564,6 +628,8 @@ fun AuroHomeScreen(
                 HomeCustomizeSheet(
                     sectionOrder = homeSectionOrder,
                     hiddenSections = hiddenHomeSections,
+                    pauseGifs = pauseGifs,
+                    onTogglePauseGifs = onTogglePauseGifs,
                     onSaveOrder = onSaveHomeSectionOrder,
                     onSaveHidden = onSaveHiddenHomeSections,
                     onReset = onResetHomeSections,
@@ -578,6 +644,8 @@ fun AuroHomeScreen(
 private fun HomeCustomizeSheet(
     sectionOrder: List<HomeSectionId>,
     hiddenSections: Set<HomeSectionId>,
+    pauseGifs: Boolean,
+    onTogglePauseGifs: (Boolean) -> Unit,
     onSaveOrder: (List<HomeSectionId>) -> Unit,
     onSaveHidden: (Set<HomeSectionId>) -> Unit,
     onReset: () -> Unit,
@@ -631,6 +699,31 @@ private fun HomeCustomizeSheet(
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color.White.copy(alpha = 0.06f))
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = stringResource(R.string.home_pause_gifs),
+                            style = AuroType.Body.copy(
+                                color = Color.White,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            modifier = Modifier.weight(1f)
+                        )
+                        AuroSwitch(
+                            checked = pauseGifs,
+                            onCheckedChange = onTogglePauseGifs
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     sectionOrder.forEachIndexed { idx, sectionId ->
                         val isVisible = sectionId !in hiddenSections
@@ -780,6 +873,7 @@ private fun WideAlbumCard(
     artist: String,
     customMediaPath: String? = null,
     isGif: Boolean = false,
+    customMedia: MusicDatabase.CustomMedia? = null,
     mediaStamp: Long = 0L,
     onClick: () -> Unit,
     onPlay: () -> Unit = {}
@@ -815,6 +909,7 @@ private fun WideAlbumCard(
                 shape = coverShape,
                 mediaStamp = mediaStamp,
                 targetSizeDp = 320,
+                customMedia = customMedia,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -863,12 +958,14 @@ private fun WideAlbumCard(
 private fun PlaylistCard(
     coverTrack: Track?,
     coverPath: String = "",
+    mosaicTracks: List<Track> = emptyList(),
+    customMedia: MusicDatabase.CustomMedia? = null,
+    mediaStamp: Long = 0L,
     title: String,
     subtitle: String,
     onClick: () -> Unit
 ) {
     val view = LocalView.current
-    val bitmap = rememberPlaylistCover(coverPath, coverTrack, 240)
     Column(
         modifier = Modifier
             .width(112.dp)
@@ -882,20 +979,18 @@ private fun PlaylistCard(
                 .background(AuroColor.SurfaceCard)
                 .border(0.5.dp, Color.White.copy(alpha = 0.08f), AuroSquircle)
         ) {
-            if (bitmap != null) {
-                Image(
-                    bitmap = bitmap.asImageBitmap(),
-                    contentDescription = title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                ArtistMonogram(
-                    name = title,
-                    modifier = Modifier.fillMaxSize(),
-                    shape = AuroSquircle
-                )
-            }
+            PlaylistArtworkImage(
+                playlistName = title,
+                customMedia = customMedia,
+                legacyCoverPath = coverPath,
+                mosaicTracks = mosaicTracks,
+                fallbackTrack = coverTrack,
+                shape = AuroSquircle,
+                mediaStamp = mediaStamp,
+                targetSizeDp = 240,
+                useMonogramFallback = true,
+                modifier = Modifier.fillMaxSize()
+            )
         }
         Spacer(modifier = Modifier.height(6.dp))
         Text(
@@ -991,6 +1086,7 @@ private fun AlbumCollectionHomeCard(
     coverTrack: Track?,
     customMediaPath: String?,
     isGif: Boolean,
+    customMedia: MusicDatabase.CustomMedia? = null,
     mediaStamp: Long,
     onClick: () -> Unit
 ) {
@@ -1008,7 +1104,7 @@ private fun AlbumCollectionHomeCard(
                 .background(AuroColor.SurfaceCard)
                 .border(0.5.dp, Color.White.copy(alpha = 0.08f), RectangleShape)
         ) {
-            if (!firstAlbumName.isNullOrBlank() && (customMediaPath != null || coverTrack != null)) {
+            if (!firstAlbumName.isNullOrBlank() && (customMedia != null || customMediaPath != null || coverTrack != null)) {
                 AlbumArtworkImage(
                     albumName = firstAlbumName,
                     customMediaPath = customMediaPath,
@@ -1017,6 +1113,7 @@ private fun AlbumCollectionHomeCard(
                     shape = RectangleShape,
                     mediaStamp = mediaStamp,
                     targetSizeDp = 240,
+                    customMedia = customMedia,
                     modifier = Modifier.fillMaxSize()
                 )
             } else {

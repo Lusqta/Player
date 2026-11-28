@@ -70,6 +70,8 @@ fun AuroMostPlayedScreen(
     artistMediaMap: Map<String, Pair<String, Boolean>> = emptyMap(),
     albumMetaMap: Map<String, MusicDatabase.AlbumMeta> = emptyMap(),
     albumMediaVersion: Int = 0,
+    customMediaMap: Map<String, MusicDatabase.CustomMedia> = emptyMap(),
+    customMediaVersion: Int = 0,
     showFileFormat: Boolean = true,
     libraryRepository: LibraryRepository = LibraryRepository.getInstance(),
     modifier: Modifier = Modifier
@@ -353,12 +355,16 @@ fun AuroMostPlayedScreen(
                             key = { _, item -> "mp_album_${item.albumName.lowercase()}" }
                         ) { index, item ->
                             val albumMeta = albumMetaMap[item.albumName.trim().lowercase()]
+                            val albumCustomMedia = customMediaMap[
+                                MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ALBUM, item.albumName)
+                            ]
                             RankedAlbumRow(
                                 rank = index + 1,
                                 item = item,
                                 customMediaPath = albumMeta?.mediaPath?.takeIf { it.isNotBlank() },
                                 isGif = albumMeta?.isGif ?: false,
-                                mediaStamp = albumMediaVersion.toLong(),
+                                customMedia = albumCustomMedia,
+                                mediaStamp = (albumMediaVersion + customMediaVersion).toLong(),
                                 onClick = {
                                     AuroHaptics.click(view)
                                     onAlbumClick(item.albumName)
@@ -391,11 +397,16 @@ fun AuroMostPlayedScreen(
                             key = { _, item -> "mp_artist_${item.artistName.lowercase()}" }
                         ) { index, item ->
                             val media = artistMediaMap[item.artistName.trim().lowercase()]
+                            val artistCustomMedia = customMediaMap[
+                                MusicDatabase.customMediaLookupKey(MusicDatabase.ENTITY_ARTIST, item.artistName)
+                            ]
                             RankedArtistRow(
                                 rank = index + 1,
                                 item = item,
                                 customMediaPath = media?.first,
                                 isGif = media?.second ?: false,
+                                customMedia = artistCustomMedia,
+                                mediaStamp = customMediaVersion.toLong(),
                                 onClick = {
                                     AuroHaptics.click(view)
                                     onArtistClick(item.artistName)
@@ -567,6 +578,7 @@ private fun RankedAlbumRow(
     item: RankedAlbum,
     customMediaPath: String?,
     isGif: Boolean,
+    customMedia: MusicDatabase.CustomMedia? = null,
     mediaStamp: Long,
     onClick: () -> Unit
 ) {
@@ -604,6 +616,7 @@ private fun RankedAlbumRow(
                 shape = AuroSquircle,
                 mediaStamp = mediaStamp,
                 targetSizeDp = 160,
+                customMedia = customMedia,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -647,6 +660,8 @@ private fun RankedArtistRow(
     item: RankedArtist,
     customMediaPath: String?,
     isGif: Boolean,
+    customMedia: MusicDatabase.CustomMedia? = null,
+    mediaStamp: Long = 0L,
     onClick: () -> Unit
 ) {
     Row(
@@ -675,6 +690,8 @@ private fun RankedArtistRow(
             isGif = isGif,
             fallbackTrack = item.fallbackTrack,
             shape = AuroSquircle,
+            mediaStamp = mediaStamp,
+            customMedia = customMedia,
             modifier = Modifier.size(48.dp)
         )
 
